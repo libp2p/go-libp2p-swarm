@@ -3,11 +3,11 @@ package swarm
 import (
 	"fmt"
 
-	mconn "github.com/ipfs/go-ipfs/metrics/conn"
-	inet "github.com/ipfs/go-ipfs/p2p/net"
-	conn "github.com/ipfs/go-ipfs/p2p/net/conn"
-	addrutil "github.com/ipfs/go-ipfs/p2p/net/swarm/addr"
-	lgbl "github.com/ipfs/go-ipfs/util/eventlog/loggables"
+	inet "github.com/ipfs/go-libp2p/p2p/net"
+	conn "github.com/ipfs/go-libp2p/p2p/net/conn"
+	addrutil "github.com/ipfs/go-libp2p/p2p/net/swarm/addr"
+	lgbl "github.com/ipfs/go-libp2p/util/eventlog/loggables"
+	mconn "github.com/ipfs/go-libp2p/util/metrics/conn"
 
 	ma "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/go-multiaddr"
 	manet "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/go-multiaddr-net"

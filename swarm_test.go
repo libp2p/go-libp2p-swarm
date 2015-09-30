@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	metrics "github.com/ipfs/go-ipfs/metrics"
-	inet "github.com/ipfs/go-ipfs/p2p/net"
-	peer "github.com/ipfs/go-ipfs/p2p/peer"
 	testutil "github.com/ipfs/go-ipfs/util/testutil"
+	inet "github.com/ipfs/go-libp2p/p2p/net"
+	peer "github.com/ipfs/go-libp2p/p2p/peer"
+	metrics "github.com/ipfs/go-libp2p/util/metrics"
 
 	ma "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/go-multiaddr"
 	context "github.com/ipfs/go-ipfs/Godeps/_workspace/src/golang.org/x/net/context"

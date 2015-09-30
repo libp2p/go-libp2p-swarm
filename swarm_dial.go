@@ -8,11 +8,11 @@ import (
 	"sync"
 	"time"
 
-	mconn "github.com/ipfs/go-ipfs/metrics/conn"
-	conn "github.com/ipfs/go-ipfs/p2p/net/conn"
-	addrutil "github.com/ipfs/go-ipfs/p2p/net/swarm/addr"
-	peer "github.com/ipfs/go-ipfs/p2p/peer"
-	lgbl "github.com/ipfs/go-ipfs/util/eventlog/loggables"
+	conn "github.com/ipfs/go-libp2p/p2p/net/conn"
+	addrutil "github.com/ipfs/go-libp2p/p2p/net/swarm/addr"
+	peer "github.com/ipfs/go-libp2p/p2p/peer"
+	lgbl "github.com/ipfs/go-libp2p/util/eventlog/loggables"
+	mconn "github.com/ipfs/go-libp2p/util/metrics/conn"
 
 	ma "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/go-multiaddr"
 	manet "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/go-multiaddr-net"

@@ -7,12 +7,12 @@ import (
 	"sync"
 	"time"
 
-	metrics "github.com/ipfs/go-ipfs/metrics"
-	inet "github.com/ipfs/go-ipfs/p2p/net"
-	filter "github.com/ipfs/go-ipfs/p2p/net/filter"
-	addrutil "github.com/ipfs/go-ipfs/p2p/net/swarm/addr"
-	peer "github.com/ipfs/go-ipfs/p2p/peer"
 	logging "github.com/ipfs/go-ipfs/vendor/go-log-v1.0.0"
+	inet "github.com/ipfs/go-libp2p/p2p/net"
+	filter "github.com/ipfs/go-libp2p/p2p/net/filter"
+	addrutil "github.com/ipfs/go-libp2p/p2p/net/swarm/addr"
+	peer "github.com/ipfs/go-libp2p/p2p/peer"
+	metrics "github.com/ipfs/go-libp2p/util/metrics"
 
 	ma "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/go-multiaddr"
 	ps "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/go-peerstream"

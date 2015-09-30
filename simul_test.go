@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	peer "github.com/ipfs/go-ipfs/p2p/peer"
 	ci "github.com/ipfs/go-ipfs/util/testutil/ci"
+	peer "github.com/ipfs/go-libp2p/p2p/peer"
 
 	ma "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/go-multiaddr"
 	context "github.com/ipfs/go-ipfs/Godeps/_workspace/src/golang.org/x/net/context"

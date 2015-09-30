@@ -3,7 +3,7 @@ package swarm
 import (
 	"testing"
 
-	peer "github.com/ipfs/go-ipfs/p2p/peer"
+	peer "github.com/ipfs/go-libp2p/p2p/peer"
 
 	ma "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/go-multiaddr"
 	context "github.com/ipfs/go-ipfs/Godeps/_workspace/src/golang.org/x/net/context"

@@ -1,8 +1,8 @@
 package swarm
 
 import (
-	conn "github.com/ipfs/go-ipfs/p2p/net/conn"
-	addrutil "github.com/ipfs/go-ipfs/p2p/net/swarm/addr"
+	conn "github.com/ipfs/go-libp2p/p2p/net/conn"
+	addrutil "github.com/ipfs/go-libp2p/p2p/net/swarm/addr"
 
 	ma "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/go-multiaddr"
 )

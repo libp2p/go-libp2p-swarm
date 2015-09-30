@@ -1,7 +1,7 @@
 package swarm
 
 import (
-	inet "github.com/ipfs/go-ipfs/p2p/net"
+	inet "github.com/ipfs/go-libp2p/p2p/net"
 
 	ps "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/go-peerstream"
 )
