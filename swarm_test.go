@@ -9,13 +9,13 @@ import (
 	"testing"
 	"time"
 
-	testutil "github.com/ipfs/go-ipfs/util/testutil"
+	metrics "github.com/ipfs/go-libp2p/p2p/metrics"
 	inet "github.com/ipfs/go-libp2p/p2p/net"
 	peer "github.com/ipfs/go-libp2p/p2p/peer"
-	metrics "github.com/ipfs/go-libp2p/util/metrics"
+	testutil "util/testutil"
 
-	ma "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/go-multiaddr"
-	context "github.com/ipfs/go-ipfs/Godeps/_workspace/src/golang.org/x/net/context"
+	ma "github.com/jbenet/go-multiaddr"
+	context "golang.org/x/net/context"
 )
 
 func EchoStreamHandler(stream inet.Stream) {
@@ -234,6 +234,15 @@ func TestSwarm(t *testing.T) {
 	// msgs := 1000
 	msgs := 100
 	swarms := 5
+	SubtestSwarm(t, swarms, msgs)
+}
+
+func TestBasicSwarm(t *testing.T) {
+	// t.Skip("skipping for another test")
+	t.Parallel()
+
+	msgs := 1
+	swarms := 2
 	SubtestSwarm(t, swarms, msgs)
 }
 

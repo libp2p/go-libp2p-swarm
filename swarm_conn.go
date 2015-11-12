@@ -8,9 +8,9 @@ import (
 	conn "github.com/ipfs/go-libp2p/p2p/net/conn"
 	peer "github.com/ipfs/go-libp2p/p2p/peer"
 
-	ma "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/go-multiaddr"
-	ps "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/go-peerstream"
-	context "github.com/ipfs/go-ipfs/Godeps/_workspace/src/golang.org/x/net/context"
+	ma "github.com/jbenet/go-multiaddr"
+	ps "github.com/jbenet/go-peerstream"
+	context "golang.org/x/net/context"
 )
 
 // a Conn is a simple wrapper around a ps.Conn that also exposes

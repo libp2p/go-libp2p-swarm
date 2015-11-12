@@ -3,13 +3,13 @@ package swarm
 import (
 	"testing"
 
-	testutil "github.com/ipfs/go-ipfs/util/testutil"
+	metrics "github.com/ipfs/go-libp2p/p2p/metrics"
 	addrutil "github.com/ipfs/go-libp2p/p2p/net/swarm/addr"
 	peer "github.com/ipfs/go-libp2p/p2p/peer"
-	metrics "github.com/ipfs/go-libp2p/util/metrics"
+	testutil "util/testutil"
 
-	ma "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/go-multiaddr"
-	context "github.com/ipfs/go-ipfs/Godeps/_workspace/src/golang.org/x/net/context"
+	ma "github.com/jbenet/go-multiaddr"
+	context "golang.org/x/net/context"
 )
 
 func TestFilterAddrs(t *testing.T) {

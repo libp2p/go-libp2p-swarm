@@ -3,14 +3,14 @@ package addrutil
 import (
 	"fmt"
 
-	logging "github.com/ipfs/go-ipfs/vendor/go-log-v1.0.0"
+	logging "QmWRypnfEwrgH4k93KEHN5hng7VjKYkWmzDYRuTZeh2Mgh/go-log"
 
-	ma "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/go-multiaddr"
-	manet "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/go-multiaddr-net"
-	context "github.com/ipfs/go-ipfs/Godeps/_workspace/src/golang.org/x/net/context"
+	ma "github.com/jbenet/go-multiaddr"
+	manet "github.com/jbenet/go-multiaddr-net"
+	context "golang.org/x/net/context"
 )
 
-var log = logging.Logger("p2p/net/swarm/addr")
+var log = logging.Logger("github.com/ipfs/go-libp2p/p2p/net/swarm/addr")
 
 // SupportedTransportStrings is the list of supported transports for the swarm.
 // These are strings of encapsulated multiaddr protocols. E.g.:

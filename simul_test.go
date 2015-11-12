@@ -1,15 +1,16 @@
 package swarm
 
 import (
+	"runtime"
 	"sync"
 	"testing"
 	"time"
 
-	ci "github.com/ipfs/go-ipfs/util/testutil/ci"
 	peer "github.com/ipfs/go-libp2p/p2p/peer"
+	ci "util/testutil/ci"
 
-	ma "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/go-multiaddr"
-	context "github.com/ipfs/go-ipfs/Godeps/_workspace/src/golang.org/x/net/context"
+	ma "github.com/jbenet/go-multiaddr"
+	context "golang.org/x/net/context"
 )
 
 func TestSimultOpen(t *testing.T) {
@@ -49,7 +50,8 @@ func TestSimultOpenMany(t *testing.T) {
 
 	addrs := 20
 	rounds := 10
-	if ci.IsRunning() {
+	if ci.IsRunning() || runtime.GOOS == "darwin" {
+		// osx has a limit of 256 file descriptors
 		addrs = 10
 		rounds = 5
 	}

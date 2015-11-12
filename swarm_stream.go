@@ -3,7 +3,7 @@ package swarm
 import (
 	inet "github.com/ipfs/go-libp2p/p2p/net"
 
-	ps "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/go-peerstream"
+	ps "github.com/jbenet/go-peerstream"
 )
 
 // a Stream is a wrapper around a ps.Stream that exposes a way to get

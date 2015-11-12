@@ -5,12 +5,12 @@ import (
 
 	peer "github.com/ipfs/go-libp2p/p2p/peer"
 
+	metrics "github.com/ipfs/go-libp2p/p2p/metrics"
 	inet "github.com/ipfs/go-libp2p/p2p/net"
-	metrics "github.com/ipfs/go-libp2p/util/metrics"
 
-	ma "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/go-multiaddr"
-	"github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/goprocess"
-	context "github.com/ipfs/go-ipfs/Godeps/_workspace/src/golang.org/x/net/context"
+	ma "github.com/jbenet/go-multiaddr"
+	"github.com/jbenet/goprocess"
+	context "golang.org/x/net/context"
 )
 
 // Network implements the inet.Network interface.

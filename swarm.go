@@ -7,22 +7,26 @@ import (
 	"sync"
 	"time"
 
-	logging "github.com/ipfs/go-ipfs/vendor/go-log-v1.0.0"
+	metrics "github.com/ipfs/go-libp2p/p2p/metrics"
+	mconn "github.com/ipfs/go-libp2p/p2p/metrics/conn"
 	inet "github.com/ipfs/go-libp2p/p2p/net"
+	conn "github.com/ipfs/go-libp2p/p2p/net/conn"
 	filter "github.com/ipfs/go-libp2p/p2p/net/filter"
 	addrutil "github.com/ipfs/go-libp2p/p2p/net/swarm/addr"
+	transport "github.com/ipfs/go-libp2p/p2p/net/transport"
 	peer "github.com/ipfs/go-libp2p/p2p/peer"
-	metrics "github.com/ipfs/go-libp2p/util/metrics"
 
-	ma "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/go-multiaddr"
-	ps "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/go-peerstream"
-	pst "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/go-stream-muxer"
-	psy "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/go-stream-muxer/yamux"
-	"github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/goprocess"
-	goprocessctx "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/jbenet/goprocess/context"
-	prom "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/prometheus/client_golang/prometheus"
-	mafilter "github.com/ipfs/go-ipfs/Godeps/_workspace/src/github.com/whyrusleeping/multiaddr-filter"
-	context "github.com/ipfs/go-ipfs/Godeps/_workspace/src/golang.org/x/net/context"
+	ma "github.com/jbenet/go-multiaddr"
+	ps "github.com/jbenet/go-peerstream"
+	pst "github.com/jbenet/go-stream-muxer"
+	psmss "github.com/jbenet/go-stream-muxer/multistream"
+	"github.com/jbenet/goprocess"
+	goprocessctx "github.com/jbenet/goprocess/context"
+	prom "github.com/prometheus/client_golang/prometheus"
+	mafilter "github.com/whyrusleeping/multiaddr-filter"
+	context "golang.org/x/net/context"
+
+	logging "QmWRypnfEwrgH4k93KEHN5hng7VjKYkWmzDYRuTZeh2Mgh/go-log"
 )
 
 var log = logging.Logger("swarm2")
@@ -37,9 +41,7 @@ var peersTotal = prom.NewGaugeVec(prom.GaugeOpts{
 }, []string{"peer_id"})
 
 func init() {
-	tpt := *psy.DefaultTransport
-	tpt.MaxStreamWindowSize = 512 * 1024
-	PSTransport = &tpt
+	PSTransport = psmss.NewTransport()
 }
 
 // Swarm is a connection muxer, allowing connections to other peers to
@@ -58,11 +60,18 @@ type Swarm struct {
 	backf dialbackoff
 	dialT time.Duration // mainly for tests
 
+	dialer *conn.Dialer
+
 	notifmu sync.RWMutex
 	notifs  map[inet.Notifiee]ps.Notifiee
 
+	transports []transport.Transport
+
 	// filters for addresses that shouldnt be dialed
 	Filters *filter.Filters
+
+	// file descriptor rate limited
+	fdRateLimit chan struct{}
 
 	proc goprocess.Process
 	ctx  context.Context
@@ -78,15 +87,22 @@ func NewSwarm(ctx context.Context, listenAddrs []ma.Multiaddr,
 		return nil, err
 	}
 
+	wrap := func(c transport.Conn) transport.Conn {
+		return mconn.WrapConn(bwc, c)
+	}
+
 	s := &Swarm{
-		swarm:   ps.NewSwarm(PSTransport),
-		local:   local,
-		peers:   peers,
-		ctx:     ctx,
-		dialT:   DialTimeout,
-		notifs:  make(map[inet.Notifiee]ps.Notifiee),
-		bwc:     bwc,
-		Filters: filter.NewFilters(),
+		swarm:       ps.NewSwarm(PSTransport),
+		local:       local,
+		peers:       peers,
+		ctx:         ctx,
+		dialT:       DialTimeout,
+		notifs:      make(map[inet.Notifiee]ps.Notifiee),
+		transports:  []transport.Transport{transport.NewTCPTransport()},
+		bwc:         bwc,
+		fdRateLimit: make(chan struct{}, concurrentFdDials),
+		Filters:     filter.NewFilters(),
+		dialer:      conn.NewDialer(local, peers.PrivKey(local), wrap),
 	}
 
 	// configure Swarm
@@ -97,7 +113,12 @@ func NewSwarm(ctx context.Context, listenAddrs []ma.Multiaddr,
 	prom.MustRegisterOrGet(peersTotal)
 	s.Notify((*metricsNotifiee)(s))
 
-	return s, s.listen(listenAddrs)
+	err = s.setupInterfaces(listenAddrs)
+	if err != nil {
+		return nil, err
+	}
+
+	return s, nil
 }
 
 func (s *Swarm) teardown() error {
@@ -130,7 +151,7 @@ func (s *Swarm) Listen(addrs ...ma.Multiaddr) error {
 		return err
 	}
 
-	return s.listen(addrs)
+	return s.setupInterfaces(addrs)
 }
 
 // Process returns the Process of the swarm
