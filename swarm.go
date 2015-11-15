@@ -16,14 +16,14 @@ import (
 	transport "github.com/ipfs/go-libp2p/p2p/net/transport"
 	peer "github.com/ipfs/go-libp2p/p2p/peer"
 
-	ma "github.com/jbenet/go-multiaddr"
+	mafilter "QmVdADza4QFVAR9xqAxRQjt9vTZJ6UrVLgBstKua1Xg7he/multiaddr-filter"
+	ma "QmaA6aDzeHjZiuqBtgYRz8ZXb1qMCoyMHgyDjBEYQniUKF/go-multiaddr"
 	ps "github.com/jbenet/go-peerstream"
 	pst "github.com/jbenet/go-stream-muxer"
 	psmss "github.com/jbenet/go-stream-muxer/multistream"
 	"github.com/jbenet/goprocess"
 	goprocessctx "github.com/jbenet/goprocess/context"
 	prom "github.com/prometheus/client_golang/prometheus"
-	mafilter "github.com/whyrusleeping/multiaddr-filter"
 	context "golang.org/x/net/context"
 
 	logging "QmWRypnfEwrgH4k93KEHN5hng7VjKYkWmzDYRuTZeh2Mgh/go-log"

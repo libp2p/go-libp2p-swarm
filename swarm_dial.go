@@ -8,13 +8,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jbenet/go-multiaddr-net"
+	"QmanZCL6SXRfafiUEMCBLq2QR171uQSdXQ8YAdHXLd8Cwr/go-multiaddr-net"
 	conn "github.com/ipfs/go-libp2p/p2p/net/conn"
 	addrutil "github.com/ipfs/go-libp2p/p2p/net/swarm/addr"
 	peer "github.com/ipfs/go-libp2p/p2p/peer"
 	lgbl "util/eventlog/loggables"
 
-	ma "github.com/jbenet/go-multiaddr"
+	ma "QmaA6aDzeHjZiuqBtgYRz8ZXb1qMCoyMHgyDjBEYQniUKF/go-multiaddr"
 	context "golang.org/x/net/context"
 )
 

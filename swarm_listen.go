@@ -9,7 +9,7 @@ import (
 	transport "github.com/ipfs/go-libp2p/p2p/net/transport"
 	lgbl "util/eventlog/loggables"
 
-	ma "github.com/jbenet/go-multiaddr"
+	ma "QmaA6aDzeHjZiuqBtgYRz8ZXb1qMCoyMHgyDjBEYQniUKF/go-multiaddr"
 	ps "github.com/jbenet/go-peerstream"
 	context "golang.org/x/net/context"
 )

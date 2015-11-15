@@ -5,7 +5,7 @@ import (
 
 	peer "github.com/ipfs/go-libp2p/p2p/peer"
 
-	ma "github.com/jbenet/go-multiaddr"
+	ma "QmaA6aDzeHjZiuqBtgYRz8ZXb1qMCoyMHgyDjBEYQniUKF/go-multiaddr"
 	context "golang.org/x/net/context"
 )
 
