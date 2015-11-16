@@ -16,8 +16,8 @@ import (
 	transport "github.com/ipfs/go-libp2p/p2p/net/transport"
 	peer "github.com/ipfs/go-libp2p/p2p/peer"
 
-	mafilter "QmVdADza4QFVAR9xqAxRQjt9vTZJ6UrVLgBstKua1Xg7he/multiaddr-filter"
-	ma "QmaA6aDzeHjZiuqBtgYRz8ZXb1qMCoyMHgyDjBEYQniUKF/go-multiaddr"
+	mafilter "QmYWqTn1i8yv9QRDzGPJ2yRudKzYCaC5Aqasbm8vwaG92E/multiaddr-filter"
+	ma "QmbWxL1aXQhBjc1XGjGF1f2KGBMCBYSuT2ThA8YXnXJK83/go-multiaddr"
 	ps "github.com/jbenet/go-peerstream"
 	pst "github.com/jbenet/go-stream-muxer"
 	psmss "github.com/jbenet/go-stream-muxer/multistream"
