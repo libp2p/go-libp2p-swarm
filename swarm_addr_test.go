@@ -6,7 +6,7 @@ import (
 	metrics "github.com/ipfs/go-libp2p/p2p/metrics"
 	addrutil "github.com/ipfs/go-libp2p/p2p/net/swarm/addr"
 	peer "github.com/ipfs/go-libp2p/p2p/peer"
-	testutil "util/testutil"
+	testutil "github.com/ipfs/go-libp2p/testutil"
 
 	context "QmacZi9WygGK7Me8mH53pypyscHzU386aUZXpr28GZgUct/context"
 	ma "QmbWxL1aXQhBjc1XGjGF1f2KGBMCBYSuT2ThA8YXnXJK83/go-multiaddr"
