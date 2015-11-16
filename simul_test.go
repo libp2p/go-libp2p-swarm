@@ -9,8 +9,8 @@ import (
 	peer "github.com/ipfs/go-libp2p/p2p/peer"
 	ci "util/testutil/ci"
 
+	context "QmacZi9WygGK7Me8mH53pypyscHzU386aUZXpr28GZgUct/context"
 	ma "QmbWxL1aXQhBjc1XGjGF1f2KGBMCBYSuT2ThA8YXnXJK83/go-multiaddr"
-	context "golang.org/x/net/context"
 )
 
 func TestSimultOpen(t *testing.T) {
