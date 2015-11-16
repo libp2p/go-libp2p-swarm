@@ -13,7 +13,7 @@ import (
 	testutil "github.com/ipfs/go-libp2p/testutil"
 	ci "github.com/ipfs/go-libp2p/testutil/ci"
 
-	manet "QmU5s159q8cZuM1f9Vqti4LHu6y8zyVc5dxv2py81sdp6Q/go-multiaddr-net"
+	manet "QmRCPT5WRph8aWXmaT2Rfn6ac98YRUUJnNURpD3hNAWp4f/go-multiaddr-net"
 	context "QmacZi9WygGK7Me8mH53pypyscHzU386aUZXpr28GZgUct/context"
 	ma "QmbWxL1aXQhBjc1XGjGF1f2KGBMCBYSuT2ThA8YXnXJK83/go-multiaddr"
 )
