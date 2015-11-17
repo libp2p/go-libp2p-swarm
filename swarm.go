@@ -24,7 +24,6 @@ import (
 	mafilter "QmYhewVqJhkgEsm3AYVUbpT14q2P9V4Xb7np9JXKua6y7A/multiaddr-filter"
 	context "QmacZi9WygGK7Me8mH53pypyscHzU386aUZXpr28GZgUct/context"
 	ma "QmbWxL1aXQhBjc1XGjGF1f2KGBMCBYSuT2ThA8YXnXJK83/go-multiaddr"
-	prom "github.com/prometheus/client_golang/prometheus"
 
 	logging "QmWRypnfEwrgH4k93KEHN5hng7VjKYkWmzDYRuTZeh2Mgh/go-log"
 )
@@ -32,13 +31,6 @@ import (
 var log = logging.Logger("swarm2")
 
 var PSTransport pst.Transport
-
-var peersTotal = prom.NewGaugeVec(prom.GaugeOpts{
-	Namespace: "ipfs",
-	Subsystem: "p2p",
-	Name:      "peers_total",
-	Help:      "Number of connected peers",
-}, []string{"peer_id"})
 
 func init() {
 	PSTransport = psmss.NewTransport()
@@ -108,10 +100,6 @@ func NewSwarm(ctx context.Context, listenAddrs []ma.Multiaddr,
 	// configure Swarm
 	s.proc = goprocessctx.WithContextAndTeardown(ctx, s.teardown)
 	s.SetConnHandler(nil) // make sure to setup our own conn handler.
-
-	// setup swarm metrics
-	prom.MustRegisterOrGet(peersTotal)
-	s.Notify((*metricsNotifiee)(s))
 
 	err = s.setupInterfaces(listenAddrs)
 	if err != nil {
@@ -320,23 +308,4 @@ func (n *ps2netNotifee) OpenedStream(s *ps.Stream) {
 
 func (n *ps2netNotifee) ClosedStream(s *ps.Stream) {
 	n.not.ClosedStream(n.net, inet.Stream((*Stream)(s)))
-}
-
-type metricsNotifiee Swarm
-
-func (nn *metricsNotifiee) Connected(n inet.Network, v inet.Conn) {
-	peersTotalGauge(n.LocalPeer()).Set(float64(len(n.Conns())))
-}
-
-func (nn *metricsNotifiee) Disconnected(n inet.Network, v inet.Conn) {
-	peersTotalGauge(n.LocalPeer()).Set(float64(len(n.Conns())))
-}
-
-func (nn *metricsNotifiee) OpenedStream(n inet.Network, v inet.Stream) {}
-func (nn *metricsNotifiee) ClosedStream(n inet.Network, v inet.Stream) {}
-func (nn *metricsNotifiee) Listen(n inet.Network, a ma.Multiaddr)      {}
-func (nn *metricsNotifiee) ListenClose(n inet.Network, a ma.Multiaddr) {}
-
-func peersTotalGauge(id peer.ID) prom.Gauge {
-	return peersTotal.With(prom.Labels{"peer_id": id.Pretty()})
 }
