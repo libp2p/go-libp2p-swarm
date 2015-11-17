@@ -18,7 +18,7 @@ import (
 
 	"QmSir6qPL1tjuxd8LkR8VZq6v625ExAUVs2eCLeqQuaPGU/goprocess"
 	goprocessctx "QmSir6qPL1tjuxd8LkR8VZq6v625ExAUVs2eCLeqQuaPGU/goprocess/context"
-	mafilter "QmXE4GFk66B5Ts362YWZosjiZLpP4QDmBTBadRZFffZ58U/multiaddr-filter"
+	mafilter "QmYhewVqJhkgEsm3AYVUbpT14q2P9V4Xb7np9JXKua6y7A/multiaddr-filter"
 	context "QmacZi9WygGK7Me8mH53pypyscHzU386aUZXpr28GZgUct/context"
 	ma "QmbWxL1aXQhBjc1XGjGF1f2KGBMCBYSuT2ThA8YXnXJK83/go-multiaddr"
 	ps "github.com/jbenet/go-peerstream"
