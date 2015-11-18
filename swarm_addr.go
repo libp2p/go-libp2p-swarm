@@ -4,7 +4,7 @@ import (
 	conn "github.com/ipfs/go-libp2p/p2p/net/conn"
 	addrutil "github.com/ipfs/go-libp2p/p2p/net/swarm/addr"
 
-	ma "QmbWxL1aXQhBjc1XGjGF1f2KGBMCBYSuT2ThA8YXnXJK83/go-multiaddr"
+	ma "gx/QmVUi2ncqnU48zsPgR1rQosDGwY3SSZ1Ndp33j33YjXdsj/go-multiaddr"
 )
 
 // ListenAddresses returns a list of addresses at which this swarm listens.

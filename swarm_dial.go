@@ -8,14 +8,14 @@ import (
 	"sync"
 	"time"
 
-	"QmRCPT5WRph8aWXmaT2Rfn6ac98YRUUJnNURpD3hNAWp4f/go-multiaddr-net"
+	lgbl "github.com/ipfs/go-libp2p/loggables"
 	conn "github.com/ipfs/go-libp2p/p2p/net/conn"
 	addrutil "github.com/ipfs/go-libp2p/p2p/net/swarm/addr"
 	peer "github.com/ipfs/go-libp2p/p2p/peer"
-	lgbl "github.com/ipfs/go-libp2p/loggables"
+	"gx/QmNT7d1e4Xcp3KcsvxyzUHVtqrR43uypoxLLzdKj6YZga2/go-multiaddr-net"
 
-	context "QmacZi9WygGK7Me8mH53pypyscHzU386aUZXpr28GZgUct/context"
-	ma "QmbWxL1aXQhBjc1XGjGF1f2KGBMCBYSuT2ThA8YXnXJK83/go-multiaddr"
+	ma "gx/QmVUi2ncqnU48zsPgR1rQosDGwY3SSZ1Ndp33j33YjXdsj/go-multiaddr"
+	context "gx/QmacZi9WygGK7Me8mH53pypyscHzU386aUZXpr28GZgUct/context"
 )
 
 // Diagram of dial sync:

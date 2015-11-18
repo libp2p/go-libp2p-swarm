@@ -3,8 +3,8 @@ package addrutil
 import (
 	"testing"
 
-	manet "QmRCPT5WRph8aWXmaT2Rfn6ac98YRUUJnNURpD3hNAWp4f/go-multiaddr-net"
-	ma "QmbWxL1aXQhBjc1XGjGF1f2KGBMCBYSuT2ThA8YXnXJK83/go-multiaddr"
+	manet "gx/QmNT7d1e4Xcp3KcsvxyzUHVtqrR43uypoxLLzdKj6YZga2/go-multiaddr-net"
+	ma "gx/QmVUi2ncqnU48zsPgR1rQosDGwY3SSZ1Ndp33j33YjXdsj/go-multiaddr"
 )
 
 func newMultiaddr(t *testing.T, s string) ma.Multiaddr {

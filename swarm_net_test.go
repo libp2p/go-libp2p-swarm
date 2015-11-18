@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	context "QmacZi9WygGK7Me8mH53pypyscHzU386aUZXpr28GZgUct/context"
+	context "gx/QmacZi9WygGK7Me8mH53pypyscHzU386aUZXpr28GZgUct/context"
 	inet "github.com/ipfs/go-libp2p/p2p/net"
 	testutil "github.com/ipfs/go-libp2p/p2p/test/util"
 )
