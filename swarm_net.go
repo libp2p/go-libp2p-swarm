@@ -132,9 +132,9 @@ func (n *Network) Connectedness(p peer.ID) inet.Connectedness {
 
 // NewStream returns a new stream to given peer p.
 // If there is no connection to p, attempts to create one.
-func (n *Network) NewStream(p peer.ID) (inet.Stream, error) {
+func (n *Network) NewStream(ctx context.Context, p peer.ID) (inet.Stream, error) {
 	log.Debugf("[%s] network opening stream to peer [%s]", n.local, p)
-	s, err := n.Swarm().NewStreamWithPeer(p)
+	s, err := n.Swarm().NewStreamWithPeer(ctx, p)
 	if err != nil {
 		return nil, err
 	}

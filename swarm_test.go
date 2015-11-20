@@ -129,7 +129,7 @@ func SubtestSwarm(t *testing.T, SwarmNum int, MsgNum int) {
 				defer wg.Done()
 
 				// first, one stream per peer (nice)
-				stream, err := s1.NewStreamWithPeer(p)
+				stream, err := s1.NewStreamWithPeer(ctx, p)
 				if err != nil {
 					errChan <- err
 					return

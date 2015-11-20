@@ -192,16 +192,17 @@ func (s *Swarm) SetStreamHandler(handler inet.StreamHandler) {
 }
 
 // NewStreamWithPeer creates a new stream on any available connection to p
-func (s *Swarm) NewStreamWithPeer(p peer.ID) (*Stream, error) {
+func (s *Swarm) NewStreamWithPeer(ctx context.Context, p peer.ID) (*Stream, error) {
 	// if we have no connections, try connecting.
 	if len(s.ConnectionsToPeer(p)) == 0 {
 		log.Debug("Swarm: NewStreamWithPeer no connections. Attempting to connect...")
-		if _, err := s.Dial(s.Context(), p); err != nil {
+		if _, err := s.Dial(ctx, p); err != nil {
 			return nil, err
 		}
 	}
 	log.Debug("Swarm: NewStreamWithPeer...")
 
+	// TODO: think about passing a context down to NewStreamWithGroup
 	st, err := s.swarm.NewStreamWithGroup(p)
 	return wrapStream(st), err
 }
