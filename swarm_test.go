@@ -14,8 +14,8 @@ import (
 	peer "github.com/ipfs/go-libp2p/p2p/peer"
 	testutil "github.com/ipfs/go-libp2p/testutil"
 
-	ma "gx/QmVUi2ncqnU48zsPgR1rQosDGwY3SSZ1Ndp33j33YjXdsj/go-multiaddr"
-	context "gx/QmacZi9WygGK7Me8mH53pypyscHzU386aUZXpr28GZgUct/context"
+	ma "github.com/jbenet/go-multiaddr"
+	context "golang.org/x/net/context"
 )
 
 func EchoStreamHandler(stream inet.Stream) {

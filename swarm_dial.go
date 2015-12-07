@@ -12,10 +12,10 @@ import (
 	conn "github.com/ipfs/go-libp2p/p2p/net/conn"
 	addrutil "github.com/ipfs/go-libp2p/p2p/net/swarm/addr"
 	peer "github.com/ipfs/go-libp2p/p2p/peer"
-	"gx/QmNT7d1e4Xcp3KcsvxyzUHVtqrR43uypoxLLzdKj6YZga2/go-multiaddr-net"
+	"github.com/jbenet/go-multiaddr-net"
 
-	ma "gx/QmVUi2ncqnU48zsPgR1rQosDGwY3SSZ1Ndp33j33YjXdsj/go-multiaddr"
-	context "gx/QmacZi9WygGK7Me8mH53pypyscHzU386aUZXpr28GZgUct/context"
+	ma "github.com/jbenet/go-multiaddr"
+	context "golang.org/x/net/context"
 )
 
 // Diagram of dial sync:

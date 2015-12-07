@@ -16,16 +16,16 @@ import (
 	transport "github.com/ipfs/go-libp2p/p2p/net/transport"
 	peer "github.com/ipfs/go-libp2p/p2p/peer"
 
-	ps "gx/QmQMkNFMuh1UJbdaggASZpLtCroTnAYcWNenYL5hrzLJrT/go-peerstream"
-	pst "gx/QmRmT6MSnfhRDW1PTUGSd3z4fqXK48GUequQAZzeT4c5iC/go-stream-muxer"
-	psmss "gx/QmRmT6MSnfhRDW1PTUGSd3z4fqXK48GUequQAZzeT4c5iC/go-stream-muxer/multistream"
-	mafilter "gx/QmVCmuhgDFer5MW5737Z8GtBEGpUyEkFnLUv4ASDWnLZdC/multiaddr-filter"
-	ma "gx/QmVUi2ncqnU48zsPgR1rQosDGwY3SSZ1Ndp33j33YjXdsj/go-multiaddr"
-	context "gx/QmacZi9WygGK7Me8mH53pypyscHzU386aUZXpr28GZgUct/context"
-	"gx/QmfDXyLfKNfja2XebomRZjZ2UZCa4BDyFoCymKtzNRVQ5b/goprocess"
-	goprocessctx "gx/QmfDXyLfKNfja2XebomRZjZ2UZCa4BDyFoCymKtzNRVQ5b/goprocess/context"
+	ma "github.com/jbenet/go-multiaddr"
+	ps "github.com/jbenet/go-peerstream"
+	pst "github.com/jbenet/go-stream-muxer"
+	psmss "github.com/jbenet/go-stream-muxer/multistream"
+	"github.com/jbenet/goprocess"
+	goprocessctx "github.com/jbenet/goprocess/context"
+	mafilter "github.com/whyrusleeping/multiaddr-filter"
+	context "golang.org/x/net/context"
 
-	logging "gx/QmfZZB1aVXWA4kaR5R4e9NifERT366TTCSagkfhmAbYLsu/go-log"
+	logging "github.com/ipfs/go-log"
 )
 
 var log = logging.Logger("swarm2")

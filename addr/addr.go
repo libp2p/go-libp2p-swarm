@@ -3,11 +3,11 @@ package addrutil
 import (
 	"fmt"
 
-	logging "gx/QmfZZB1aVXWA4kaR5R4e9NifERT366TTCSagkfhmAbYLsu/go-log"
+	logging "github.com/ipfs/go-log"
 
-	manet "gx/QmNT7d1e4Xcp3KcsvxyzUHVtqrR43uypoxLLzdKj6YZga2/go-multiaddr-net"
-	ma "gx/QmVUi2ncqnU48zsPgR1rQosDGwY3SSZ1Ndp33j33YjXdsj/go-multiaddr"
-	context "gx/QmacZi9WygGK7Me8mH53pypyscHzU386aUZXpr28GZgUct/context"
+	ma "github.com/jbenet/go-multiaddr"
+	manet "github.com/jbenet/go-multiaddr-net"
+	context "golang.org/x/net/context"
 )
 
 var log = logging.Logger("github.com/ipfs/go-libp2p/p2p/net/swarm/addr")
