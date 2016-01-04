@@ -8,8 +8,8 @@ import (
 	peer "github.com/ipfs/go-libp2p/p2p/peer"
 	testutil "github.com/ipfs/go-libp2p/testutil"
 
-	ma "github.com/jbenet/go-multiaddr"
-	context "golang.org/x/net/context"
+	ma "gx/ipfs/QmR3JkmZBKYXgNMNsNZawm914455Qof3PEopwuVSeXG7aV/go-multiaddr"
+	context "gx/ipfs/QmZy2y8t9zQH2a1b8q2ZSLKp17ATuJoCNxxyMFG5qFExpt/go-net/context"
 )
 
 func TestFilterAddrs(t *testing.T) {
