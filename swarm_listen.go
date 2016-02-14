@@ -126,7 +126,7 @@ func (s *Swarm) addConnListener(list conn.Listener) error {
 				if !more {
 					return
 				}
-				log.Errorf("swarm listener accept error: %s", err)
+				log.Warningf("swarm listener accept error: %s", err)
 			case <-ctx.Done():
 				return
 			}
