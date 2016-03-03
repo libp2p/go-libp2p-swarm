@@ -5,12 +5,11 @@ import (
 
 	peer "github.com/ipfs/go-libp2p/p2p/peer"
 
-	ma "gx/ipfs/QmR3JkmZBKYXgNMNsNZawm914455Qof3PEopwuVSeXG7aV/go-multiaddr"
 	context "gx/ipfs/QmZy2y8t9zQH2a1b8q2ZSLKp17ATuJoCNxxyMFG5qFExpt/go-net/context"
+	ma "gx/ipfs/QmcobAGsCjYt5DXoq9et9L8yR8er7o7Cu3DTvpaq12jYSz/go-multiaddr"
 )
 
 func TestPeers(t *testing.T) {
-	// t.Skip("skipping for another test")
 
 	ctx := context.Background()
 	swarms := makeSwarms(ctx, t, 2)

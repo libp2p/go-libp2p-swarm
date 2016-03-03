@@ -10,11 +10,10 @@ import (
 	transport "github.com/ipfs/go-libp2p/p2p/net/transport"
 
 	ps "gx/ipfs/QmQDPXRFzRcCGPbPViQCKjzbQBkZGpLV1f9KwXnksSNcTK/go-peerstream"
-	ma "gx/ipfs/QmR3JkmZBKYXgNMNsNZawm914455Qof3PEopwuVSeXG7aV/go-multiaddr"
 	context "gx/ipfs/QmZy2y8t9zQH2a1b8q2ZSLKp17ATuJoCNxxyMFG5qFExpt/go-net/context"
-)
+	ma "gx/ipfs/QmcobAGsCjYt5DXoq9et9L8yR8er7o7Cu3DTvpaq12jYSz/go-multiaddr"
+) // Open listeners and reuse-dialers for the given addresses
 
-// Open listeners and reuse-dialers for the given addresses
 func (s *Swarm) setupInterfaces(addrs []ma.Multiaddr) error {
 	errs := make([]error, len(addrs))
 	var succeeded int
