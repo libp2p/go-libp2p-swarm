@@ -24,29 +24,46 @@ func EchoStreamHandler(stream inet.Stream) {
 
 		// pull out the ipfs conn
 		c := stream.Conn()
-		log.Infof("%s ponging to %s", c.LocalPeer(), c.RemotePeer())
+		log.Errorf("%s ponging to %s", c.LocalPeer(), c.RemotePeer())
 
 		buf := make([]byte, 4)
 
 		for {
 			if _, err := stream.Read(buf); err != nil {
 				if err != io.EOF {
-					log.Info("ping receive error:", err)
+					log.Error("ping receive error:", err)
 				}
 				return
 			}
 
 			if !bytes.Equal(buf, []byte("ping")) {
-				log.Infof("ping receive error: ping != %s %v", buf, buf)
+				log.Errorf("ping receive error: ping != %s %v", buf, buf)
 				return
 			}
 
 			if _, err := stream.Write([]byte("pong")); err != nil {
-				log.Info("pond send error:", err)
+				log.Error("pond send error:", err)
 				return
 			}
 		}
 	}()
+}
+
+func makeDialOnlySwarm(ctx context.Context, t *testing.T) *Swarm {
+	id := testutil.RandIdentityOrFatal(t)
+
+	peerstore := peer.NewPeerstore()
+	peerstore.AddPubKey(id.ID(), id.PublicKey())
+	peerstore.AddPrivKey(id.ID(), id.PrivateKey())
+
+	swarm, err := NewSwarm(ctx, nil, id.ID(), peerstore, metrics.NewBandwidthCounter())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	swarm.SetStreamHandler(EchoStreamHandler)
+
+	return swarm
 }
 
 func makeSwarms(ctx context.Context, t *testing.T, num int) []*Swarm {

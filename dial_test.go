@@ -18,6 +18,61 @@ import (
 	ma "gx/ipfs/QmcobAGsCjYt5DXoq9et9L8yR8er7o7Cu3DTvpaq12jYSz/go-multiaddr"
 )
 
+func closeSwarms(swarms []*Swarm) {
+	for _, s := range swarms {
+		s.Close()
+	}
+}
+
+func TestBasicDial(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	swarms := makeSwarms(ctx, t, 2)
+	defer closeSwarms(swarms)
+	s1 := swarms[0]
+	s2 := swarms[1]
+
+	s1.peers.AddAddrs(s2.local, s2.ListenAddresses(), peer.PermanentAddrTTL)
+
+	c, err := s1.Dial(ctx, s2.local)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	s, err := c.NewStream()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	s.Close()
+}
+
+func TestDialWithNoListeners(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	s1 := makeDialOnlySwarm(ctx, t)
+
+	swarms := makeSwarms(ctx, t, 1)
+	defer closeSwarms(swarms)
+	s2 := swarms[0]
+
+	s1.peers.AddAddrs(s2.local, s2.ListenAddresses(), peer.PermanentAddrTTL)
+
+	c, err := s1.Dial(ctx, s2.local)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	s, err := c.NewStream()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	s.Close()
+}
+
 func acceptAndHang(l net.Listener) {
 	conns := make([]net.Conn, 0, 10)
 	for {
