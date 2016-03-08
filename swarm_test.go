@@ -24,7 +24,7 @@ func EchoStreamHandler(stream inet.Stream) {
 
 		// pull out the ipfs conn
 		c := stream.Conn()
-		log.Errorf("%s ponging to %s", c.LocalPeer(), c.RemotePeer())
+		log.Infof("%s ponging to %s", c.LocalPeer(), c.RemotePeer())
 
 		buf := make([]byte, 4)
 

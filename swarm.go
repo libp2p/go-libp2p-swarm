@@ -4,6 +4,7 @@ package swarm
 
 import (
 	"fmt"
+	"io/ioutil"
 	"sync"
 	"time"
 
@@ -16,11 +17,13 @@ import (
 	transport "github.com/ipfs/go-libp2p/p2p/net/transport"
 	peer "github.com/ipfs/go-libp2p/p2p/peer"
 
-	ps "gx/ipfs/QmQDPXRFzRcCGPbPViQCKjzbQBkZGpLV1f9KwXnksSNcTK/go-peerstream"
 	"gx/ipfs/QmQopLATEYMNg7dVqZRNDfeE2S1yKy8zrRh5xnYiuqeZBn/goprocess"
 	goprocessctx "gx/ipfs/QmQopLATEYMNg7dVqZRNDfeE2S1yKy8zrRh5xnYiuqeZBn/goprocess/context"
-	pst "gx/ipfs/QmTYr6RrJs8b63LTVwahmtytnuqzsLfNPBJp6EvmFWHbGh/go-stream-muxer"
-	psmss "gx/ipfs/QmTYr6RrJs8b63LTVwahmtytnuqzsLfNPBJp6EvmFWHbGh/go-stream-muxer/multistream"
+	pst "gx/ipfs/QmWSJzRkCMJFHYUQZxKwPX8WA7XipaPtfiwMPARP51ymfn/go-stream-muxer"
+	psmss "gx/ipfs/QmWSJzRkCMJFHYUQZxKwPX8WA7XipaPtfiwMPARP51ymfn/go-stream-muxer/multistream"
+	spdy "gx/ipfs/QmWSJzRkCMJFHYUQZxKwPX8WA7XipaPtfiwMPARP51ymfn/go-stream-muxer/spdystream"
+	yamux "gx/ipfs/QmWSJzRkCMJFHYUQZxKwPX8WA7XipaPtfiwMPARP51ymfn/go-stream-muxer/yamux"
+	ps "gx/ipfs/QmZK81vcgMhpb2t7GNbozk7qzt6Rj4zFqitpvsWT9mduW8/go-peerstream"
 	context "gx/ipfs/QmZy2y8t9zQH2a1b8q2ZSLKp17ATuJoCNxxyMFG5qFExpt/go-net/context"
 	logging "gx/ipfs/Qmazh5oNUVsDZTs2g59rq8aYQqwpss8tcUWQzor5sCCEuH/go-log"
 	mafilter "gx/ipfs/QmcR6dLYF8Eozaae3wGd5wjq76bofzmmbvQmtwobxvfhEt/multiaddr-filter"
@@ -32,7 +35,21 @@ var log = logging.Logger("swarm2")
 var PSTransport pst.Transport
 
 func init() {
-	PSTransport = psmss.NewTransport()
+	msstpt := psmss.NewBlankTransport()
+
+	ymxtpt := &yamux.Transport{
+		AcceptBacklog:          2048,
+		ConnectionWriteTimeout: time.Second * 10,
+		KeepAliveInterval:      time.Second * 30,
+		EnableKeepAlive:        true,
+		MaxStreamWindowSize:    uint32(1024 * 256),
+		LogOutput:              ioutil.Discard,
+	}
+
+	msstpt.AddTransport("/yamux", ymxtpt)
+	msstpt.AddTransport("/spdystream", spdy.Transport)
+
+	PSTransport = msstpt
 }
 
 // Swarm is a connection muxer, allowing connections to other peers to
