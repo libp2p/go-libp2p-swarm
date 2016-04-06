@@ -46,8 +46,8 @@ func init() {
 		LogOutput:              ioutil.Discard,
 	}
 
-	msstpt.AddTransport("/yamux", ymxtpt)
-	msstpt.AddTransport("/spdystream", spdy.Transport)
+	msstpt.AddTransport("/yamux/1.0.0", ymxtpt)
+	msstpt.AddTransport("/spdy/3.1.0", spdy.Transport)
 
 	PSTransport = msstpt
 }
