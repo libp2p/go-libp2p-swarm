@@ -8,10 +8,9 @@ import (
 	"time"
 
 	addrutil "github.com/ipfs/go-libp2p/p2p/net/swarm/addr"
-	peer "github.com/ipfs/go-libp2p/p2p/peer"
-
 	testutil "github.com/ipfs/go-libp2p/testutil"
 	ci "github.com/ipfs/go-libp2p/testutil/ci"
+	peer "gx/ipfs/QmY1xNhBfF9xA1pmD8yejyQAyd77K68qNN6JPM1CN2eiRu/go-libp2p-peer"
 
 	manet "gx/ipfs/QmYVqhVfbK4BKvbW88Lhm26b3ud14sTBvcm1H7uWUx1Fkp/go-multiaddr-net"
 	context "gx/ipfs/QmZy2y8t9zQH2a1b8q2ZSLKp17ATuJoCNxxyMFG5qFExpt/go-net/context"
