@@ -303,7 +303,7 @@ func TestAddrBlocking(t *testing.T) {
 	swarms := makeSwarms(ctx, t, 2)
 
 	swarms[0].SetConnHandler(func(conn *Conn) {
-		t.Fatal("no connections should happen!")
+		t.Fatalf("no connections should happen! -- %s", conn)
 	})
 
 	_, block, err := net.ParseCIDR("127.0.0.1/8")
