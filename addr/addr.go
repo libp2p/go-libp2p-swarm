@@ -42,10 +42,14 @@ func init() {
 
 // FilterAddrs is a filter that removes certain addresses, according to filter.
 // if filter returns true, the address is kept.
-func FilterAddrs(a []ma.Multiaddr, filter func(ma.Multiaddr) bool) []ma.Multiaddr {
+func FilterAddrs(a []ma.Multiaddr, filters ...func(ma.Multiaddr) bool) []ma.Multiaddr {
 	b := make([]ma.Multiaddr, 0, len(a))
 	for _, addr := range a {
-		if filter(addr) {
+		good := true
+		for _, filter := range filters {
+			good = good && filter(addr)
+		}
+		if good {
 			b = append(b, addr)
 		}
 	}
@@ -56,9 +60,11 @@ func FilterAddrs(a []ma.Multiaddr, filter func(ma.Multiaddr) bool) []ma.Multiadd
 // from a list. the addresses removed are those known NOT
 // to work with our network. Namely, addresses with UTP.
 func FilterUsableAddrs(a []ma.Multiaddr) []ma.Multiaddr {
-	return FilterAddrs(a, func(m ma.Multiaddr) bool {
-		return AddrUsable(m, false)
-	})
+	return FilterAddrs(a, AddrUsableFunc)
+}
+
+func AddrUsableFunc(m ma.Multiaddr) bool {
+	return AddrUsable(m, false)
 }
 
 // AddrOverNonLocalIP returns whether the addr uses a non-local ip link

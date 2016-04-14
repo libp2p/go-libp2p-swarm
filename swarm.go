@@ -90,6 +90,8 @@ type Swarm struct {
 	proc goprocess.Process
 	ctx  context.Context
 	bwc  metrics.Reporter
+
+	limiter *dialLimiter
 }
 
 // NewSwarm constructs a Swarm, with a Chan.
@@ -121,6 +123,8 @@ func NewSwarm(ctx context.Context, listenAddrs []ma.Multiaddr,
 		Filters:     filter.NewFilters(),
 		dialer:      conn.NewDialer(local, peers.PrivKey(local), wrap),
 	}
+
+	s.limiter = newDialLimiter(s.dialAddr)
 
 	// configure Swarm
 	s.proc = goprocessctx.WithContextAndTeardown(ctx, s.teardown)
@@ -155,6 +159,7 @@ func filterAddrs(listenAddrs []ma.Multiaddr) ([]ma.Multiaddr, error) {
 		}
 		listenAddrs = filtered
 	}
+
 	return listenAddrs, nil
 }
 
