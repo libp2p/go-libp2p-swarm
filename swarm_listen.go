@@ -3,14 +3,14 @@ package swarm
 import (
 	"fmt"
 
+	lgbl "github.com/ipfs/go-libp2p-loggables"
+	transport "github.com/ipfs/go-libp2p-transport"
 	mconn "github.com/ipfs/go-libp2p/p2p/metrics/conn"
 	inet "github.com/ipfs/go-libp2p/p2p/net"
 	conn "github.com/ipfs/go-libp2p/p2p/net/conn"
-	transport "gx/ipfs/QmRHqYZs3Diy8YC3bW16zvs8VDDwS2ARKBuKwALxEMqibc/go-libp2p-transport"
-	lgbl "gx/ipfs/QmYqiDbGUGqatbPFie11Py8cnyduoJYqcgKtjfhu1SQLh1/go-libp2p-loggables"
-	ps "gx/ipfs/QmZK81vcgMhpb2t7GNbozk7qzt6Rj4zFqitpvsWT9mduW8/go-peerstream"
-	context "gx/ipfs/QmZy2y8t9zQH2a1b8q2ZSLKp17ATuJoCNxxyMFG5qFExpt/go-net/context"
-	ma "gx/ipfs/QmcobAGsCjYt5DXoq9et9L8yR8er7o7Cu3DTvpaq12jYSz/go-multiaddr"
+	ma "github.com/jbenet/go-multiaddr"
+	ps "github.com/jbenet/go-peerstream"
+	context "golang.org/x/net/context"
 )
 
 // Open listeners and reuse-dialers for the given addresses
