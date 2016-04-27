@@ -14,19 +14,19 @@ import (
 	conn "github.com/ipfs/go-libp2p/p2p/net/conn"
 	filter "github.com/ipfs/go-libp2p/p2p/net/filter"
 	addrutil "github.com/ipfs/go-libp2p/p2p/net/swarm/addr"
-	mafilter "gx/ipfs/QmPwfFAHUmvWDucLHRS9Xz2Kb1TNX2cY4LJ7pQjg9kVcae/multiaddr-filter"
 	"gx/ipfs/QmQopLATEYMNg7dVqZRNDfeE2S1yKy8zrRh5xnYiuqeZBn/goprocess"
 	goprocessctx "gx/ipfs/QmQopLATEYMNg7dVqZRNDfeE2S1yKy8zrRh5xnYiuqeZBn/goprocess/context"
-	transport "gx/ipfs/QmR4HhZm1fL8epXz8661Ru8ks5Y1Uk2u51quAWaCTD1zHg/go-libp2p-transport"
+	transport "gx/ipfs/QmRHqYZs3Diy8YC3bW16zvs8VDDwS2ARKBuKwALxEMqibc/go-libp2p-transport"
 	pst "gx/ipfs/QmWSJzRkCMJFHYUQZxKwPX8WA7XipaPtfiwMPARP51ymfn/go-stream-muxer"
 	psmss "gx/ipfs/QmWSJzRkCMJFHYUQZxKwPX8WA7XipaPtfiwMPARP51ymfn/go-stream-muxer/multistream"
 	spdy "gx/ipfs/QmWSJzRkCMJFHYUQZxKwPX8WA7XipaPtfiwMPARP51ymfn/go-stream-muxer/spdystream"
 	yamux "gx/ipfs/QmWSJzRkCMJFHYUQZxKwPX8WA7XipaPtfiwMPARP51ymfn/go-stream-muxer/yamux"
-	peer "gx/ipfs/QmY1xNhBfF9xA1pmD8yejyQAyd77K68qNN6JPM1CN2eiRu/go-libp2p-peer"
 	ps "gx/ipfs/QmZK81vcgMhpb2t7GNbozk7qzt6Rj4zFqitpvsWT9mduW8/go-peerstream"
+	peer "gx/ipfs/QmZwZjMVGss5rqYsJVGy18gNbkTJffFyq2x1uJ4e4p3ZAt/go-libp2p-peer"
 	context "gx/ipfs/QmZy2y8t9zQH2a1b8q2ZSLKp17ATuJoCNxxyMFG5qFExpt/go-net/context"
 	logging "gx/ipfs/Qmazh5oNUVsDZTs2g59rq8aYQqwpss8tcUWQzor5sCCEuH/go-log"
 	ma "gx/ipfs/QmcobAGsCjYt5DXoq9et9L8yR8er7o7Cu3DTvpaq12jYSz/go-multiaddr"
+	mafilter "gx/ipfs/Qme8dipKnZAChkp5Kfgj2MYYyBbzjqqPXmxQx3g9v3MoxP/multiaddr-filter"
 )
 
 var log = logging.Logger("swarm2")

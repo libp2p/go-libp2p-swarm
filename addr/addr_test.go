@@ -3,7 +3,7 @@ package addrutil
 import (
 	"testing"
 
-	manet "gx/ipfs/QmYVqhVfbK4BKvbW88Lhm26b3ud14sTBvcm1H7uWUx1Fkp/go-multiaddr-net"
+	manet "gx/ipfs/QmTrxSBY8Wqd5aBB4MeizeSzS5xFbK8dQBrYaMsiGnCBhb/go-multiaddr-net"
 	ma "gx/ipfs/QmcobAGsCjYt5DXoq9et9L8yR8er7o7Cu3DTvpaq12jYSz/go-multiaddr"
 )
 
