@@ -5,6 +5,8 @@ package swarm
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -47,6 +49,11 @@ func init() {
 
 	msstpt.AddTransport("/yamux/1.0.0", ymxtpt)
 	msstpt.AddTransport("/spdy/3.1.0", spdy.Transport)
+
+	// allow overriding of muxer preferences
+	if prefs := os.Getenv("LIBP2P_MUX_PREFS"); prefs != "" {
+		msstpt.OrderPreference = strings.Fields(prefs)
+	}
 
 	PSTransport = msstpt
 }
