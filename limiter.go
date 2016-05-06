@@ -24,6 +24,15 @@ type dialJob struct {
 	success bool
 }
 
+func (dj *dialJob) cancelled() bool {
+	select {
+	case <-dj.ctx.Done():
+		return true
+	default:
+		return false
+	}
+}
+
 type dialLimiter struct {
 	rllock      sync.Mutex
 	fdConsuming int
@@ -116,6 +125,10 @@ func (dl *dialLimiter) AddDialJob(dj *dialJob) {
 // it held during the dial.
 func (dl *dialLimiter) executeDial(j *dialJob) {
 	defer dl.finishedDial(j)
+	if j.cancelled() {
+		return
+	}
+
 	con, err := dl.dialFunc(j.ctx, j.peer, j.addr)
 	select {
 	case j.resp <- dialResult{Conn: con, Err: err}:
