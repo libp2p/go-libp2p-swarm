@@ -66,6 +66,20 @@ func (dl *dialLimiter) finishedDial(dj *dialJob) {
 	dl.rllock.Lock()
 	defer dl.rllock.Unlock()
 
+	if addrutil.IsFDCostlyTransport(dj.addr) {
+		dl.fdConsuming--
+		if len(dl.waitingOnFd) > 0 {
+			next := dl.waitingOnFd[0]
+			dl.waitingOnFd = dl.waitingOnFd[1:]
+			if len(dl.waitingOnFd) == 0 {
+				dl.waitingOnFd = nil // clear out memory
+			}
+			dl.fdConsuming++
+
+			go dl.executeDial(next)
+		}
+	}
+
 	// release tokens in reverse order than we take them
 	dl.activePerPeer[dj.peer]--
 	if dl.activePerPeer[dj.peer] == 0 {
@@ -87,17 +101,6 @@ func (dl *dialLimiter) finishedDial(dj *dialJob) {
 		go dl.executeDial(next)
 	}
 
-	if addrutil.IsFDCostlyTransport(dj.addr) {
-		dl.fdConsuming--
-		if len(dl.waitingOnFd) > 0 {
-			next := dl.waitingOnFd[0]
-			dl.waitingOnFd = dl.waitingOnFd[1:]
-			dl.fdConsuming++
-
-			// now, attempt to take the 'per peer limit' token
-			dl.schedulePerPeerDial(next)
-		}
-	}
 }
 
 // AddDialJob tries to take the needed tokens for starting the given dial job.
@@ -106,6 +109,13 @@ func (dl *dialLimiter) finishedDial(dj *dialJob) {
 func (dl *dialLimiter) AddDialJob(dj *dialJob) {
 	dl.rllock.Lock()
 	defer dl.rllock.Unlock()
+
+	if dl.activePerPeer[dj.peer] >= dl.perPeerLimit {
+		wlist := dl.waitingOnPeerLimit[dj.peer]
+		dl.waitingOnPeerLimit[dj.peer] = append(wlist, dj)
+		return
+	}
+	dl.activePerPeer[dj.peer]++
 
 	if addrutil.IsFDCostlyTransport(dj.addr) {
 		if dl.fdConsuming >= dl.fdLimit {
@@ -117,7 +127,20 @@ func (dl *dialLimiter) AddDialJob(dj *dialJob) {
 		dl.fdConsuming++
 	}
 
-	dl.schedulePerPeerDial(dj)
+	// take second needed token and start dial!
+	go dl.executeDial(dj)
+}
+
+func (dl *dialLimiter) schedulePerPeerDial(j *dialJob) {
+	if dl.activePerPeer[j.peer] >= dl.perPeerLimit {
+		wlist := dl.waitingOnPeerLimit[j.peer]
+		dl.waitingOnPeerLimit[j.peer] = append(wlist, j)
+		return
+	}
+
+	// take second needed token and start dial!
+	dl.activePerPeer[j.peer]++
+	go dl.executeDial(j)
 }
 
 // executeDial calls the dialFunc, and reports the result through the response
@@ -134,16 +157,4 @@ func (dl *dialLimiter) executeDial(j *dialJob) {
 	case j.resp <- dialResult{Conn: con, Err: err}:
 	case <-j.ctx.Done():
 	}
-}
-
-func (dl *dialLimiter) schedulePerPeerDial(j *dialJob) {
-	if dl.activePerPeer[j.peer] >= dl.perPeerLimit {
-		wlist := dl.waitingOnPeerLimit[j.peer]
-		dl.waitingOnPeerLimit[j.peer] = append(wlist, j)
-		return
-	}
-
-	// take second needed token and start dial!
-	dl.activePerPeer[j.peer]++
-	go dl.executeDial(j)
 }

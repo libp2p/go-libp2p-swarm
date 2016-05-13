@@ -3,6 +3,7 @@ package swarm
 import (
 	"fmt"
 	"math/rand"
+	"runtime"
 	"strconv"
 	"testing"
 	"time"
@@ -262,6 +263,7 @@ func TestTokenRedistribution(t *testing.T) {
 
 func TestStressLimiter(t *testing.T) {
 	df := func(ctx context.Context, p peer.ID, a ma.Multiaddr) (conn.Conn, error) {
+		fmt.Println("dial for peer: ", string(p))
 		if tcpPortOver(a, 1000) {
 			return conn.Conn(nil), nil
 		} else {
@@ -305,6 +307,8 @@ func TestStressLimiter(t *testing.T) {
 		}(peer.ID(fmt.Sprintf("testpeer%d", i)))
 	}
 
+	time.Sleep(time.Millisecond * 1000)
+	fmt.Println("NUM GOROS: ", runtime.NumGoroutine())
 	for i := 0; i < 20; i++ {
 		select {
 		case <-success:
