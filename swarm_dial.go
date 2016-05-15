@@ -390,9 +390,6 @@ func (s *Swarm) dialAddrs(ctx context.Context, p peer.ID, remoteAddrs <-chan ma.
 				continue
 			}
 
-			// limitedDial will start a dial to the given peer when
-			// it is able, respecting the various different types of rate
-			// limiting that occur without using extra goroutines per addr
 			s.limitedDial(ctx, p, addr, respch)
 			active++
 		case <-ctx.Done():
@@ -403,7 +400,7 @@ func (s *Swarm) dialAddrs(ctx context.Context, p peer.ID, remoteAddrs <-chan ma.
 		case resp := <-respch:
 			active--
 			if resp.Err != nil {
-				log.Error("got error on dial: ", resp.Err)
+				log.Info("got error on dial: ", resp.Err)
 				// Errors are normal, lots of dials will fail
 				exitErr = resp.Err
 
@@ -417,6 +414,9 @@ func (s *Swarm) dialAddrs(ctx context.Context, p peer.ID, remoteAddrs <-chan ma.
 	}
 }
 
+// limitedDial will start a dial to the given peer when
+// it is able, respecting the various different types of rate
+// limiting that occur without using extra goroutines per addr
 func (s *Swarm) limitedDial(ctx context.Context, p peer.ID, a ma.Multiaddr, resp chan dialResult) {
 	s.limiter.AddDialJob(&dialJob{
 		addr: a,
