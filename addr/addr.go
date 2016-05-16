@@ -7,6 +7,8 @@ import (
 	ma "github.com/jbenet/go-multiaddr"
 	manet "github.com/jbenet/go-multiaddr-net"
 	context "golang.org/x/net/context"
+
+	_ "github.com/whyrusleeping/ws-transport"
 )
 
 var log = logging.Logger("github.com/libp2p/go-libp2p/p2p/net/swarm/addr")
@@ -19,6 +21,8 @@ var SupportedTransportStrings = []string{
 	"/ip6/tcp",
 	"/ip4/udp/utp",
 	"/ip6/udp/utp",
+	"/ip4/tcp/ws",
+	"/ip6/tcp/ws",
 	// "/ip4/udp/udt", disabled because the lib doesnt work on arm
 	// "/ip6/udp/udt", disabled because the lib doesnt work on arm
 }
