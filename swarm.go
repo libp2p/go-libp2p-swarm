@@ -39,7 +39,7 @@ func init() {
 	msstpt := psmss.NewBlankTransport()
 
 	ymxtpt := &yamux.Transport{
-		AcceptBacklog:          1024,
+		AcceptBacklog:          8192,
 		ConnectionWriteTimeout: time.Second * 10,
 		KeepAliveInterval:      time.Second * 30,
 		EnableKeepAlive:        true,
