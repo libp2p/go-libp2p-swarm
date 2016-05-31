@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	peer "github.com/ipfs/go-libp2p-peer"
+	pstore "github.com/ipfs/go-libp2p-peerstore"
 	metrics "github.com/ipfs/go-libp2p/p2p/metrics"
 	inet "github.com/ipfs/go-libp2p/p2p/net"
 
@@ -19,7 +20,7 @@ type Network Swarm
 
 // NewNetwork constructs a new network and starts listening on given addresses.
 func NewNetwork(ctx context.Context, listen []ma.Multiaddr, local peer.ID,
-	peers peer.Peerstore, bwc metrics.Reporter) (*Network, error) {
+	peers pstore.Peerstore, bwc metrics.Reporter) (*Network, error) {
 
 	s, err := NewSwarm(ctx, listen, local, peers, bwc)
 	if err != nil {
@@ -63,7 +64,7 @@ func (n *Network) Peers() []peer.ID {
 }
 
 // Peers returns the Peerstore, which tracks known peers
-func (n *Network) Peerstore() peer.Peerstore {
+func (n *Network) Peerstore() pstore.Peerstore {
 	return n.Swarm().peers
 }
 

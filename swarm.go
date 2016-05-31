@@ -11,6 +11,7 @@ import (
 	"time"
 
 	peer "github.com/ipfs/go-libp2p-peer"
+	pstore "github.com/ipfs/go-libp2p-peerstore"
 	transport "github.com/ipfs/go-libp2p-transport"
 	metrics "github.com/ipfs/go-libp2p/p2p/metrics"
 	mconn "github.com/ipfs/go-libp2p/p2p/metrics/conn"
@@ -67,7 +68,7 @@ func init() {
 type Swarm struct {
 	swarm *ps.Swarm
 	local peer.ID
-	peers peer.Peerstore
+	peers pstore.Peerstore
 	connh ConnHandler
 
 	dsync dialsync
@@ -94,7 +95,7 @@ type Swarm struct {
 
 // NewSwarm constructs a Swarm, with a Chan.
 func NewSwarm(ctx context.Context, listenAddrs []ma.Multiaddr,
-	local peer.ID, peers peer.Peerstore, bwc metrics.Reporter) (*Swarm, error) {
+	local peer.ID, peers pstore.Peerstore, bwc metrics.Reporter) (*Swarm, error) {
 
 	listenAddrs, err := filterAddrs(listenAddrs)
 	if err != nil {

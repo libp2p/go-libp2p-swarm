@@ -6,9 +6,10 @@ import (
 	"testing"
 	"time"
 
-	peer "github.com/ipfs/go-libp2p-peer"
 	ci "github.com/ipfs/go-libp2p/testutil/ci"
 
+	peer "github.com/ipfs/go-libp2p-peer"
+	pstore "github.com/ipfs/go-libp2p-peerstore"
 	ma "github.com/jbenet/go-multiaddr"
 	context "golang.org/x/net/context"
 )
@@ -26,7 +27,7 @@ func TestSimultOpen(t *testing.T) {
 		connect := func(s *Swarm, dst peer.ID, addr ma.Multiaddr) {
 			// copy for other peer
 			log.Debugf("TestSimultOpen: connecting: %s --> %s (%s)", s.local, dst, addr)
-			s.peers.AddAddr(dst, addr, peer.PermanentAddrTTL)
+			s.peers.AddAddr(dst, addr, pstore.PermanentAddrTTL)
 			if _, err := s.Dial(ctx, dst); err != nil {
 				t.Fatal("error swarm dialing to peer", err)
 			}

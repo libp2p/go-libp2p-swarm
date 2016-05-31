@@ -9,11 +9,12 @@ import (
 	"testing"
 	"time"
 
-	peer "github.com/ipfs/go-libp2p-peer"
 	metrics "github.com/ipfs/go-libp2p/p2p/metrics"
 	inet "github.com/ipfs/go-libp2p/p2p/net"
 	testutil "github.com/ipfs/go-libp2p/testutil"
 
+	peer "github.com/ipfs/go-libp2p-peer"
+	pstore "github.com/ipfs/go-libp2p-peerstore"
 	ma "github.com/jbenet/go-multiaddr"
 	context "golang.org/x/net/context"
 )
@@ -52,7 +53,7 @@ func EchoStreamHandler(stream inet.Stream) {
 func makeDialOnlySwarm(ctx context.Context, t *testing.T) *Swarm {
 	id := testutil.RandIdentityOrFatal(t)
 
-	peerstore := peer.NewPeerstore()
+	peerstore := pstore.NewPeerstore()
 	peerstore.AddPubKey(id.ID(), id.PublicKey())
 	peerstore.AddPrivKey(id.ID(), id.PrivateKey())
 
@@ -72,7 +73,7 @@ func makeSwarms(ctx context.Context, t *testing.T, num int) []*Swarm {
 	for i := 0; i < num; i++ {
 		localnp := testutil.RandPeerNetParamsOrFatal(t)
 
-		peerstore := peer.NewPeerstore()
+		peerstore := pstore.NewPeerstore()
 		peerstore.AddPubKey(localnp.ID, localnp.PubKey)
 		peerstore.AddPrivKey(localnp.ID, localnp.PrivKey)
 
@@ -94,7 +95,7 @@ func connectSwarms(t *testing.T, ctx context.Context, swarms []*Swarm) {
 	var wg sync.WaitGroup
 	connect := func(s *Swarm, dst peer.ID, addr ma.Multiaddr) {
 		// TODO: make a DialAddr func.
-		s.peers.AddAddr(dst, addr, peer.PermanentAddrTTL)
+		s.peers.AddAddr(dst, addr, pstore.PermanentAddrTTL)
 		if _, err := s.Dial(ctx, dst); err != nil {
 			t.Fatal("error swarm dialing to peer", err)
 		}
@@ -313,13 +314,13 @@ func TestAddrBlocking(t *testing.T) {
 
 	swarms[1].Filters.AddDialFilter(block)
 
-	swarms[1].peers.AddAddr(swarms[0].LocalPeer(), swarms[0].ListenAddresses()[0], peer.PermanentAddrTTL)
+	swarms[1].peers.AddAddr(swarms[0].LocalPeer(), swarms[0].ListenAddresses()[0], pstore.PermanentAddrTTL)
 	_, err = swarms[1].Dial(ctx, swarms[0].LocalPeer())
 	if err == nil {
 		t.Fatal("dial should have failed")
 	}
 
-	swarms[0].peers.AddAddr(swarms[1].LocalPeer(), swarms[1].ListenAddresses()[0], peer.PermanentAddrTTL)
+	swarms[0].peers.AddAddr(swarms[1].LocalPeer(), swarms[1].ListenAddresses()[0], pstore.PermanentAddrTTL)
 	_, err = swarms[0].Dial(ctx, swarms[1].LocalPeer())
 	if err == nil {
 		t.Fatal("dial should have failed")

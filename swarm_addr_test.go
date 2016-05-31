@@ -3,11 +3,11 @@ package swarm
 import (
 	"testing"
 
-	peer "github.com/ipfs/go-libp2p-peer"
 	metrics "github.com/ipfs/go-libp2p/p2p/metrics"
 	addrutil "github.com/ipfs/go-libp2p/p2p/net/swarm/addr"
 	testutil "github.com/ipfs/go-libp2p/testutil"
 
+	pstore "github.com/ipfs/go-libp2p-peerstore"
 	ma "github.com/jbenet/go-multiaddr"
 	context "golang.org/x/net/context"
 )
@@ -63,7 +63,7 @@ func TestFilterAddrs(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ps := peer.NewPeerstore()
+	ps := pstore.NewPeerstore()
 	ctx := context.Background()
 
 	if _, err := NewNetwork(ctx, bad, id, ps, metrics.NewBandwidthCounter()); err == nil {
@@ -111,7 +111,7 @@ func TestDialBadAddrs(t *testing.T) {
 
 	test := func(a ma.Multiaddr) {
 		p := testutil.RandPeerIDFatal(t)
-		s.peers.AddAddr(p, a, peer.PermanentAddrTTL)
+		s.peers.AddAddr(p, a, pstore.PermanentAddrTTL)
 		if _, err := s.Dial(ctx, p); err == nil {
 			t.Error("swarm should not dial: %s", m)
 		}
