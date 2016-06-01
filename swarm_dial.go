@@ -1,10 +1,8 @@
 package swarm
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
-	"sort"
 	"sync"
 	"time"
 
@@ -13,7 +11,6 @@ import (
 	conn "github.com/ipfs/go-libp2p/p2p/net/conn"
 	addrutil "github.com/ipfs/go-libp2p/p2p/net/swarm/addr"
 	ma "github.com/jbenet/go-multiaddr"
-	"github.com/jbenet/go-multiaddr-net"
 	context "golang.org/x/net/context"
 )
 
@@ -41,6 +38,9 @@ const dialAttempts = 1
 
 // number of concurrent outbound dials over transports that consume file descriptors
 const concurrentFdDials = 160
+
+// number of concurrent outbound dials to make per peer
+const defaultPerPeerRateLimit = 8
 
 // DialTimeout is the amount of time each dial attempt has. We can think about making
 // this larger down the road, or putting more granular timeouts (i.e. within each
@@ -319,32 +319,40 @@ func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 		log.Debug("Dial not given PrivateKey, so WILL NOT SECURE conn.")
 	}
 
-	// get remote peer addrs
-	remoteAddrs := s.peers.Addrs(p)
-	// make sure we can use the addresses.
-	remoteAddrs = addrutil.FilterUsableAddrs(remoteAddrs)
-	// drop out any addrs that would just dial ourselves. use ListenAddresses
-	// as that is a more authoritative view than localAddrs.
 	ila, _ := s.InterfaceListenAddresses()
-	remoteAddrs = addrutil.Subtract(remoteAddrs, ila)
-	remoteAddrs = addrutil.Subtract(remoteAddrs, s.peers.Addrs(s.local))
+	subtract_filter := addrutil.SubtractFilter(append(ila, s.peers.Addrs(s.local)...)...)
 
-	log.Debugf("%s swarm dialing %s -- local:%s remote:%s", s.local, p, s.ListenAddresses(), remoteAddrs)
-	if len(remoteAddrs) == 0 {
-		err := errors.New("peer has no addresses")
-		logdial["error"] = err
-		return nil, err
-	}
+	// get live channel of addresses for peer, filtered by the given filters
+	/*
+		remoteAddrChan := s.peers.AddrsChan(ctx, p,
+			addrutil.AddrUsableFilter,
+			subtract_filter,
+			s.Filters.AddrBlocked)
+	*/
 
-	remoteAddrs = s.filterAddrs(remoteAddrs)
-	if len(remoteAddrs) == 0 {
-		err := errors.New("all adresses for peer have been filtered out")
-		logdial["error"] = err
-		return nil, err
+	//////
+	/*
+		This code is temporary, the peerstore can currently provide
+		a channel as an interface for receiving addresses, but more thought
+		needs to be put into the execution. For now, this allows us to use
+		the improved rate limiter, while maintaining the outward behaviour
+		that we previously had (halting a dial when we run out of addrs)
+	*/
+	paddrs := s.peers.Addrs(p)
+	good_addrs := addrutil.FilterAddrs(paddrs,
+		addrutil.AddrUsableFunc,
+		subtract_filter,
+		addrutil.FilterNeg(s.Filters.AddrBlocked),
+	)
+	remoteAddrChan := make(chan ma.Multiaddr, len(good_addrs))
+	for _, a := range good_addrs {
+		remoteAddrChan <- a
 	}
+	close(remoteAddrChan)
+	/////////
 
 	// try to get a connection to any addr
-	connC, err := s.dialAddrs(ctx, p, remoteAddrs)
+	connC, err := s.dialAddrs(ctx, p, remoteAddrChan)
 	if err != nil {
 		logdial["error"] = err
 		return nil, err
@@ -364,98 +372,64 @@ func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 	return swarmC, nil
 }
 
-func (s *Swarm) dialAddrs(ctx context.Context, p peer.ID, remoteAddrs []ma.Multiaddr) (conn.Conn, error) {
-
-	// sort addresses so preferred addresses are dialed sooner
-	sort.Sort(AddrList(remoteAddrs))
-
-	// try to connect to one of the peer's known addresses.
-	// we dial concurrently to each of the addresses, which:
-	// * makes the process faster overall
-	// * attempts to get the fastest connection available.
-	// * mitigates the waste of trying bad addresses
+func (s *Swarm) dialAddrs(ctx context.Context, p peer.ID, remoteAddrs <-chan ma.Multiaddr) (conn.Conn, error) {
 	log.Debugf("%s swarm dialing %s %s", s.local, p, remoteAddrs)
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel() // cancel work when we exit func
 
-	conns := make(chan conn.Conn)
-	errs := make(chan error, len(remoteAddrs))
+	// use a single response type instead of errs and conns, reduces complexity *a ton*
+	respch := make(chan dialResult)
 
-	// dialSingleAddr is used in the rate-limited async thing below.
-	dialSingleAddr := func(addr ma.Multiaddr) {
-		// rebind chans in scope so we can nil them out easily
-		connsout := conns
-		errsout := errs
+	defaultDialFail := fmt.Errorf("failed to dial %s (default failure)", p)
+	exitErr := defaultDialFail
 
-		connC, err := s.dialAddr(ctx, p, addr)
-		if err != nil {
-			connsout = nil
-		} else if connC == nil {
-			// NOTE: this really should never happen
-			log.Errorf("failed to dial %s %s and got no error!", p, addr)
-			err = fmt.Errorf("failed to dial %s %s", p, addr)
-			connsout = nil
-		} else {
-			errsout = nil
-		}
-
-		// check parent still wants our results
+	var active int
+	for {
 		select {
-		case <-ctx.Done():
-			if connC != nil {
-				connC.Close()
+		case addr, ok := <-remoteAddrs:
+			if !ok {
+				remoteAddrs = nil
+				if active == 0 {
+					return nil, exitErr
+				}
+				continue
 			}
-		case errsout <- err:
-		case connsout <- connC:
+
+			s.limitedDial(ctx, p, addr, respch)
+			active++
+		case <-ctx.Done():
+			if exitErr == defaultDialFail {
+				exitErr = ctx.Err()
+			}
+			return nil, exitErr
+		case resp := <-respch:
+			active--
+			if resp.Err != nil {
+				log.Info("got error on dial: ", resp.Err)
+				// Errors are normal, lots of dials will fail
+				exitErr = resp.Err
+
+				if remoteAddrs == nil && active == 0 {
+					return nil, exitErr
+				}
+			} else if resp.Conn != nil {
+				return resp.Conn, nil
+			}
 		}
 	}
+}
 
-	// this whole thing is in a goroutine so we can use foundConn
-	// to end early.
-	go func() {
-		limiter := make(chan struct{}, 8)
-		for _, addr := range remoteAddrs {
-			// returns whatever ratelimiting is acceptable for workerAddr.
-			// may not rate limit at all.
-			rl := s.addrDialRateLimit(addr)
-			select {
-			case <-ctx.Done(): // our context was cancelled
-				return
-			case rl <- struct{}{}:
-				// take the token, move on
-			}
-
-			select {
-			case <-ctx.Done(): // our context was cancelled
-				return
-			case limiter <- struct{}{}:
-				// take the token, move on
-			}
-
-			go func(rlc <-chan struct{}, a ma.Multiaddr) {
-				dialSingleAddr(a)
-				<-limiter
-				<-rlc
-			}(rl, addr)
-		}
-	}()
-
-	// wair for the results.
-	exitErr := fmt.Errorf("failed to dial %s", p)
-	for range remoteAddrs {
-		select {
-		case exitErr = <-errs: //
-			log.Debug("dial error: ", exitErr)
-		case connC := <-conns:
-			// take the first + return asap
-			return connC, nil
-		case <-ctx.Done():
-			// break out and return error
-			break
-		}
-	}
-	return nil, exitErr
+// limitedDial will start a dial to the given peer when
+// it is able, respecting the various different types of rate
+// limiting that occur without using extra goroutines per addr
+func (s *Swarm) limitedDial(ctx context.Context, p peer.ID, a ma.Multiaddr, resp chan dialResult) {
+	s.limiter.AddDialJob(&dialJob{
+		addr: a,
+		peer: p,
+		resp: resp,
+		ctx:  ctx,
+	})
 }
 
 func (s *Swarm) dialAddr(ctx context.Context, p peer.ID, addr ma.Multiaddr) (conn.Conn, error) {
@@ -485,16 +459,6 @@ func (s *Swarm) dialAddr(ctx context.Context, p peer.ID, addr ma.Multiaddr) (con
 	return connC, nil
 }
 
-func (s *Swarm) filterAddrs(addrs []ma.Multiaddr) []ma.Multiaddr {
-	var out []ma.Multiaddr
-	for _, a := range addrs {
-		if !s.Filters.AddrBlocked(a) {
-			out = append(out, a)
-		}
-	}
-	return out
-}
-
 // dialConnSetup is the setup logic for a connection from the dial side. it
 // needs to add the Conn to the StreamSwarm, then run newConnSetup
 func dialConnSetup(ctx context.Context, s *Swarm, connC conn.Conn) (*Conn, error) {
@@ -513,73 +477,4 @@ func dialConnSetup(ctx context.Context, s *Swarm, connC conn.Conn) (*Conn, error
 	}
 
 	return swarmC, err
-}
-
-// addrDialRateLimit returns a ratelimiting channel for dialing transport
-// addrs like a. for example, tcp is fd-ratelimited. utp is not ratelimited.
-func (s *Swarm) addrDialRateLimit(a ma.Multiaddr) chan struct{} {
-	if isFDCostlyTransport(a) {
-		return s.fdRateLimit
-	}
-
-	// do not rate limit it at all
-	return make(chan struct{}, 1)
-}
-
-func isFDCostlyTransport(a ma.Multiaddr) bool {
-	return isTCPMultiaddr(a)
-}
-
-func isTCPMultiaddr(a ma.Multiaddr) bool {
-	p := a.Protocols()
-	return len(p) == 2 && (p[0].Name == "ip4" || p[0].Name == "ip6") && p[1].Name == "tcp"
-}
-
-type AddrList []ma.Multiaddr
-
-func (al AddrList) Len() int {
-	return len(al)
-}
-
-func (al AddrList) Swap(i, j int) {
-	al[i], al[j] = al[j], al[i]
-}
-
-func (al AddrList) Less(i, j int) bool {
-	a := al[i]
-	b := al[j]
-
-	// dial localhost addresses next, they should fail immediately
-	lba := manet.IsIPLoopback(a)
-	lbb := manet.IsIPLoopback(b)
-	if lba {
-		if !lbb {
-			return true
-		}
-	}
-
-	// dial utp and similar 'non-fd-consuming' addresses first
-	fda := isFDCostlyTransport(a)
-	fdb := isFDCostlyTransport(b)
-	if !fda {
-		if fdb {
-			return true
-		}
-
-		// if neither consume fd's, assume equal ordering
-		return false
-	}
-
-	// if 'b' doesnt take a file descriptor
-	if !fdb {
-		return false
-	}
-
-	// if 'b' is loopback and both take file descriptors
-	if lbb {
-		return false
-	}
-
-	// for the rest, just sort by bytes
-	return bytes.Compare(a.Bytes(), b.Bytes()) > 0
 }
