@@ -330,8 +330,14 @@ func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 			s.Filters.AddrBlocked)
 	*/
 
-	////// TEMP UNTIL PEERSTORE GETS UPGRADED
-	// Ref: https://github.com/ipfs/go-libp2p-peer/pull/1
+	//////
+	/*
+		This code is temporary, the peerstore can currently provide
+		a channel as an interface for receiving addresses, but more thought
+		needs to be put into the execution. For now, this allows us to use
+		the improved rate limiter, while maintaining the outward behaviour
+		that we previously had (halting a dial when we run out of addrs)
+	*/
 	paddrs := s.peers.Addrs(p)
 	good_addrs := addrutil.FilterAddrs(paddrs,
 		addrutil.AddrUsableFunc,
