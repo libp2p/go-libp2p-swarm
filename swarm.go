@@ -152,6 +152,7 @@ func (s *Swarm) AddAddrFilter(f string) error {
 	s.Filters.AddDialFilter(m)
 	return nil
 }
+
 func filterAddrs(listenAddrs []ma.Multiaddr) ([]ma.Multiaddr, error) {
 	if len(listenAddrs) > 0 {
 		filtered := addrutil.FilterUsableAddrs(listenAddrs)
@@ -283,6 +284,10 @@ func (s *Swarm) Peers() []peer.ID {
 // LocalPeer returns the local peer swarm is associated to.
 func (s *Swarm) LocalPeer() peer.ID {
 	return s.local
+}
+
+func (s *Swarm) Backoff() *dialbackoff {
+	return &s.backf
 }
 
 // notifyAll sends a signal to all Notifiees
