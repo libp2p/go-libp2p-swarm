@@ -187,7 +187,7 @@ func TestDialWait(t *testing.T) {
 	} else {
 		t.Log("correctly got error:", err)
 	}
-	duration := time.Now().Sub(before)
+	duration := time.Since(before)
 
 	dt := s1.dialT
 	if duration < dt*dialAttempts {
@@ -451,7 +451,7 @@ func TestDialBackoffClears(t *testing.T) {
 	} else {
 		t.Log("correctly got error:", err)
 	}
-	duration := time.Now().Sub(before)
+	duration := time.Since(before)
 
 	dt := s1.dialT
 	if duration < dt*dialAttempts {

@@ -124,7 +124,7 @@ func (n *Network) InterfaceListenAddresses() ([]ma.Multiaddr, error) {
 // For now only returns Connected || NotConnected. Expand into more later.
 func (n *Network) Connectedness(p peer.ID) inet.Connectedness {
 	c := n.Swarm().ConnectionsToPeer(p)
-	if c != nil && len(c) > 0 {
+	if len(c) > 0 {
 		return inet.Connected
 	}
 	return inet.NotConnected
