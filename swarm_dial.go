@@ -26,9 +26,15 @@ import (
 //                                                             retry dialAttempt x
 
 var (
+	// ErrDialBackoff is returned by the backoff code when a given peer has
+	// been dialed too frequently
 	ErrDialBackoff = errors.New("dial backoff")
-	ErrDialFailed  = errors.New("dial attempt failed")
-	ErrDialToSelf  = errors.New("dial to self attempted")
+
+	// ErrDialFailed is returned when connecting to a peer has ultimately failed
+	ErrDialFailed = errors.New("dial attempt failed")
+
+	// ErrDialToSelf is returned if we attempt to dial our own peer
+	ErrDialToSelf = errors.New("dial to self attempted")
 )
 
 // dialAttempts governs how many times a goroutine will try to dial a given peer.
@@ -45,7 +51,7 @@ const defaultPerPeerRateLimit = 8
 // DialTimeout is the amount of time each dial attempt has. We can think about making
 // this larger down the road, or putting more granular timeouts (i.e. within each
 // subcomponent of Dial)
-var DialTimeout time.Duration = time.Second * 10
+var DialTimeout = time.Second * 10
 
 // dialsync is a small object that helps manage ongoing dials.
 // this way, if we receive many simultaneous dial requests, one
@@ -320,13 +326,13 @@ func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 	}
 
 	ila, _ := s.InterfaceListenAddresses()
-	subtract_filter := addrutil.SubtractFilter(append(ila, s.peers.Addrs(s.local)...)...)
+	subtractFilter := addrutil.SubtractFilter(append(ila, s.peers.Addrs(s.local)...)...)
 
 	// get live channel of addresses for peer, filtered by the given filters
 	/*
 		remoteAddrChan := s.peers.AddrsChan(ctx, p,
 			addrutil.AddrUsableFilter,
-			subtract_filter,
+			subtractFilter,
 			s.Filters.AddrBlocked)
 	*/
 
@@ -339,13 +345,13 @@ func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 		that we previously had (halting a dial when we run out of addrs)
 	*/
 	paddrs := s.peers.Addrs(p)
-	good_addrs := addrutil.FilterAddrs(paddrs,
+	goodAddrs := addrutil.FilterAddrs(paddrs,
 		addrutil.AddrUsableFunc,
-		subtract_filter,
+		subtractFilter,
 		addrutil.FilterNeg(s.Filters.AddrBlocked),
 	)
-	remoteAddrChan := make(chan ma.Multiaddr, len(good_addrs))
-	for _, a := range good_addrs {
+	remoteAddrChan := make(chan ma.Multiaddr, len(goodAddrs))
+	for _, a := range goodAddrs {
 		remoteAddrChan <- a
 	}
 	close(remoteAddrChan)

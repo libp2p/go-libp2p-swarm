@@ -63,7 +63,7 @@ func (n *Network) Peers() []peer.ID {
 	return n.Swarm().Peers()
 }
 
-// Peers returns the Peerstore, which tracks known peers
+// Peerstore returns the Peerstore, which tracks known peers
 func (n *Network) Peerstore() pstore.Peerstore {
 	return n.Swarm().peers
 }
@@ -142,7 +142,7 @@ func (n *Network) NewStream(ctx context.Context, p peer.ID) (inet.Stream, error)
 	return inet.Stream(s), nil
 }
 
-// SetHandler sets the protocol handler on the Network's Muxer.
+// SetStreamHandler sets the protocol handler on the Network's Muxer.
 // This operation is threadsafe.
 func (n *Network) SetStreamHandler(h inet.StreamHandler) {
 	n.Swarm().SetStreamHandler(h)

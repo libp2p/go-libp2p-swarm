@@ -25,15 +25,3 @@ func (s *Swarm) ListenAddresses() []ma.Multiaddr {
 func (s *Swarm) InterfaceListenAddresses() ([]ma.Multiaddr, error) {
 	return addrutil.ResolveUnspecifiedAddresses(s.ListenAddresses(), nil)
 }
-
-// checkNATWarning checks if our observed addresses differ. if so,
-// informs the user that certain things might not work yet
-func checkNATWarning(s *Swarm, observed ma.Multiaddr, expected ma.Multiaddr) {
-	listen, err := s.InterfaceListenAddresses()
-	if err != nil {
-		log.Debugf("Error retrieving swarm.InterfaceListenAddresses: %s", err)
-		return
-	}
-
-	addrutil.CheckNATWarning(observed, expected, listen)
-}
