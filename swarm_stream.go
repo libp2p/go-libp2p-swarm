@@ -8,11 +8,14 @@ import (
 
 // a Stream is a wrapper around a ps.Stream that exposes a way to get
 // our Conn and Swarm (instead of just the ps.Conn and ps.Swarm)
-type Stream ps.Stream
+type Stream struct {
+	stream   *ps.Stream
+	protocol string
+}
 
 // Stream returns the underlying peerstream.Stream
 func (s *Stream) Stream() *ps.Stream {
-	return (*ps.Stream)(s)
+	return s.stream
 }
 
 // Conn returns the Conn associated with this Stream, as an inet.Conn
@@ -22,27 +25,37 @@ func (s *Stream) Conn() inet.Conn {
 
 // SwarmConn returns the Conn associated with this Stream, as a *Conn
 func (s *Stream) SwarmConn() *Conn {
-	return (*Conn)(s.Stream().Conn())
+	return (*Conn)(s.stream.Conn())
 }
 
 // Read reads bytes from a stream.
 func (s *Stream) Read(p []byte) (n int, err error) {
-	return s.Stream().Read(p)
+	return s.stream.Read(p)
 }
 
 // Write writes bytes to a stream, flushing for each call.
 func (s *Stream) Write(p []byte) (n int, err error) {
-	return s.Stream().Write(p)
+	return s.stream.Write(p)
 }
 
 // Close closes the stream, indicating this side is finished
 // with the stream.
 func (s *Stream) Close() error {
-	return s.Stream().Close()
+	return s.stream.Close()
+}
+
+func (s *Stream) Protocol() string {
+	return s.protocol
+}
+
+func (s *Stream) SetProtocol(p string) {
+	s.protocol = p
 }
 
 func wrapStream(pss *ps.Stream) *Stream {
-	return (*Stream)(pss)
+	return &Stream{
+		stream: pss,
+	}
 }
 
 func wrapStreams(st []*ps.Stream) []*Stream {

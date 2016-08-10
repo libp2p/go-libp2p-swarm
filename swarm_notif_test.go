@@ -10,6 +10,12 @@ import (
 	context "golang.org/x/net/context"
 )
 
+func streamsSame(a, b inet.Stream) bool {
+	sa := a.(*Stream)
+	sb := b.(*Stream)
+	return sa.Stream() == sb.Stream()
+}
+
 func TestNotifications(t *testing.T) {
 	ctx := context.Background()
 	swarms := makeSwarms(ctx, t, 5)
@@ -98,7 +104,7 @@ func TestNotifications(t *testing.T) {
 		case <-time.After(timeout):
 			t.Fatal("timeout")
 		}
-		if s != s2 {
+		if !streamsSame(s, s2) {
 			t.Fatal("got incorrect stream", s.Conn(), s2.Conn())
 		}
 
@@ -108,7 +114,7 @@ func TestNotifications(t *testing.T) {
 		case <-time.After(timeout):
 			t.Fatal("timeout")
 		}
-		if s != s2 {
+		if !streamsSame(s, s2) {
 			t.Fatal("got incorrect stream", s.Conn(), s2.Conn())
 		}
 	}

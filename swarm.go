@@ -340,9 +340,9 @@ func (n *ps2netNotifee) Disconnected(c *ps.Conn) {
 }
 
 func (n *ps2netNotifee) OpenedStream(s *ps.Stream) {
-	n.not.OpenedStream(n.net, inet.Stream((*Stream)(s)))
+	n.not.OpenedStream(n.net, &Stream{stream: s})
 }
 
 func (n *ps2netNotifee) ClosedStream(s *ps.Stream) {
-	n.not.ClosedStream(n.net, inet.Stream((*Stream)(s)))
+	n.not.ClosedStream(n.net, &Stream{stream: s})
 }
