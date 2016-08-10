@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	ci "github.com/ipfs/go-libp2p/testutil/ci"
+	ci "github.com/libp2p/go-libp2p/testutil/ci"
 
 	peer "github.com/ipfs/go-libp2p-peer"
 	pstore "github.com/ipfs/go-libp2p-peerstore"

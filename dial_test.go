@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	addrutil "github.com/ipfs/go-libp2p/p2p/net/swarm/addr"
-	testutil "github.com/ipfs/go-libp2p/testutil"
-	ci "github.com/ipfs/go-libp2p/testutil/ci"
+	addrutil "github.com/libp2p/go-libp2p/p2p/net/swarm/addr"
+	testutil "github.com/libp2p/go-libp2p/testutil"
+	ci "github.com/libp2p/go-libp2p/testutil/ci"
 
 	peer "github.com/ipfs/go-libp2p-peer"
 	pstore "github.com/ipfs/go-libp2p-peerstore"

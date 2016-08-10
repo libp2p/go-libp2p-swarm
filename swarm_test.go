@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	metrics "github.com/ipfs/go-libp2p/p2p/metrics"
-	inet "github.com/ipfs/go-libp2p/p2p/net"
-	testutil "github.com/ipfs/go-libp2p/testutil"
+	metrics "github.com/libp2p/go-libp2p/p2p/metrics"
+	inet "github.com/libp2p/go-libp2p/p2p/net"
+	testutil "github.com/libp2p/go-libp2p/testutil"
 
 	peer "github.com/ipfs/go-libp2p-peer"
 	pstore "github.com/ipfs/go-libp2p-peerstore"

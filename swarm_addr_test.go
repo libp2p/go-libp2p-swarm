@@ -3,9 +3,9 @@ package swarm
 import (
 	"testing"
 
-	metrics "github.com/ipfs/go-libp2p/p2p/metrics"
-	addrutil "github.com/ipfs/go-libp2p/p2p/net/swarm/addr"
-	testutil "github.com/ipfs/go-libp2p/testutil"
+	metrics "github.com/libp2p/go-libp2p/p2p/metrics"
+	addrutil "github.com/libp2p/go-libp2p/p2p/net/swarm/addr"
+	testutil "github.com/libp2p/go-libp2p/testutil"
 
 	pstore "github.com/ipfs/go-libp2p-peerstore"
 	ma "github.com/jbenet/go-multiaddr"

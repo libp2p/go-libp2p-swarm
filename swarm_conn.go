@@ -3,8 +3,8 @@ package swarm
 import (
 	"fmt"
 
-	inet "github.com/ipfs/go-libp2p/p2p/net"
-	conn "github.com/ipfs/go-libp2p/p2p/net/conn"
+	inet "github.com/libp2p/go-libp2p/p2p/net"
+	conn "github.com/libp2p/go-libp2p/p2p/net/conn"
 
 	ic "github.com/ipfs/go-libp2p-crypto"
 	peer "github.com/ipfs/go-libp2p-peer"

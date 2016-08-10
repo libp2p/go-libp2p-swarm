@@ -8,9 +8,9 @@ import (
 
 	lgbl "github.com/ipfs/go-libp2p-loggables"
 	peer "github.com/ipfs/go-libp2p-peer"
-	conn "github.com/ipfs/go-libp2p/p2p/net/conn"
-	addrutil "github.com/ipfs/go-libp2p/p2p/net/swarm/addr"
 	ma "github.com/jbenet/go-multiaddr"
+	conn "github.com/libp2p/go-libp2p/p2p/net/conn"
+	addrutil "github.com/libp2p/go-libp2p/p2p/net/swarm/addr"
 	context "golang.org/x/net/context"
 )
 

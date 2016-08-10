@@ -7,8 +7,8 @@ import (
 	ma "github.com/jbenet/go-multiaddr"
 	context "golang.org/x/net/context"
 
-	conn "github.com/ipfs/go-libp2p/p2p/net/conn"
-	addrutil "github.com/ipfs/go-libp2p/p2p/net/swarm/addr"
+	conn "github.com/libp2p/go-libp2p/p2p/net/conn"
+	addrutil "github.com/libp2p/go-libp2p/p2p/net/swarm/addr"
 )
 
 type dialResult struct {

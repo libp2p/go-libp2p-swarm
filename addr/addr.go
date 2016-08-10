@@ -9,7 +9,7 @@ import (
 	context "golang.org/x/net/context"
 )
 
-var log = logging.Logger("github.com/ipfs/go-libp2p/p2p/net/swarm/addr")
+var log = logging.Logger("github.com/libp2p/go-libp2p/p2p/net/swarm/addr")
 
 // SupportedTransportStrings is the list of supported transports for the swarm.
 // These are strings of encapsulated multiaddr protocols. E.g.:

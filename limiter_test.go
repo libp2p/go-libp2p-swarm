@@ -12,7 +12,7 @@ import (
 	mafmt "github.com/whyrusleeping/mafmt"
 	context "golang.org/x/net/context"
 
-	conn "github.com/ipfs/go-libp2p/p2p/net/conn"
+	conn "github.com/libp2p/go-libp2p/p2p/net/conn"
 )
 
 func mustAddr(t *testing.T, s string) ma.Multiaddr {
