@@ -131,18 +131,6 @@ func (dl *dialLimiter) AddDialJob(dj *dialJob) {
 	go dl.executeDial(dj)
 }
 
-func (dl *dialLimiter) schedulePerPeerDial(j *dialJob) {
-	if dl.activePerPeer[j.peer] >= dl.perPeerLimit {
-		wlist := dl.waitingOnPeerLimit[j.peer]
-		dl.waitingOnPeerLimit[j.peer] = append(wlist, j)
-		return
-	}
-
-	// take second needed token and start dial!
-	dl.activePerPeer[j.peer]++
-	go dl.executeDial(j)
-}
-
 // executeDial calls the dialFunc, and reports the result through the response
 // channel when finished. Once the response is sent it also releases all tokens
 // it held during the dial.
