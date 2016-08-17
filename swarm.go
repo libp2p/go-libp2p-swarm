@@ -1,4 +1,4 @@
-// package swarm implements a connection muxer with a pair of channels
+// Package swarm implements a connection muxer with a pair of channels
 // to synchronize all network communication.
 package swarm
 
@@ -34,6 +34,8 @@ import (
 
 var log = logging.Logger("swarm2")
 
+// PSTransport is the default peerstream transport that will be used by
+// any libp2p swarms.
 var PSTransport pst.Transport
 
 func init() {
@@ -143,6 +145,8 @@ func (s *Swarm) teardown() error {
 	return s.swarm.Close()
 }
 
+// AddAddrFilter adds a multiaddr filter to the set of filters the swarm will
+// use to determine which addresses not to dial to.
 func (s *Swarm) AddAddrFilter(f string) error {
 	m, err := mafilter.NewMask(f)
 	if err != nil {
@@ -165,6 +169,7 @@ func filterAddrs(listenAddrs []ma.Multiaddr) ([]ma.Multiaddr, error) {
 	return listenAddrs, nil
 }
 
+// Listen sets up listeners for all of the given addresses
 func (s *Swarm) Listen(addrs ...ma.Multiaddr) error {
 	addrs, err := filterAddrs(addrs)
 	if err != nil {
@@ -286,6 +291,7 @@ func (s *Swarm) LocalPeer() peer.ID {
 	return s.local
 }
 
+// Backoff returns the dialbackoff object for this swarm.
 func (s *Swarm) Backoff() *dialbackoff {
 	return &s.backf
 }

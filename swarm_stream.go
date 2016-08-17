@@ -6,7 +6,7 @@ import (
 	ps "github.com/jbenet/go-peerstream"
 )
 
-// a Stream is a wrapper around a ps.Stream that exposes a way to get
+// Stream is a wrapper around a ps.Stream that exposes a way to get
 // our Conn and Swarm (instead of just the ps.Conn and ps.Swarm)
 type Stream struct {
 	stream   *ps.Stream

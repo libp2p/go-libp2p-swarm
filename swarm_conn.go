@@ -13,7 +13,7 @@ import (
 	context "golang.org/x/net/context"
 )
 
-// a Conn is a simple wrapper around a ps.Conn that also exposes
+// Conn is a simple wrapper around a ps.Conn that also exposes
 // some of the methods from the underlying conn.Conn.
 // There's **five** "layers" to each connection:
 //  * 0. the net.Conn - underlying net.Conn (TCP/UDP/UTP/etc)
@@ -87,6 +87,7 @@ func (c *Conn) NewStream() (inet.Stream, error) {
 	return inet.Stream(s), err
 }
 
+// Close closes the underlying stream connection
 func (c *Conn) Close() error {
 	return c.StreamConn().Close()
 }

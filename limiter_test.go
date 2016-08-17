@@ -63,10 +63,10 @@ func hangDialFunc(hang chan struct{}) dialfunc {
 
 		if tcpPortOver(a, 10) {
 			return conn.Conn(nil), nil
-		} else {
-			<-hang
-			return nil, fmt.Errorf("test bad dial")
 		}
+
+		<-hang
+		return nil, fmt.Errorf("test bad dial")
 	}
 }
 
@@ -127,7 +127,7 @@ func TestFDLimiting(t *testing.T) {
 
 	bads := []ma.Multiaddr{addrWithPort(t, 1), addrWithPort(t, 2), addrWithPort(t, 3), addrWithPort(t, 4)}
 	pids := []peer.ID{"testpeer1", "testpeer2", "testpeer3", "testpeer4"}
-	good_tcp := addrWithPort(t, 20)
+	goodTCP := addrWithPort(t, 20)
 
 	ctx := context.Background()
 	resch := make(chan dialResult)
@@ -143,7 +143,7 @@ func TestFDLimiting(t *testing.T) {
 		l.AddDialJob(&dialJob{
 			ctx:  ctx,
 			peer: pid,
-			addr: good_tcp,
+			addr: goodTCP,
 			resp: resch,
 		})
 	}
@@ -175,10 +175,10 @@ func TestTokenRedistribution(t *testing.T) {
 	df := func(ctx context.Context, p peer.ID, a ma.Multiaddr) (conn.Conn, error) {
 		if tcpPortOver(a, 10) {
 			return (conn.Conn)(nil), nil
-		} else {
-			<-hangchs[p]
-			return nil, fmt.Errorf("test bad dial")
 		}
+
+		<-hangchs[p]
+		return nil, fmt.Errorf("test bad dial")
 	}
 	l := newDialLimiterWithParams(df, 8, 4)
 
@@ -264,10 +264,10 @@ func TestStressLimiter(t *testing.T) {
 	df := func(ctx context.Context, p peer.ID, a ma.Multiaddr) (conn.Conn, error) {
 		if tcpPortOver(a, 1000) {
 			return conn.Conn(nil), nil
-		} else {
-			time.Sleep(time.Millisecond * time.Duration(5+rand.Intn(100)))
-			return nil, fmt.Errorf("test bad dial")
 		}
+
+		time.Sleep(time.Millisecond * time.Duration(5+rand.Intn(100)))
+		return nil, fmt.Errorf("test bad dial")
 	}
 
 	l := newDialLimiterWithParams(df, 20, 5)
