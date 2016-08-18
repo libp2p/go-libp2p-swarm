@@ -68,6 +68,8 @@ func TestConnectednessCorrect(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	time.Sleep(time.Millisecond * 50)
+
 	expectConnectedness(t, nets[2], nets[1], inet.NotConnected)
 
 	for _, n := range nets {
