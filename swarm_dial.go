@@ -372,9 +372,20 @@ func (s *Swarm) dialAddr(ctx context.Context, p peer.ID, addr ma.Multiaddr) (con
 	return connC, nil
 }
 
+var ConnSetupTimeout = time.Minute * 5
+
 // dialConnSetup is the setup logic for a connection from the dial side. it
 // needs to add the Conn to the StreamSwarm, then run newConnSetup
 func dialConnSetup(ctx context.Context, s *Swarm, connC conn.Conn) (*Conn, error) {
+
+	deadline, ok := ctx.Deadline()
+	if !ok {
+		deadline = time.Now().Add(ConnSetupTimeout)
+	}
+
+	if err := connC.SetDeadline(deadline); err != nil {
+		return nil, err
+	}
 
 	psC, err := s.swarm.AddConn(connC)
 	if err != nil {
@@ -386,6 +397,11 @@ func dialConnSetup(ctx context.Context, s *Swarm, connC conn.Conn) (*Conn, error
 	swarmC, err := s.newConnSetup(ctx, psC)
 	if err != nil {
 		psC.Close() // we need to make sure psC is Closed.
+		return nil, err
+	}
+
+	if err := connC.SetDeadline(time.Time{}); err != nil {
+		log.Error("failed to reset connection deadline after setup: ", err)
 		return nil, err
 	}
 
