@@ -2,6 +2,7 @@ package swarm
 
 import (
 	inet "github.com/libp2p/go-libp2p/p2p/net"
+	protocol "github.com/libp2p/go-libp2p/p2p/protocol"
 
 	ps "github.com/jbenet/go-peerstream"
 )
@@ -10,7 +11,7 @@ import (
 // our Conn and Swarm (instead of just the ps.Conn and ps.Swarm)
 type Stream struct {
 	stream   *ps.Stream
-	protocol string
+	protocol protocol.ID
 }
 
 // Stream returns the underlying peerstream.Stream
@@ -44,11 +45,11 @@ func (s *Stream) Close() error {
 	return s.stream.Close()
 }
 
-func (s *Stream) Protocol() string {
+func (s *Stream) Protocol() protocol.ID {
 	return s.protocol
 }
 
-func (s *Stream) SetProtocol(p string) {
+func (s *Stream) SetProtocol(p protocol.ID) {
 	s.protocol = p
 }
 
