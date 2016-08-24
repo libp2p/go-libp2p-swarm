@@ -294,7 +294,7 @@ func TestConnHandler(t *testing.T) {
 
 	select {
 	case <-gotconn:
-		t.Fatalf("should have connected to %d swarms", expect)
+		t.Fatalf("should have connected to %d swarms, got an extra.", expect)
 	default:
 	}
 }
