@@ -29,6 +29,7 @@ func TestFilterAddrs(t *testing.T) {
 		newMultiaddr(t, "/ip4/127.0.0.1/tcp/1234"),
 		newMultiaddr(t, "/ip6/::1/tcp/1234"),
 		newMultiaddr(t, "/ip4/1.2.3.4/udp/1234/utp"),
+		newMultiaddr(t, "/ip4/1.2.3.4/tcp/1234/ws"),
 	}
 
 	goodAndBad := append(good, bad...)

@@ -29,6 +29,7 @@ import (
 	spdy "github.com/whyrusleeping/go-smux-spdystream"
 	yamux "github.com/whyrusleeping/go-smux-yamux"
 	mafilter "github.com/whyrusleeping/multiaddr-filter"
+	ws "github.com/whyrusleeping/ws-transport"
 	context "golang.org/x/net/context"
 )
 
@@ -120,6 +121,7 @@ func NewSwarm(ctx context.Context, listenAddrs []ma.Multiaddr,
 		transports: []transport.Transport{
 			transport.NewTCPTransport(),
 			transport.NewUtpTransport(),
+			new(ws.WebsocketTransport),
 		},
 		bwc:         bwc,
 		fdRateLimit: make(chan struct{}, concurrentFdDials),
