@@ -10,6 +10,14 @@ import (
 	"sync"
 	"time"
 
+	metrics "github.com/libp2p/go-libp2p/p2p/metrics"
+	mconn "github.com/libp2p/go-libp2p/p2p/metrics/conn"
+	inet "github.com/libp2p/go-libp2p/p2p/net"
+	conn "github.com/libp2p/go-libp2p/p2p/net/conn"
+	filter "github.com/libp2p/go-libp2p/p2p/net/filter"
+	addrutil "github.com/libp2p/go-libp2p/p2p/net/swarm/addr"
+
+	ci "github.com/ipfs/go-libp2p-crypto"
 	peer "github.com/ipfs/go-libp2p-peer"
 	pstore "github.com/ipfs/go-libp2p-peerstore"
 	transport "github.com/ipfs/go-libp2p-transport"
@@ -19,12 +27,6 @@ import (
 	pst "github.com/jbenet/go-stream-muxer"
 	"github.com/jbenet/goprocess"
 	goprocessctx "github.com/jbenet/goprocess/context"
-	metrics "github.com/libp2p/go-libp2p/p2p/metrics"
-	mconn "github.com/libp2p/go-libp2p/p2p/metrics/conn"
-	inet "github.com/libp2p/go-libp2p/p2p/net"
-	conn "github.com/libp2p/go-libp2p/p2p/net/conn"
-	filter "github.com/libp2p/go-libp2p/p2p/net/filter"
-	addrutil "github.com/libp2p/go-libp2p/p2p/net/swarm/addr"
 	psmss "github.com/whyrusleeping/go-smux-multistream"
 	spdy "github.com/whyrusleeping/go-smux-spdystream"
 	yamux "github.com/whyrusleeping/go-smux-yamux"
@@ -141,6 +143,31 @@ func NewSwarm(ctx context.Context, listenAddrs []ma.Multiaddr,
 	}
 
 	return s, nil
+}
+
+func NewBlankSwarm(ctx context.Context, id peer.ID, privkey ci.PrivKey) *Swarm {
+	s := &Swarm{
+		swarm:       ps.NewSwarm(PSTransport),
+		local:       id,
+		peers:       pstore.NewPeerstore(),
+		ctx:         ctx,
+		dialT:       DialTimeout,
+		notifs:      make(map[inet.Notifiee]ps.Notifiee),
+		fdRateLimit: make(chan struct{}, concurrentFdDials),
+		Filters:     filter.NewFilters(),
+		dialer:      conn.NewDialer(id, privkey, nil),
+	}
+
+	// configure Swarm
+	s.limiter = newDialLimiter(s.dialAddr)
+	s.proc = goprocessctx.WithContextAndTeardown(ctx, s.teardown)
+	s.SetConnHandler(nil) // make sure to setup our own conn handler.
+
+	return s
+}
+
+func (s *Swarm) AddTransport(t transport.Transport) {
+	s.transports = append(s.transports, t)
 }
 
 func (s *Swarm) teardown() error {

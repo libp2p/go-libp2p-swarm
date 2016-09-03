@@ -13,37 +13,42 @@ import (
 	context "golang.org/x/net/context"
 )
 
+func (s *Swarm) AddListenAddr(a ma.Multiaddr) error {
+	tpt := s.transportForAddr(a)
+	if tpt == nil {
+		return fmt.Errorf("no transport for address: %s", a)
+	}
+
+	d, err := tpt.Dialer(a, transport.TimeoutOpt(DialTimeout), transport.ReusePorts)
+	if err != nil {
+		return err
+	}
+
+	s.dialer.AddDialer(d)
+
+	list, err := tpt.Listen(a)
+	if err != nil {
+		return err
+	}
+
+	err = s.addListener(list)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // Open listeners and reuse-dialers for the given addresses
 func (s *Swarm) setupInterfaces(addrs []ma.Multiaddr) error {
 	errs := make([]error, len(addrs))
 	var succeeded int
 	for i, a := range addrs {
-		tpt := s.transportForAddr(a)
-		if tpt == nil {
-			errs[i] = fmt.Errorf("no transport for address: %s", a)
-			continue
-		}
-
-		d, err := tpt.Dialer(a, transport.TimeoutOpt(DialTimeout), transport.ReusePorts)
-		if err != nil {
+		if err := s.AddListenAddr(a); err != nil {
 			errs[i] = err
-			continue
+		} else {
+			succeeded++
 		}
-
-		s.dialer.AddDialer(d)
-
-		list, err := tpt.Listen(a)
-		if err != nil {
-			errs[i] = err
-			continue
-		}
-
-		err = s.addListener(list)
-		if err != nil {
-			errs[i] = err
-			continue
-		}
-		succeeded++
 	}
 
 	for i, e := range errs {
@@ -51,6 +56,7 @@ func (s *Swarm) setupInterfaces(addrs []ma.Multiaddr) error {
 			log.Warning("listen on %s failed: %s", addrs[i], errs[i])
 		}
 	}
+
 	if succeeded == 0 && len(addrs) > 0 {
 		return fmt.Errorf("failed to listen on any addresses: %s", errs)
 	}
@@ -83,7 +89,7 @@ func (s *Swarm) addListener(tptlist transport.Listener) error {
 
 	list.SetAddrFilters(s.Filters)
 
-	if cw, ok := list.(conn.ListenerConnWrapper); ok {
+	if cw, ok := list.(conn.ListenerConnWrapper); ok && s.bwc != nil {
 		cw.SetConnWrapper(func(c transport.Conn) transport.Conn {
 			return mconn.WrapConn(s.bwc, c)
 		})
