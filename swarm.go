@@ -109,8 +109,11 @@ func NewSwarm(ctx context.Context, listenAddrs []ma.Multiaddr,
 		return nil, err
 	}
 
-	wrap := func(c transport.Conn) transport.Conn {
-		return mconn.WrapConn(bwc, c)
+	var wrap func(c transport.Conn) transport.Conn
+	if bwc != nil {
+		wrap = func(c transport.Conn) transport.Conn {
+			return mconn.WrapConn(bwc, c)
+		}
 	}
 
 	s := &Swarm{
