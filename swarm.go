@@ -145,9 +145,9 @@ func NewSwarm(ctx context.Context, listenAddrs []ma.Multiaddr,
 	return s, nil
 }
 
-func NewBlankSwarm(ctx context.Context, id peer.ID, privkey ci.PrivKey) *Swarm {
+func NewBlankSwarm(ctx context.Context, id peer.ID, privkey ci.PrivKey, pstpt pst.Transport) *Swarm {
 	s := &Swarm{
-		swarm:       ps.NewSwarm(PSTransport),
+		swarm:       ps.NewSwarm(pstpt),
 		local:       id,
 		peers:       pstore.NewPeerstore(),
 		ctx:         ctx,
