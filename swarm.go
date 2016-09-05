@@ -286,6 +286,15 @@ func (s *Swarm) ConnectionsToPeer(p peer.ID) []*Conn {
 	return wrapConns(ps.ConnsWithGroup(p, s.swarm.Conns()))
 }
 
+func (s *Swarm) HaveConnsToPeer(p peer.ID) bool {
+	for _, c := range s.swarm.Conns() {
+		if c.InGroup(p) {
+			return true
+		}
+	}
+	return false
+}
+
 // Connections returns a slice of all connections.
 func (s *Swarm) Connections() []*Conn {
 	return wrapConns(s.swarm.Conns())
