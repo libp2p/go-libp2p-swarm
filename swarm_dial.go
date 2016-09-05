@@ -450,7 +450,8 @@ func (s *Swarm) dialAddr(ctx context.Context, p peer.ID, addr ma.Multiaddr) (con
 	remotep := connC.RemotePeer()
 	if remotep != p {
 		connC.Close()
-		return nil, fmt.Errorf("misdial to %s through %s (got %s)", p, addr, remotep)
+		_, err := connC.Read(nil) // should return any potential errors (ex: from secio)
+		return nil, fmt.Errorf("misdial to %s through %s (got %s): %s", p, addr, remotep, err)
 	}
 
 	// if the connection is to ourselves...
