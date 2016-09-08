@@ -255,15 +255,15 @@ func (s *Swarm) gatedDialAttempt(ctx context.Context, p peer.ID) (*Conn, error) 
 		return conn, nil
 	}
 
+	// if this peer has been backed off, lets get out of here
+	if s.backf.Backoff(p) {
+		log.Event(ctx, "swarmDialBackoff", logdial)
+		return nil, ErrDialBackoff
+	}
+
 	// check if there's an ongoing dial to this peer
 	if ok, wait := s.dsync.Lock(p); ok {
 		defer s.dsync.Unlock(p)
-
-		// if this peer has been backed off, lets get out of here
-		if s.backf.Backoff(p) {
-			log.Event(ctx, "swarmDialBackoff", logdial)
-			return nil, ErrDialBackoff
-		}
 
 		// ok, we have been charged to dial! let's do it.
 		// if it succeeds, dial will add the conn to the swarm itself.
@@ -285,13 +285,6 @@ func (s *Swarm) gatedDialAttempt(ctx context.Context, p peer.ID) (*Conn, error) 
 
 	} else {
 		// we did not dial. we must wait for someone else to dial.
-
-		// check whether we should backoff first...
-		if s.backf.Backoff(p) {
-			log.Event(ctx, "swarmDialBackoff", logdial)
-			return nil, ErrDialBackoff
-		}
-
 		defer log.EventBegin(ctx, "swarmDialWait", logdial).Done()
 		select {
 		case <-wait: // wait for that other dial to finish.
