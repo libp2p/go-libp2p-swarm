@@ -3,6 +3,7 @@
 package swarm
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -32,7 +33,6 @@ import (
 	yamux "github.com/whyrusleeping/go-smux-yamux"
 	mafilter "github.com/whyrusleeping/multiaddr-filter"
 	ws "github.com/whyrusleeping/ws-transport"
-	context "golang.org/x/net/context"
 )
 
 var log = logging.Logger("swarm2")
@@ -76,7 +76,7 @@ type Swarm struct {
 	peers pstore.Peerstore
 	connh ConnHandler
 
-	dsync dialsync
+	dsync *DialSync
 	backf dialbackoff
 	dialT time.Duration // mainly for tests
 
@@ -134,6 +134,7 @@ func NewSwarm(ctx context.Context, listenAddrs []ma.Multiaddr,
 		dialer:      conn.NewDialer(local, peers.PrivKey(local), wrap),
 	}
 
+	s.dsync = NewDialSync(s.doDial)
 	s.limiter = newDialLimiter(s.dialAddr)
 
 	// configure Swarm

@@ -1,6 +1,7 @@
 package swarm
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"strconv"
@@ -10,7 +11,6 @@ import (
 	peer "github.com/ipfs/go-libp2p-peer"
 	ma "github.com/jbenet/go-multiaddr"
 	mafmt "github.com/whyrusleeping/mafmt"
-	context "golang.org/x/net/context"
 
 	conn "github.com/libp2p/go-libp2p/p2p/net/conn"
 )

@@ -1,11 +1,11 @@
 package swarm
 
 import (
+	"context"
 	"sync"
 
 	peer "github.com/ipfs/go-libp2p-peer"
 	ma "github.com/jbenet/go-multiaddr"
-	context "golang.org/x/net/context"
 
 	conn "github.com/libp2p/go-libp2p/p2p/net/conn"
 	addrutil "github.com/libp2p/go-libp2p/p2p/net/swarm/addr"

@@ -415,7 +415,6 @@ func TestDialBackoff(t *testing.T) {
 		if !s1.backf.Backoff(s3p) {
 			t.Error("s3 should be on backoff")
 		}
-
 	}
 }
 
