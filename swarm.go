@@ -21,13 +21,14 @@ import (
 	ci "github.com/ipfs/go-libp2p-crypto"
 	peer "github.com/ipfs/go-libp2p-peer"
 	pstore "github.com/ipfs/go-libp2p-peerstore"
-	transport "github.com/ipfs/go-libp2p-transport"
 	logging "github.com/ipfs/go-log"
 	ma "github.com/jbenet/go-multiaddr"
 	ps "github.com/jbenet/go-peerstream"
 	pst "github.com/jbenet/go-stream-muxer"
 	"github.com/jbenet/goprocess"
 	goprocessctx "github.com/jbenet/goprocess/context"
+	transport "github.com/libp2p/go-libp2p-transport"
+	tcpt "github.com/libp2p/go-tcp-transport"
 	psmss "github.com/whyrusleeping/go-smux-multistream"
 	spdy "github.com/whyrusleeping/go-smux-spdystream"
 	yamux "github.com/whyrusleeping/go-smux-yamux"
@@ -124,8 +125,7 @@ func NewSwarm(ctx context.Context, listenAddrs []ma.Multiaddr,
 		dialT:  DialTimeout,
 		notifs: make(map[inet.Notifiee]ps.Notifiee),
 		transports: []transport.Transport{
-			transport.NewTCPTransport(),
-			transport.NewUtpTransport(),
+			tcpt.NewTCPTransport(),
 			new(ws.WebsocketTransport),
 		},
 		bwc:         bwc,
