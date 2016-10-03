@@ -7,7 +7,7 @@ import (
 
 	inet "github.com/libp2p/go-libp2p/p2p/net"
 	testutil "github.com/libp2p/go-libp2p/p2p/test/util"
-	context "golang.org/x/net/context"
+	"context"
 )
 
 // TestConnectednessCorrect starts a few networks, connects a few

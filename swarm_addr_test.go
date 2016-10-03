@@ -7,9 +7,9 @@ import (
 	addrutil "github.com/libp2p/go-libp2p/p2p/net/swarm/addr"
 	testutil "github.com/libp2p/go-libp2p/testutil"
 
+	"context"
 	pstore "github.com/ipfs/go-libp2p-peerstore"
 	ma "github.com/jbenet/go-multiaddr"
-	context "golang.org/x/net/context"
 )
 
 func TestFilterAddrs(t *testing.T) {

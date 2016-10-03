@@ -13,10 +13,10 @@ import (
 	inet "github.com/libp2p/go-libp2p/p2p/net"
 	testutil "github.com/libp2p/go-libp2p/testutil"
 
+	"context"
 	peer "github.com/ipfs/go-libp2p-peer"
 	pstore "github.com/ipfs/go-libp2p-peerstore"
 	ma "github.com/jbenet/go-multiaddr"
-	context "golang.org/x/net/context"
 )
 
 func EchoStreamHandler(stream inet.Stream) {

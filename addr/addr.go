@@ -3,10 +3,10 @@ package addrutil
 import (
 	"fmt"
 
+	"context"
 	logging "github.com/ipfs/go-log"
 	ma "github.com/jbenet/go-multiaddr"
 	manet "github.com/jbenet/go-multiaddr-net"
-	context "golang.org/x/net/context"
 
 	_ "github.com/whyrusleeping/ws-transport"
 )

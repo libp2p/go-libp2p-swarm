@@ -8,9 +8,9 @@ import (
 	metrics "github.com/libp2p/go-libp2p/p2p/metrics"
 	inet "github.com/libp2p/go-libp2p/p2p/net"
 
+	"context"
 	ma "github.com/jbenet/go-multiaddr"
 	"github.com/jbenet/goprocess"
-	context "golang.org/x/net/context"
 )
 
 // Network implements the inet.Network interface.

@@ -4,10 +4,10 @@ import (
 	"testing"
 	"time"
 
+	"context"
 	peer "github.com/ipfs/go-libp2p-peer"
 	ma "github.com/jbenet/go-multiaddr"
 	inet "github.com/libp2p/go-libp2p/p2p/net"
-	context "golang.org/x/net/context"
 )
 
 func streamsSame(a, b inet.Stream) bool {

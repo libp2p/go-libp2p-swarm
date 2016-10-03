@@ -8,10 +8,10 @@ import (
 
 	ci "github.com/libp2p/go-libp2p/testutil/ci"
 
+	"context"
 	peer "github.com/ipfs/go-libp2p-peer"
 	pstore "github.com/ipfs/go-libp2p-peerstore"
 	ma "github.com/jbenet/go-multiaddr"
-	context "golang.org/x/net/context"
 )
 
 func TestSimultOpen(t *testing.T) {
