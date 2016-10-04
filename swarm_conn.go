@@ -1,16 +1,16 @@
 package swarm
 
 import (
+	"context"
 	"fmt"
 
 	inet "github.com/libp2p/go-libp2p/p2p/net"
-	conn "github.com/libp2p/go-libp2p/p2p/net/conn"
 
-	"context"
 	ic "github.com/ipfs/go-libp2p-crypto"
 	peer "github.com/ipfs/go-libp2p-peer"
 	ma "github.com/jbenet/go-multiaddr"
 	ps "github.com/jbenet/go-peerstream"
+	conn "github.com/libp2p/go-libp2p-conn"
 )
 
 // Conn is a simple wrapper around a ps.Conn that also exposes

@@ -1,15 +1,15 @@
 package swarm
 
 import (
+	"context"
 	"testing"
 
 	metrics "github.com/libp2p/go-libp2p/p2p/metrics"
-	addrutil "github.com/libp2p/go-libp2p/p2p/net/swarm/addr"
-	testutil "github.com/libp2p/go-libp2p/testutil"
 
-	"context"
 	pstore "github.com/ipfs/go-libp2p-peerstore"
 	ma "github.com/jbenet/go-multiaddr"
+	addrutil "github.com/libp2p/go-addr-util"
+	testutil "github.com/libp2p/go-testutil"
 )
 
 func TestFilterAddrs(t *testing.T) {

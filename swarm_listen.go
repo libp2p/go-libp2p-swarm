@@ -1,16 +1,17 @@
 package swarm
 
 import (
+	"context"
 	"fmt"
 
-	"context"
+	inet "github.com/libp2p/go-libp2p/p2p/net"
+
 	lgbl "github.com/ipfs/go-libp2p-loggables"
 	ma "github.com/jbenet/go-multiaddr"
 	ps "github.com/jbenet/go-peerstream"
+	conn "github.com/libp2p/go-libp2p-conn"
 	transport "github.com/libp2p/go-libp2p-transport"
 	mconn "github.com/libp2p/go-libp2p/p2p/metrics/conn"
-	inet "github.com/libp2p/go-libp2p/p2p/net"
-	conn "github.com/libp2p/go-libp2p/p2p/net/conn"
 )
 
 func (s *Swarm) AddListenAddr(a ma.Multiaddr) error {

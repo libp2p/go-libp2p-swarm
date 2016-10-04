@@ -1,17 +1,16 @@
 package swarm
 
 import (
+	"context"
 	"runtime"
 	"sync"
 	"testing"
 	"time"
 
-	ci "github.com/libp2p/go-libp2p/testutil/ci"
-
-	"context"
 	peer "github.com/ipfs/go-libp2p-peer"
 	pstore "github.com/ipfs/go-libp2p-peerstore"
 	ma "github.com/jbenet/go-multiaddr"
+	ci "github.com/libp2p/go-testutil/ci"
 )
 
 func TestSimultOpen(t *testing.T) {

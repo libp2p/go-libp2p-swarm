@@ -2,6 +2,7 @@ package swarm
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -11,12 +12,11 @@ import (
 
 	metrics "github.com/libp2p/go-libp2p/p2p/metrics"
 	inet "github.com/libp2p/go-libp2p/p2p/net"
-	testutil "github.com/libp2p/go-libp2p/testutil"
 
-	"context"
 	peer "github.com/ipfs/go-libp2p-peer"
 	pstore "github.com/ipfs/go-libp2p-peerstore"
 	ma "github.com/jbenet/go-multiaddr"
+	testutil "github.com/libp2p/go-testutil"
 )
 
 func EchoStreamHandler(stream inet.Stream) {

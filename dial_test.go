@@ -1,20 +1,19 @@
 package swarm
 
 import (
+	"context"
 	"net"
 	"sync"
 	"testing"
 	"time"
 
-	addrutil "github.com/libp2p/go-libp2p/p2p/net/swarm/addr"
-	testutil "github.com/libp2p/go-libp2p/testutil"
-	ci "github.com/libp2p/go-libp2p/testutil/ci"
-
-	"context"
 	peer "github.com/ipfs/go-libp2p-peer"
 	pstore "github.com/ipfs/go-libp2p-peerstore"
 	ma "github.com/jbenet/go-multiaddr"
 	manet "github.com/jbenet/go-multiaddr-net"
+	addrutil "github.com/libp2p/go-addr-util"
+	testutil "github.com/libp2p/go-testutil"
+	ci "github.com/libp2p/go-testutil/ci"
 )
 
 func closeSwarms(swarms []*Swarm) {
