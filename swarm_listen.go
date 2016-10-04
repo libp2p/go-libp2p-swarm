@@ -8,6 +8,7 @@ import (
 	ma "github.com/jbenet/go-multiaddr"
 	ps "github.com/jbenet/go-peerstream"
 	conn "github.com/libp2p/go-libp2p-conn"
+	iconn "github.com/libp2p/go-libp2p-interface-conn"
 	mconn "github.com/libp2p/go-libp2p-metrics/conn"
 	inet "github.com/libp2p/go-libp2p-net"
 	transport "github.com/libp2p/go-libp2p-transport"
@@ -98,7 +99,7 @@ func (s *Swarm) addListener(tptlist transport.Listener) error {
 	return s.addConnListener(list)
 }
 
-func (s *Swarm) addConnListener(list conn.Listener) error {
+func (s *Swarm) addConnListener(list iconn.Listener) error {
 	// AddListener to the peerstream Listener. this will begin accepting connections
 	// and streams!
 	sl, err := s.swarm.AddListener(list)

@@ -11,7 +11,7 @@ import (
 	peer "github.com/ipfs/go-libp2p-peer"
 	ma "github.com/jbenet/go-multiaddr"
 	addrutil "github.com/libp2p/go-addr-util"
-	conn "github.com/libp2p/go-libp2p-conn"
+	iconn "github.com/libp2p/go-libp2p-interface-conn"
 )
 
 // Diagram of dial sync:
@@ -284,7 +284,7 @@ func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 	return swarmC, nil
 }
 
-func (s *Swarm) dialAddrs(ctx context.Context, p peer.ID, remoteAddrs <-chan ma.Multiaddr) (conn.Conn, error) {
+func (s *Swarm) dialAddrs(ctx context.Context, p peer.ID, remoteAddrs <-chan ma.Multiaddr) (iconn.Conn, error) {
 	log.Debugf("%s swarm dialing %s %s", s.local, p, remoteAddrs)
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -344,7 +344,7 @@ func (s *Swarm) limitedDial(ctx context.Context, p peer.ID, a ma.Multiaddr, resp
 	})
 }
 
-func (s *Swarm) dialAddr(ctx context.Context, p peer.ID, addr ma.Multiaddr) (conn.Conn, error) {
+func (s *Swarm) dialAddr(ctx context.Context, p peer.ID, addr ma.Multiaddr) (iconn.Conn, error) {
 	log.Debugf("%s swarm dialing %s %s", s.local, p, addr)
 
 	connC, err := s.dialer.Dial(ctx, addr, p)
@@ -376,7 +376,7 @@ var ConnSetupTimeout = time.Minute * 5
 
 // dialConnSetup is the setup logic for a connection from the dial side. it
 // needs to add the Conn to the StreamSwarm, then run newConnSetup
-func dialConnSetup(ctx context.Context, s *Swarm, connC conn.Conn) (*Conn, error) {
+func dialConnSetup(ctx context.Context, s *Swarm, connC iconn.Conn) (*Conn, error) {
 
 	deadline, ok := ctx.Deadline()
 	if !ok {

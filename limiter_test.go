@@ -10,7 +10,7 @@ import (
 
 	peer "github.com/ipfs/go-libp2p-peer"
 	ma "github.com/jbenet/go-multiaddr"
-	conn "github.com/libp2p/go-libp2p-conn"
+	iconn "github.com/libp2p/go-libp2p-interface-conn"
 	mafmt "github.com/whyrusleeping/mafmt"
 )
 
@@ -55,13 +55,13 @@ func tryDialAddrs(ctx context.Context, l *dialLimiter, p peer.ID, addrs []ma.Mul
 }
 
 func hangDialFunc(hang chan struct{}) dialfunc {
-	return func(ctx context.Context, p peer.ID, a ma.Multiaddr) (conn.Conn, error) {
+	return func(ctx context.Context, p peer.ID, a ma.Multiaddr) (iconn.Conn, error) {
 		if mafmt.UTP.Matches(a) {
-			return conn.Conn(nil), nil
+			return iconn.Conn(nil), nil
 		}
 
 		if tcpPortOver(a, 10) {
-			return conn.Conn(nil), nil
+			return iconn.Conn(nil), nil
 		}
 
 		<-hang
@@ -171,9 +171,9 @@ func TestFDLimiting(t *testing.T) {
 
 func TestTokenRedistribution(t *testing.T) {
 	hangchs := make(map[peer.ID]chan struct{})
-	df := func(ctx context.Context, p peer.ID, a ma.Multiaddr) (conn.Conn, error) {
+	df := func(ctx context.Context, p peer.ID, a ma.Multiaddr) (iconn.Conn, error) {
 		if tcpPortOver(a, 10) {
-			return (conn.Conn)(nil), nil
+			return (iconn.Conn)(nil), nil
 		}
 
 		<-hangchs[p]
@@ -260,9 +260,9 @@ func TestTokenRedistribution(t *testing.T) {
 }
 
 func TestStressLimiter(t *testing.T) {
-	df := func(ctx context.Context, p peer.ID, a ma.Multiaddr) (conn.Conn, error) {
+	df := func(ctx context.Context, p peer.ID, a ma.Multiaddr) (iconn.Conn, error) {
 		if tcpPortOver(a, 1000) {
-			return conn.Conn(nil), nil
+			return iconn.Conn(nil), nil
 		}
 
 		time.Sleep(time.Millisecond * time.Duration(5+rand.Intn(100)))

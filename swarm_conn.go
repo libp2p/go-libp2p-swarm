@@ -4,13 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	inet "github.com/libp2p/go-libp2p-net"
-
 	ic "github.com/ipfs/go-libp2p-crypto"
 	peer "github.com/ipfs/go-libp2p-peer"
 	ma "github.com/jbenet/go-multiaddr"
 	ps "github.com/jbenet/go-peerstream"
-	conn "github.com/libp2p/go-libp2p-conn"
+	iconn "github.com/libp2p/go-libp2p-interface-conn"
+	inet "github.com/libp2p/go-libp2p-net"
 )
 
 // Conn is a simple wrapper around a ps.Conn that also exposes
@@ -33,12 +32,12 @@ func (c *Conn) StreamConn() *ps.Conn {
 	return (*ps.Conn)(c)
 }
 
-func (c *Conn) RawConn() conn.Conn {
+func (c *Conn) RawConn() iconn.Conn {
 	// righly panic if these things aren't true. it is an expected
 	// invariant that these Conns are all of the typewe expect:
 	// 		ps.Conn wrapping a conn.Conn
 	// if we get something else it is programmer error.
-	return (*ps.Conn)(c).NetConn().(conn.Conn)
+	return (*ps.Conn)(c).NetConn().(iconn.Conn)
 }
 
 func (c *Conn) String() string {
@@ -94,7 +93,7 @@ func (c *Conn) Close() error {
 
 func wrapConn(psc *ps.Conn) (*Conn, error) {
 	// grab the underlying connection.
-	if _, ok := psc.NetConn().(conn.Conn); !ok {
+	if _, ok := psc.NetConn().(iconn.Conn); !ok {
 		// this should never happen. if we see it ocurring it means that we added
 		// a Listener to the ps.Swarm that is NOT one of our net/conn.Listener.
 		return nil, fmt.Errorf("swarm connHandler: invalid conn (not a conn.Conn): %s", psc)
