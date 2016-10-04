@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	inet "github.com/libp2p/go-libp2p/p2p/net"
+	inet "github.com/libp2p/go-libp2p-net"
 
 	ic "github.com/ipfs/go-libp2p-crypto"
 	peer "github.com/ipfs/go-libp2p-peer"

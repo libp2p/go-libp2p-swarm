@@ -7,7 +7,7 @@ import (
 	"context"
 	peer "github.com/ipfs/go-libp2p-peer"
 	ma "github.com/jbenet/go-multiaddr"
-	inet "github.com/libp2p/go-libp2p/p2p/net"
+	inet "github.com/libp2p/go-libp2p-net"
 )
 
 func streamsSame(a, b inet.Stream) bool {

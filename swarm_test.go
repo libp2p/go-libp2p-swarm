@@ -10,12 +10,11 @@ import (
 	"testing"
 	"time"
 
-	metrics "github.com/libp2p/go-libp2p/p2p/metrics"
-	inet "github.com/libp2p/go-libp2p/p2p/net"
-
 	peer "github.com/ipfs/go-libp2p-peer"
 	pstore "github.com/ipfs/go-libp2p-peerstore"
 	ma "github.com/jbenet/go-multiaddr"
+	metrics "github.com/libp2p/go-libp2p-metrics"
+	inet "github.com/libp2p/go-libp2p-net"
 	testutil "github.com/libp2p/go-testutil"
 )
 

@@ -1,8 +1,8 @@
 package swarm
 
 import (
+	inet "github.com/libp2p/go-libp2p-net"
 	protocol "github.com/libp2p/go-libp2p-protocol"
-	inet "github.com/libp2p/go-libp2p/p2p/net"
 
 	ps "github.com/jbenet/go-peerstream"
 )

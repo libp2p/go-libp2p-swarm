@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	inet "github.com/libp2p/go-libp2p/p2p/net"
-	testutil "github.com/libp2p/go-libp2p/p2p/test/util"
 	"context"
+	inet "github.com/libp2p/go-libp2p-net"
+	testutil "github.com/libp2p/go-libp2p/p2p/test/util"
 )
 
 // TestConnectednessCorrect starts a few networks, connects a few

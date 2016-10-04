@@ -1,16 +1,15 @@
 package swarm
 
 import (
+	"context"
 	"fmt"
 
 	peer "github.com/ipfs/go-libp2p-peer"
 	pstore "github.com/ipfs/go-libp2p-peerstore"
-	metrics "github.com/libp2p/go-libp2p/p2p/metrics"
-	inet "github.com/libp2p/go-libp2p/p2p/net"
-
-	"context"
 	ma "github.com/jbenet/go-multiaddr"
 	"github.com/jbenet/goprocess"
+	metrics "github.com/libp2p/go-libp2p-metrics"
+	inet "github.com/libp2p/go-libp2p-net"
 )
 
 // Network implements the inet.Network interface.

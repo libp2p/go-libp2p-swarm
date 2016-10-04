@@ -11,10 +11,6 @@ import (
 	"sync"
 	"time"
 
-	metrics "github.com/libp2p/go-libp2p/p2p/metrics"
-	mconn "github.com/libp2p/go-libp2p/p2p/metrics/conn"
-	inet "github.com/libp2p/go-libp2p/p2p/net"
-
 	ci "github.com/ipfs/go-libp2p-crypto"
 	peer "github.com/ipfs/go-libp2p-peer"
 	pstore "github.com/ipfs/go-libp2p-peerstore"
@@ -26,6 +22,9 @@ import (
 	goprocessctx "github.com/jbenet/goprocess/context"
 	addrutil "github.com/libp2p/go-addr-util"
 	conn "github.com/libp2p/go-libp2p-conn"
+	metrics "github.com/libp2p/go-libp2p-metrics"
+	mconn "github.com/libp2p/go-libp2p-metrics/conn"
+	inet "github.com/libp2p/go-libp2p-net"
 	transport "github.com/libp2p/go-libp2p-transport"
 	filter "github.com/libp2p/go-maddr-filter"
 	tcpt "github.com/libp2p/go-tcp-transport"

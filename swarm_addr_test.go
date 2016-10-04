@@ -4,11 +4,10 @@ import (
 	"context"
 	"testing"
 
-	metrics "github.com/libp2p/go-libp2p/p2p/metrics"
-
 	pstore "github.com/ipfs/go-libp2p-peerstore"
 	ma "github.com/jbenet/go-multiaddr"
 	addrutil "github.com/libp2p/go-addr-util"
+	metrics "github.com/libp2p/go-libp2p-metrics"
 	testutil "github.com/libp2p/go-testutil"
 )
 
