@@ -15,7 +15,6 @@ import (
 	mconn "github.com/libp2p/go-libp2p/p2p/metrics/conn"
 	inet "github.com/libp2p/go-libp2p/p2p/net"
 	conn "github.com/libp2p/go-libp2p/p2p/net/conn"
-	filter "github.com/libp2p/go-libp2p/p2p/net/filter"
 	addrutil "github.com/libp2p/go-libp2p/p2p/net/swarm/addr"
 
 	ci "github.com/ipfs/go-libp2p-crypto"
@@ -28,6 +27,7 @@ import (
 	"github.com/jbenet/goprocess"
 	goprocessctx "github.com/jbenet/goprocess/context"
 	transport "github.com/libp2p/go-libp2p-transport"
+	filter "github.com/libp2p/go-maddr-filter"
 	tcpt "github.com/libp2p/go-tcp-transport"
 	psmss "github.com/whyrusleeping/go-smux-multistream"
 	spdy "github.com/whyrusleeping/go-smux-spdystream"
