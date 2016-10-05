@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	peer "github.com/ipfs/go-libp2p-peer"
-	ma "github.com/jbenet/go-multiaddr"
 	iconn "github.com/libp2p/go-libp2p-interface-conn"
+	peer "github.com/libp2p/go-libp2p-peer"
+	ma "github.com/multiformats/go-multiaddr"
 	mafmt "github.com/whyrusleeping/mafmt"
 )
 

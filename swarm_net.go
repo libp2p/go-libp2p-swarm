@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	peer "github.com/ipfs/go-libp2p-peer"
-	pstore "github.com/ipfs/go-libp2p-peerstore"
-	ma "github.com/jbenet/go-multiaddr"
 	"github.com/jbenet/goprocess"
 	metrics "github.com/libp2p/go-libp2p-metrics"
 	inet "github.com/libp2p/go-libp2p-net"
+	peer "github.com/libp2p/go-libp2p-peer"
+	pstore "github.com/libp2p/go-libp2p-peerstore"
+	ma "github.com/multiformats/go-multiaddr"
 )
 
 // Network implements the inet.Network interface.

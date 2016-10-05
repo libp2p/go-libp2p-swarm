@@ -7,11 +7,11 @@ import (
 	"sync"
 	"time"
 
-	lgbl "github.com/ipfs/go-libp2p-loggables"
-	peer "github.com/ipfs/go-libp2p-peer"
-	ma "github.com/jbenet/go-multiaddr"
 	addrutil "github.com/libp2p/go-addr-util"
 	iconn "github.com/libp2p/go-libp2p-interface-conn"
+	lgbl "github.com/libp2p/go-libp2p-loggables"
+	peer "github.com/libp2p/go-libp2p-peer"
+	ma "github.com/multiformats/go-multiaddr"
 )
 
 // Diagram of dial sync:

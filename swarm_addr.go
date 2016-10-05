@@ -1,9 +1,9 @@
 package swarm
 
 import (
-	ma "github.com/jbenet/go-multiaddr"
 	addrutil "github.com/libp2p/go-addr-util"
 	iconn "github.com/libp2p/go-libp2p-interface-conn"
+	ma "github.com/multiformats/go-multiaddr"
 )
 
 // ListenAddresses returns a list of addresses at which this swarm listens.

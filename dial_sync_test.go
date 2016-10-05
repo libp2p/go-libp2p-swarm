@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	peer "github.com/ipfs/go-libp2p-peer"
+	peer "github.com/libp2p/go-libp2p-peer"
 )
 
 func getMockDialFunc() (DialFunc, func(), context.Context, <-chan struct{}) {

@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	ic "github.com/ipfs/go-libp2p-crypto"
-	peer "github.com/ipfs/go-libp2p-peer"
-	ma "github.com/jbenet/go-multiaddr"
 	ps "github.com/jbenet/go-peerstream"
+	ic "github.com/libp2p/go-libp2p-crypto"
 	iconn "github.com/libp2p/go-libp2p-interface-conn"
 	inet "github.com/libp2p/go-libp2p-net"
+	peer "github.com/libp2p/go-libp2p-peer"
+	ma "github.com/multiformats/go-multiaddr"
 )
 
 // Conn is a simple wrapper around a ps.Conn that also exposes

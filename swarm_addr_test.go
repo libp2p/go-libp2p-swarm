@@ -4,11 +4,11 @@ import (
 	"context"
 	"testing"
 
-	pstore "github.com/ipfs/go-libp2p-peerstore"
-	ma "github.com/jbenet/go-multiaddr"
 	addrutil "github.com/libp2p/go-addr-util"
 	metrics "github.com/libp2p/go-libp2p-metrics"
+	pstore "github.com/libp2p/go-libp2p-peerstore"
 	testutil "github.com/libp2p/go-testutil"
+	ma "github.com/multiformats/go-multiaddr"
 )
 
 func TestFilterAddrs(t *testing.T) {
