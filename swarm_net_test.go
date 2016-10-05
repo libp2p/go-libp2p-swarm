@@ -1,14 +1,35 @@
-package swarm_test
+package swarm
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
 
-	"context"
 	inet "github.com/libp2p/go-libp2p-net"
-	testutil "github.com/libp2p/go-libp2p/p2p/test/util"
+	pstore "github.com/libp2p/go-libp2p-peerstore"
+	tu "github.com/libp2p/go-testutil"
+	ma "github.com/multiformats/go-multiaddr"
 )
+
+func GenSwarmNetwork(t *testing.T, ctx context.Context) *Network {
+	p := tu.RandPeerNetParamsOrFatal(t)
+	ps := pstore.NewPeerstore()
+	ps.AddPubKey(p.ID, p.PubKey)
+	ps.AddPrivKey(p.ID, p.PrivKey)
+	n, err := NewNetwork(ctx, []ma.Multiaddr{p.Addr}, p.ID, ps, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ps.AddAddrs(p.ID, n.ListenAddresses(), pstore.PermanentAddrTTL)
+	return n
+}
+
+func DivulgeAddresses(a, b inet.Network) {
+	id := a.LocalPeer()
+	addrs := a.Peerstore().Addrs(id)
+	b.Peerstore().AddAddrs(id, addrs, pstore.PermanentAddrTTL)
+}
 
 // TestConnectednessCorrect starts a few networks, connects a few
 // and tests Connectedness value is correct.
@@ -18,13 +39,13 @@ func TestConnectednessCorrect(t *testing.T) {
 
 	nets := make([]inet.Network, 4)
 	for i := 0; i < 4; i++ {
-		nets[i] = testutil.GenSwarmNetwork(t, ctx)
+		nets[i] = GenSwarmNetwork(t, ctx)
 	}
 
 	// connect 0-1, 0-2, 0-3, 1-2, 2-3
 
 	dial := func(a, b inet.Network) {
-		testutil.DivulgeAddresses(b, a)
+		DivulgeAddresses(b, a)
 		if _, err := a.DialPeer(ctx, b.LocalPeer()); err != nil {
 			t.Fatalf("Failed to dial: %s", err)
 		}
@@ -109,11 +130,11 @@ func TestNetworkOpenStream(t *testing.T) {
 
 	nets := make([]inet.Network, 4)
 	for i := 0; i < 4; i++ {
-		nets[i] = testutil.GenSwarmNetwork(t, ctx)
+		nets[i] = GenSwarmNetwork(t, ctx)
 	}
 
 	dial := func(a, b inet.Network) {
-		testutil.DivulgeAddresses(b, a)
+		DivulgeAddresses(b, a)
 		if _, err := a.DialPeer(ctx, b.LocalPeer()); err != nil {
 			t.Fatalf("Failed to dial: %s", err)
 		}
