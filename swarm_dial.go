@@ -266,7 +266,7 @@ func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 	// try to get a connection to any addr
 	connC, err := s.dialAddrs(ctx, p, remoteAddrChan)
 	if err != nil {
-		logdial["error"] = err
+		logdial["error"] = err.Error()
 		return nil, err
 	}
 	logdial["netconn"] = lgbl.NetConn(connC)
@@ -275,7 +275,7 @@ func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 	defer log.EventBegin(ctx, "swarmDialDoSetup", logdial, lgbl.NetConn(connC)).Done()
 	swarmC, err := dialConnSetup(ctx, s, connC)
 	if err != nil {
-		logdial["error"] = err
+		logdial["error"] = err.Error()
 		connC.Close() // close the connection. didn't work out :(
 		return nil, err
 	}
