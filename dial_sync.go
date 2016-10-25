@@ -81,7 +81,6 @@ func (ds *DialSync) DialLock(ctx context.Context, p peer.ID) (*Conn, error) {
 			ad.conn, ad.err = ds.dialFunc(ctx, p)
 			close(ad.waitch)
 			ad.cancel()
-			ad.waitch = nil // to ensure nobody tries reusing this
 		}(ctx, p, actd)
 	}
 

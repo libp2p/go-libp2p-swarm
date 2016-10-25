@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/rand"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -170,13 +171,17 @@ func TestFDLimiting(t *testing.T) {
 }
 
 func TestTokenRedistribution(t *testing.T) {
+	var lk sync.Mutex
 	hangchs := make(map[peer.ID]chan struct{})
 	df := func(ctx context.Context, p peer.ID, a ma.Multiaddr) (iconn.Conn, error) {
 		if tcpPortOver(a, 10) {
 			return (iconn.Conn)(nil), nil
 		}
 
-		<-hangchs[p]
+		lk.Lock()
+		ch := hangchs[p]
+		lk.Unlock()
+		<-ch
 		return nil, fmt.Errorf("test bad dial")
 	}
 	l := newDialLimiterWithParams(df, 8, 4)
@@ -190,6 +195,9 @@ func TestTokenRedistribution(t *testing.T) {
 	// take all fd limit tokens with hang dials
 	for _, pid := range pids {
 		hangchs[pid] = make(chan struct{})
+	}
+
+	for _, pid := range pids {
 		tryDialAddrs(ctx, l, pid, bads, resch)
 	}
 
