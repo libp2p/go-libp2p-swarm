@@ -68,8 +68,8 @@ func (ad *activeDial) decref() {
 			ad.cancel()
 			delete(ad.ds.dials, ad.id)
 		}
-		ad.ds.dialsLk.Unlock()
 		ad.refCntLk.Unlock()
+		ad.ds.dialsLk.Unlock()
 	}
 }
 
