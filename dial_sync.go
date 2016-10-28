@@ -36,6 +36,7 @@ type activeDial struct {
 }
 
 func (dr *activeDial) wait(ctx context.Context) (*Conn, error) {
+	dr.incref()
 	defer dr.decref()
 	select {
 	case <-dr.waitch:
@@ -53,22 +54,38 @@ func (ad *activeDial) incref() {
 
 func (ad *activeDial) decref() {
 	ad.refCntLk.Lock()
-	defer ad.refCntLk.Unlock()
 	ad.refCnt--
-	if ad.refCnt <= 0 {
-		ad.cancel()
+	maybeZero := (ad.refCnt <= 0)
+	ad.refCntLk.Unlock()
+
+	// make sure to always take locks in correct order.
+	if maybeZero {
 		ad.ds.dialsLk.Lock()
-		delete(ad.ds.dials, ad.id)
+		ad.refCntLk.Lock()
+		// check again after lock swap drop to make sure nobody else called incref
+		// in between locks
+		if ad.refCnt <= 0 {
+			ad.cancel()
+			delete(ad.ds.dials, ad.id)
+		}
 		ad.ds.dialsLk.Unlock()
+		ad.refCntLk.Unlock()
 	}
 }
 
-func (ds *DialSync) DialLock(ctx context.Context, p peer.ID) (*Conn, error) {
+func (ad *activeDial) start(ctx context.Context) {
+	ad.conn, ad.err = ad.ds.dialFunc(ctx, ad.id)
+	close(ad.waitch)
+	ad.cancel()
+}
+
+func (ds *DialSync) getActiveDial(p peer.ID) *activeDial {
 	ds.dialsLk.Lock()
+	defer ds.dialsLk.Unlock()
 
 	actd, ok := ds.dials[p]
 	if !ok {
-		ctx, cancel := context.WithCancel(context.Background())
+		adctx, cancel := context.WithCancel(context.Background())
 		actd = &activeDial{
 			id:     p,
 			cancel: cancel,
@@ -77,15 +94,12 @@ func (ds *DialSync) DialLock(ctx context.Context, p peer.ID) (*Conn, error) {
 		}
 		ds.dials[p] = actd
 
-		go func(ctx context.Context, p peer.ID, ad *activeDial) {
-			ad.conn, ad.err = ds.dialFunc(ctx, p)
-			close(ad.waitch)
-			ad.cancel()
-		}(ctx, p, actd)
+		go actd.start(adctx)
 	}
 
-	actd.incref()
-	ds.dialsLk.Unlock()
+	return actd
+}
 
-	return actd.wait(ctx)
+func (ds *DialSync) DialLock(ctx context.Context, p peer.ID) (*Conn, error) {
+	return ds.getActiveDial(p).wait(ctx)
 }
