@@ -36,7 +36,6 @@ type activeDial struct {
 }
 
 func (dr *activeDial) wait(ctx context.Context) (*Conn, error) {
-	dr.incref()
 	defer dr.decref()
 	select {
 	case <-dr.waitch:
@@ -96,6 +95,9 @@ func (ds *DialSync) getActiveDial(p peer.ID) *activeDial {
 
 		go actd.start(adctx)
 	}
+
+	// increase ref count before dropping dialsLk
+	actd.incref()
 
 	return actd
 }
