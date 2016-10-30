@@ -201,3 +201,27 @@ func TestFailFirst(t *testing.T) {
 		t.Fatal("should have gotten a 'real' conn back")
 	}
 }
+
+func TestStressActiveDial(t *testing.T) {
+	ds := NewDialSync(func(ctx context.Context, p peer.ID) (*Conn, error) {
+		return nil, nil
+	})
+
+	wg := sync.WaitGroup{}
+
+	pid := peer.ID("foo")
+
+	makeDials := func() {
+		for i := 0; i < 10000; i++ {
+			ds.DialLock(context.Background(), pid)
+		}
+		wg.Done()
+	}
+
+	for i := 0; i < 100; i++ {
+		wg.Add(1)
+		go makeDials()
+	}
+
+	wg.Wait()
+}
