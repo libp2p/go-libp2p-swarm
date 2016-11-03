@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	ps "github.com/jbenet/go-peerstream"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	iconn "github.com/libp2p/go-libp2p-interface-conn"
 	inet "github.com/libp2p/go-libp2p-net"
 	peer "github.com/libp2p/go-libp2p-peer"
+	ps "github.com/libp2p/go-peerstream"
 	ma "github.com/multiformats/go-multiaddr"
 )
 
@@ -77,7 +77,7 @@ func (c *Conn) RemotePublicKey() ic.PubKey {
 // NewSwarmStream returns a new Stream from this connection
 func (c *Conn) NewSwarmStream() (*Stream, error) {
 	s, err := c.StreamConn().NewStream()
-	return wrapStream(s), err
+	return (*Stream)(s), err
 }
 
 // NewStream returns a new Stream from this connection
@@ -89,6 +89,16 @@ func (c *Conn) NewStream() (inet.Stream, error) {
 // Close closes the underlying stream connection
 func (c *Conn) Close() error {
 	return c.StreamConn().Close()
+}
+
+func (c *Conn) GetStreams() ([]inet.Stream, error) {
+	ss := c.StreamConn().Streams()
+	out := make([]inet.Stream, len(ss))
+
+	for i, s := range ss {
+		out[i] = (*Stream)(s)
+	}
+	return out, nil
 }
 
 func wrapConn(psc *ps.Conn) (*Conn, error) {

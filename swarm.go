@@ -12,7 +12,6 @@ import (
 	"time"
 
 	logging "github.com/ipfs/go-log"
-	ps "github.com/jbenet/go-peerstream"
 	pst "github.com/jbenet/go-stream-muxer"
 	"github.com/jbenet/goprocess"
 	goprocessctx "github.com/jbenet/goprocess/context"
@@ -26,6 +25,7 @@ import (
 	pstore "github.com/libp2p/go-libp2p-peerstore"
 	transport "github.com/libp2p/go-libp2p-transport"
 	filter "github.com/libp2p/go-maddr-filter"
+	ps "github.com/libp2p/go-peerstream"
 	tcpt "github.com/libp2p/go-tcp-transport"
 	ma "github.com/multiformats/go-multiaddr"
 	psmss "github.com/whyrusleeping/go-smux-multistream"
@@ -256,7 +256,7 @@ func (s *Swarm) SetConnHandler(handler ConnHandler) {
 // See peerstream.
 func (s *Swarm) SetStreamHandler(handler inet.StreamHandler) {
 	s.swarm.SetStreamHandler(func(s *ps.Stream) {
-		handler(wrapStream(s))
+		handler((*Stream)(s))
 	})
 }
 
@@ -273,12 +273,7 @@ func (s *Swarm) NewStreamWithPeer(ctx context.Context, p peer.ID) (*Stream, erro
 
 	// TODO: think about passing a context down to NewStreamWithGroup
 	st, err := s.swarm.NewStreamWithGroup(p)
-	return wrapStream(st), err
-}
-
-// StreamsWithPeer returns all the live Streams to p
-func (s *Swarm) StreamsWithPeer(p peer.ID) []*Stream {
-	return wrapStreams(ps.StreamsWithGroup(p, s.swarm.Streams()))
+	return (*Stream)(st), err
 }
 
 // ConnectionsToPeer returns all the live connections to p
@@ -387,9 +382,9 @@ func (n *ps2netNotifee) Disconnected(c *ps.Conn) {
 }
 
 func (n *ps2netNotifee) OpenedStream(s *ps.Stream) {
-	n.not.OpenedStream(n.net, &Stream{stream: s})
+	n.not.OpenedStream(n.net, (*Stream)(s))
 }
 
 func (n *ps2netNotifee) ClosedStream(s *ps.Stream) {
-	n.not.ClosedStream(n.net, &Stream{stream: s})
+	n.not.ClosedStream(n.net, (*Stream)(s))
 }
