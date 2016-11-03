@@ -9,9 +9,9 @@
   "gxDependencies": [
     {
       "author": "whyrusleeping",
-      "hash": "QmZ3qHMAtW9WEHexN3HsjSoduUBbrBPXMEoeddQtqdJUJ6",
+      "hash": "QmdysBu77i3YaagNtMAjiCJdeWWvds18ho5XEB784guQ41",
       "name": "go-libp2p-net",
-      "version": "1.3.0"
+      "version": "1.5.0"
     },
     {
       "author": "whyrusleeping",
@@ -75,15 +75,15 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "Qmezvofp8DAh8GnU395s2cvim7uACGp6DdiKVftAesEovw",
+      "hash": "QmVcNzHewFvmVah1CGqg8NV7nHHsPu19U43YE5b2oqWyBp",
       "name": "go-libp2p-metrics",
-      "version": "1.3.0"
+      "version": "1.5.0"
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmdiBXu57LDzaoovc89jypRSNEhxVZ4zRig2AsXm9VwrsS",
+      "hash": "QmeFCCpGjB663gcLVS7Kz6ZSXyFgx5aJwQu27xkwyWdWiG",
       "name": "go-libp2p-conn",
-      "version": "1.2.1"
+      "version": "1.4.0"
     },
     {
       "author": "whyrusleeping",

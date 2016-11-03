@@ -4,7 +4,7 @@ import (
 	inet "github.com/libp2p/go-libp2p-net"
 	protocol "github.com/libp2p/go-libp2p-protocol"
 
-	ps "github.com/jbenet/go-peerstream"
+	ps "github.com/libp2p/go-peerstream"
 )
 
 // Stream is a wrapper around a ps.Stream that exposes a way to get

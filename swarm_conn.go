@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	ps "github.com/jbenet/go-peerstream"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	iconn "github.com/libp2p/go-libp2p-interface-conn"
 	inet "github.com/libp2p/go-libp2p-net"
 	peer "github.com/libp2p/go-libp2p-peer"
+	ps "github.com/libp2p/go-peerstream"
 	ma "github.com/multiformats/go-multiaddr"
 )
 

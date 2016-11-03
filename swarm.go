@@ -12,7 +12,6 @@ import (
 	"time"
 
 	logging "github.com/ipfs/go-log"
-	ps "github.com/jbenet/go-peerstream"
 	pst "github.com/jbenet/go-stream-muxer"
 	"github.com/jbenet/goprocess"
 	goprocessctx "github.com/jbenet/goprocess/context"
@@ -26,6 +25,7 @@ import (
 	pstore "github.com/libp2p/go-libp2p-peerstore"
 	transport "github.com/libp2p/go-libp2p-transport"
 	filter "github.com/libp2p/go-maddr-filter"
+	ps "github.com/libp2p/go-peerstream"
 	tcpt "github.com/libp2p/go-tcp-transport"
 	ma "github.com/multiformats/go-multiaddr"
 	psmss "github.com/whyrusleeping/go-smux-multistream"
