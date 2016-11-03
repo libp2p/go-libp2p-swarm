@@ -92,7 +92,13 @@ func (c *Conn) Close() error {
 }
 
 func (c *Conn) GetStreams() ([]inet.Stream, error) {
-	return nil, fmt.Errorf("GetStreams() not yet implemented")
+	ss := c.StreamConn().Streams()
+	out := make([]inet.Stream, len(ss))
+
+	for i, s := range ss {
+		out[i] = (*Stream)(s)
+	}
+	return out, nil
 }
 
 func wrapConn(psc *ps.Conn) (*Conn, error) {

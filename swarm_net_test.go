@@ -165,6 +165,15 @@ func TestNetworkOpenStream(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	streams, err := nets[0].ConnsToPeer(nets[1].LocalPeer())[0].GetStreams()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(streams) != 1 {
+		t.Fatal("should only have one stream there")
+	}
+
 	_, err = s.Write([]byte("hello ipfs"))
 	if err != nil {
 		t.Fatal(err)
