@@ -77,7 +77,7 @@ func (c *Conn) RemotePublicKey() ic.PubKey {
 // NewSwarmStream returns a new Stream from this connection
 func (c *Conn) NewSwarmStream() (*Stream, error) {
 	s, err := c.StreamConn().NewStream()
-	return wrapStream(s), err
+	return (*Stream)(s), err
 }
 
 // NewStream returns a new Stream from this connection
@@ -89,6 +89,10 @@ func (c *Conn) NewStream() (inet.Stream, error) {
 // Close closes the underlying stream connection
 func (c *Conn) Close() error {
 	return c.StreamConn().Close()
+}
+
+func (c *Conn) GetStreams() ([]inet.Stream, error) {
+	return nil, fmt.Errorf("GetStreams() not yet implemented")
 }
 
 func wrapConn(psc *ps.Conn) (*Conn, error) {
