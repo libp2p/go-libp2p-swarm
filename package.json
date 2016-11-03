@@ -69,9 +69,9 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmUQhsqvLehBDWjFq3C3nT6ZkGEsdPWSzxV6sNAzjRMfQQ",
+      "hash": "QmS9en3mcwW2HRSeRabceJEGVxTZF4vEeFm7JHWQwWsb1U",
       "name": "go-peerstream",
-      "version": "1.4.0"
+      "version": "1.4.1"
     },
     {
       "author": "whyrusleeping",
