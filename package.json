@@ -97,6 +97,6 @@
   "license": "",
   "name": "go-libp2p-swarm",
   "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
-  "version": "1.3.2"
+  "version": "1.3.3"
 }
 
