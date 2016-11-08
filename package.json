@@ -9,9 +9,9 @@
   "gxDependencies": [
     {
       "author": "whyrusleeping",
-      "hash": "QmdysBu77i3YaagNtMAjiCJdeWWvds18ho5XEB784guQ41",
+      "hash": "QmU3pGGVT1riXp5dBJbNrGpxssVScfvk9236drRHZZbKJ1",
       "name": "go-libp2p-net",
-      "version": "1.5.0"
+      "version": "1.6.0"
     },
     {
       "author": "whyrusleeping",
@@ -39,21 +39,21 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmfXgTygwsTPyUWPWTAeBK6cFtTdMqmeeqhyhcNMhRpT1g",
+      "hash": "QmWUNsat6Jb19nC5CiJCDXepTkxjdxi3eZqeoB6mrmmaGu",
       "name": "go-smux-spdystream",
-      "version": "1.1.1"
+      "version": "1.2.0"
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmetupZ62uEdoqNsbZUCgqU3JyfssExBfqBwBhDpjyE6eW",
+      "hash": "QmTfjLsou9ic6L4KqCcmbLSZcdiFu8q1v6njKp121pbbXx",
       "name": "go-smux-multistream",
-      "version": "1.4.0"
+      "version": "1.5.0"
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmSHTSkxXGQgaHWz91oZV3CDy3hmKmDgpjbYRT6niACG4E",
+      "hash": "Qmbn7RYyWzBVXiUp9jZ1dA4VADHy9DtS7iZLwfhEUQvm3U",
       "name": "go-smux-yamux",
-      "version": "1.1.1"
+      "version": "1.2.0"
     },
     {
       "author": "whyrusleeping",
@@ -69,15 +69,15 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmS9en3mcwW2HRSeRabceJEGVxTZF4vEeFm7JHWQwWsb1U",
+      "hash": "QmVwFjMdejJ8mGVmgyR2mKcUHrvNBDtDsKRT99soVbkFhA",
       "name": "go-peerstream",
-      "version": "1.4.1"
+      "version": "1.5.0"
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmVcNzHewFvmVah1CGqg8NV7nHHsPu19U43YE5b2oqWyBp",
+      "hash": "QmX4j1JhubdEt4EB1JY1mMKTvJwPZSRzTv3uwh5zaDqyAi",
       "name": "go-libp2p-metrics",
-      "version": "1.5.0"
+      "version": "1.6.0"
     },
     {
       "author": "whyrusleeping",

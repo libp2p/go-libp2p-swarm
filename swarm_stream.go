@@ -1,9 +1,10 @@
 package swarm
 
 import (
+	"time"
+
 	inet "github.com/libp2p/go-libp2p-net"
 	protocol "github.com/libp2p/go-libp2p-protocol"
-
 	ps "github.com/libp2p/go-peerstream"
 )
 
@@ -48,4 +49,16 @@ func (s *Stream) Protocol() protocol.ID {
 
 func (s *Stream) SetProtocol(p protocol.ID) {
 	(*ps.Stream)(s).SetProtocol(p)
+}
+
+func (s *Stream) SetDeadline(t time.Time) error {
+	return s.Stream().SetDeadline(t)
+}
+
+func (s *Stream) SetReadDeadline(t time.Time) error {
+	return s.Stream().SetReadDeadline(t)
+}
+
+func (s *Stream) SetWriteDeadline(t time.Time) error {
+	return s.Stream().SetWriteDeadline(t)
 }
