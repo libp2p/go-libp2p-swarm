@@ -83,7 +83,7 @@ func (s *Swarm) addListener(tptlist transport.Listener) error {
 		log.Warning("Listener not given PrivateKey, so WILL NOT SECURE conns.")
 	}
 
-	list, err := conn.WrapTransportListener(s.Context(), tptlist, s.local, sk)
+	list, err := conn.WrapTransportListener(s.Context(), tptlist, s.local, sk, s.protec)
 	if err != nil {
 		return err
 	}
