@@ -103,8 +103,13 @@ type Swarm struct {
 	protec ipnet.Protector
 }
 
-// NewSwarm constructs a Swarm, with a Chan.
 func NewSwarm(ctx context.Context, listenAddrs []ma.Multiaddr, local peer.ID,
+	peers pstore.Peerstore, bwc metrics.Reporter) (*Swarm, error) {
+	return NewSwarmWithProtector(ctx, listenAddrs, local, peers, nil, bwc)
+}
+
+// NewSwarm constructs a Swarm, with a Chan.
+func NewSwarmWithProtector(ctx context.Context, listenAddrs []ma.Multiaddr, local peer.ID,
 	peers pstore.Peerstore, protec ipnet.Protector, bwc metrics.Reporter) (*Swarm, error) {
 
 	listenAddrs, err := filterAddrs(listenAddrs)
@@ -133,9 +138,10 @@ func NewSwarm(ctx context.Context, listenAddrs []ma.Multiaddr, local peer.ID,
 		bwc:         bwc,
 		fdRateLimit: make(chan struct{}, concurrentFdDials),
 		Filters:     filter.NewFilters(),
-		dialer:      conn.NewDialer(local, peers.PrivKey(local), protec, wrap),
+		dialer:      conn.NewDialer(local, peers.PrivKey(local), wrap),
 		protec:      protec,
 	}
+	s.dialer.Protector = protec
 
 	s.dsync = NewDialSync(s.doDial)
 	s.limiter = newDialLimiter(s.dialAddr)
@@ -162,7 +168,7 @@ func NewBlankSwarm(ctx context.Context, id peer.ID, privkey ci.PrivKey, pstpt ps
 		notifs:      make(map[inet.Notifiee]ps.Notifiee),
 		fdRateLimit: make(chan struct{}, concurrentFdDials),
 		Filters:     filter.NewFilters(),
-		dialer:      conn.NewDialer(id, privkey, nil, nil),
+		dialer:      conn.NewDialer(id, privkey, nil),
 	}
 
 	// configure Swarm
