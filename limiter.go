@@ -12,6 +12,7 @@ import (
 
 type dialResult struct {
 	Conn iconn.Conn
+	Addr ma.Multiaddr
 	Err  error
 }
 
@@ -141,7 +142,7 @@ func (dl *dialLimiter) executeDial(j *dialJob) {
 
 	con, err := dl.dialFunc(j.ctx, j.peer, j.addr)
 	select {
-	case j.resp <- dialResult{Conn: con, Err: err}:
+	case j.resp <- dialResult{Conn: con, Addr: j.addr, Err: err}:
 	case <-j.ctx.Done():
 	}
 }

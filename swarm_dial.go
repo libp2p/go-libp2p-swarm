@@ -318,7 +318,7 @@ func (s *Swarm) dialAddrs(ctx context.Context, p peer.ID, remoteAddrs <-chan ma.
 		case resp := <-respch:
 			active--
 			if resp.Err != nil {
-				log.Info("got error on dial: ", resp.Err)
+				log.Info("got error on dial to %s: ", resp.Addr, resp.Err)
 				// Errors are normal, lots of dials will fail
 				exitErr = resp.Err
 
