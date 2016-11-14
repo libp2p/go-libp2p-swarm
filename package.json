@@ -81,9 +81,9 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmRJA93XFXJTVqFgC1mquPV4m1MkNrtTsfnRmFUy4Mhoih",
+      "hash": "QmV7iorvAUv766HnS5gZrsYAkFqKdTTF73kGvUDu5XFzCb",
       "name": "go-libp2p-conn",
-      "version": "1.4.0"
+      "version": "1.5.0"
     },
     {
       "author": "whyrusleeping",
