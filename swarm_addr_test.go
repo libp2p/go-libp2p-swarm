@@ -65,11 +65,11 @@ func TestFilterAddrs(t *testing.T) {
 	ps := pstore.NewPeerstore()
 	ctx := context.Background()
 
-	if _, err := NewNetwork(ctx, bad, id, ps, nil, metrics.NewBandwidthCounter()); err == nil {
+	if _, err := NewNetwork(ctx, bad, id, ps, metrics.NewBandwidthCounter()); err == nil {
 		t.Fatal("should have failed to create swarm")
 	}
 
-	if _, err := NewNetwork(ctx, goodAndBad, id, ps, nil, metrics.NewBandwidthCounter()); err != nil {
+	if _, err := NewNetwork(ctx, goodAndBad, id, ps, metrics.NewBandwidthCounter()); err != nil {
 		t.Fatal("should have succeeded in creating swarm", err)
 	}
 }

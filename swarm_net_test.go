@@ -17,7 +17,7 @@ func GenSwarmNetwork(t *testing.T, ctx context.Context) *Network {
 	ps := pstore.NewPeerstore()
 	ps.AddPubKey(p.ID, p.PubKey)
 	ps.AddPrivKey(p.ID, p.PrivKey)
-	n, err := NewNetwork(ctx, []ma.Multiaddr{p.Addr}, p.ID, ps, nil, nil)
+	n, err := NewNetwork(ctx, []ma.Multiaddr{p.Addr}, p.ID, ps, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
