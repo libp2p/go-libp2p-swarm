@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/jbenet/goprocess"
+	ipnet "github.com/libp2p/go-libp2p-interface-pnet"
 	metrics "github.com/libp2p/go-libp2p-metrics"
 	inet "github.com/libp2p/go-libp2p-net"
 	peer "github.com/libp2p/go-libp2p-peer"
@@ -17,11 +18,17 @@ import (
 // to implement inet.Network.
 type Network Swarm
 
-// NewNetwork constructs a new network and starts listening on given addresses.
 func NewNetwork(ctx context.Context, listen []ma.Multiaddr, local peer.ID,
 	peers pstore.Peerstore, bwc metrics.Reporter) (*Network, error) {
 
-	s, err := NewSwarm(ctx, listen, local, peers, bwc)
+	return NewNetworkWithProtector(ctx, listen, local, peers, nil, bwc)
+}
+
+// NewNetwork constructs a new network and starts listening on given addresses.
+func NewNetworkWithProtector(ctx context.Context, listen []ma.Multiaddr, local peer.ID,
+	peers pstore.Peerstore, protec ipnet.Protector, bwc metrics.Reporter) (*Network, error) {
+
+	s, err := NewSwarmWithProtector(ctx, listen, local, peers, protec, bwc)
 	if err != nil {
 		return nil, err
 	}

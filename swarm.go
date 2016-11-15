@@ -18,6 +18,7 @@ import (
 	addrutil "github.com/libp2p/go-addr-util"
 	conn "github.com/libp2p/go-libp2p-conn"
 	ci "github.com/libp2p/go-libp2p-crypto"
+	ipnet "github.com/libp2p/go-libp2p-interface-pnet"
 	metrics "github.com/libp2p/go-libp2p-metrics"
 	mconn "github.com/libp2p/go-libp2p-metrics/conn"
 	inet "github.com/libp2p/go-libp2p-net"
@@ -98,11 +99,18 @@ type Swarm struct {
 	bwc  metrics.Reporter
 
 	limiter *dialLimiter
+
+	protec ipnet.Protector
+}
+
+func NewSwarm(ctx context.Context, listenAddrs []ma.Multiaddr, local peer.ID,
+	peers pstore.Peerstore, bwc metrics.Reporter) (*Swarm, error) {
+	return NewSwarmWithProtector(ctx, listenAddrs, local, peers, nil, bwc)
 }
 
 // NewSwarm constructs a Swarm, with a Chan.
-func NewSwarm(ctx context.Context, listenAddrs []ma.Multiaddr,
-	local peer.ID, peers pstore.Peerstore, bwc metrics.Reporter) (*Swarm, error) {
+func NewSwarmWithProtector(ctx context.Context, listenAddrs []ma.Multiaddr, local peer.ID,
+	peers pstore.Peerstore, protec ipnet.Protector, bwc metrics.Reporter) (*Swarm, error) {
 
 	listenAddrs, err := filterAddrs(listenAddrs)
 	if err != nil {
@@ -131,7 +139,9 @@ func NewSwarm(ctx context.Context, listenAddrs []ma.Multiaddr,
 		fdRateLimit: make(chan struct{}, concurrentFdDials),
 		Filters:     filter.NewFilters(),
 		dialer:      conn.NewDialer(local, peers.PrivKey(local), wrap),
+		protec:      protec,
 	}
+	s.dialer.Protector = protec
 
 	s.dsync = NewDialSync(s.doDial)
 	s.limiter = newDialLimiter(s.dialAddr)
