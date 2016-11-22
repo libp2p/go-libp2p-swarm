@@ -30,6 +30,7 @@ make install
 
 ## Usage
 
+### Creating a swarm
 To construct a swarm, you'll be calling `NewSwarm`. That function looks like this:
 ```go
 swarm, err := NewSwarm(ctx, laddrs, pid, pstore, bwc)
@@ -64,7 +65,7 @@ incoming and outgoing bandwidth on connections managed by this swarm. It is
 optional, and passing `nil` will simply result in no metrics for connections
 being available.
 
-### Identity Generation
+#### Identity Generation
 A proper libp2p identity is PKI based. We currently have support for RSA and ed25519 keys. To create a 'correct' ID, you'll need to either load or generate a new keypair. Here is an example of doing so:
 
 ```go
@@ -108,6 +109,35 @@ func demo() {
 	// viola! A functioning swarm!
 }
 ```
+
+### Streams
+The swarm is designed around using multiplexed streams to communicate with
+other peers. When working with a swarm, you will want to set a function to
+handle incoming streams from your peers:
+
+```go
+swrm.SetStreamHandler(func(s inet.Stream) {
+	defer s.Close()
+	fmt.Println("Got a stream from: ", s.SwarmConn().RemotePeer())
+	fmt.Fprintln(s, "Hello Friend!")
+})
+```
+
+Tip: Always make sure to close streams when you're done with them.
+
+Opening streams is also pretty simple:
+```go
+s, err := swrm.NewStreamWithPeer(ctx, rpid)
+if err != nil {
+	panic(err)
+}
+defer s.Close()
+
+io.Copy(os.Stdout, s) // pipe the stream to stdout
+```
+
+Just pass a context and the ID of the peer you want a stream to, and you'll get
+back a stream to read and write on.
 
 
 ## Contribute
