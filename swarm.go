@@ -105,12 +105,12 @@ type Swarm struct {
 
 func NewSwarm(ctx context.Context, listenAddrs []ma.Multiaddr, local peer.ID,
 	peers pstore.Peerstore, bwc metrics.Reporter) (*Swarm, error) {
-	return NewSwarmWithProtector(ctx, listenAddrs, local, peers, nil, bwc)
+	return NewSwarmWithProtector(ctx, listenAddrs, local, peers, nil, PSTransport, bwc)
 }
 
 // NewSwarm constructs a Swarm, with a Chan.
 func NewSwarmWithProtector(ctx context.Context, listenAddrs []ma.Multiaddr, local peer.ID,
-	peers pstore.Peerstore, protec ipnet.Protector, bwc metrics.Reporter) (*Swarm, error) {
+	peers pstore.Peerstore, protec ipnet.Protector, tpt pst.Transport, bwc metrics.Reporter) (*Swarm, error) {
 
 	listenAddrs, err := filterAddrs(listenAddrs)
 	if err != nil {
@@ -125,7 +125,7 @@ func NewSwarmWithProtector(ctx context.Context, listenAddrs []ma.Multiaddr, loca
 	}
 
 	s := &Swarm{
-		swarm:  ps.NewSwarm(PSTransport),
+		swarm:  ps.NewSwarm(tpt),
 		local:  local,
 		peers:  peers,
 		ctx:    ctx,

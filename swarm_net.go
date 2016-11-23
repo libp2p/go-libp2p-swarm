@@ -28,7 +28,7 @@ func NewNetwork(ctx context.Context, listen []ma.Multiaddr, local peer.ID,
 func NewNetworkWithProtector(ctx context.Context, listen []ma.Multiaddr, local peer.ID,
 	peers pstore.Peerstore, protec ipnet.Protector, bwc metrics.Reporter) (*Network, error) {
 
-	s, err := NewSwarmWithProtector(ctx, listen, local, peers, protec, bwc)
+	s, err := NewSwarmWithProtector(ctx, listen, local, peers, protec, PSTransport, bwc)
 	if err != nil {
 		return nil, err
 	}
