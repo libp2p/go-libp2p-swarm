@@ -9,6 +9,7 @@ import (
 
 	addrutil "github.com/libp2p/go-addr-util"
 	iconn "github.com/libp2p/go-libp2p-interface-conn"
+	ipnet "github.com/libp2p/go-libp2p-interface-pnet"
 	lgbl "github.com/libp2p/go-libp2p-loggables"
 	peer "github.com/libp2p/go-libp2p-peer"
 	ma "github.com/multiformats/go-multiaddr"
@@ -158,7 +159,11 @@ func (s *Swarm) Dial(ctx context.Context, p peer.ID) (*Conn, error) {
 		return nil, ErrDialToSelf
 	}
 
-	return s.gatedDialAttempt(ctx, p)
+	conn, err := s.gatedDialAttempt(ctx, p)
+	if err != nil && ipnet.IsPNetError(err) {
+		log.Errorf("%s. Possible missmatched private network key", err.Error())
+	}
+	return conn, err
 }
 
 func (s *Swarm) bestConnectionToPeer(p peer.ID) *Conn {
