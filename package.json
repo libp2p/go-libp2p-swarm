@@ -45,9 +45,9 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmTfjLsou9ic6L4KqCcmbLSZcdiFu8q1v6njKp121pbbXx",
+      "hash": "QmNmggwnLexB8tkCZaARG4ochpiBT8V2jAgz8MVG6CaVcR",
       "name": "go-smux-multistream",
-      "version": "1.5.0"
+      "version": "1.5.1"
     },
     {
       "author": "whyrusleeping",
@@ -81,9 +81,9 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmQKfJb2rWd7vCzf38VEx9NQWUkuqfd5KuGo6eZEtQLNcQ",
+      "hash": "QmQxQHJw2ZpYrEw7qmAPBnFfmwgNaV8bsEgBfhAx5xJQF3",
       "name": "go-libp2p-conn",
-      "version": "1.5.1"
+      "version": "1.5.2"
     },
     {
       "author": "whyrusleeping",
