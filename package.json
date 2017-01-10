@@ -45,9 +45,9 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmT2c8J5Xt6zRBsvHfXKH8hBXhR8DB2TihRXaETX8sD12R",
+      "hash": "QmW2gR4Ve9xqEjtPpgfsGRftP8CVWofopDM7cSYhDn8CHy",
       "name": "go-smux-multistream",
-      "version": "1.5.3"
+      "version": "1.5.4"
     },
     {
       "author": "whyrusleeping",
@@ -81,9 +81,9 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmdEajEhjdowKAsrZiaZBWnZkdREjT32UZAsfhAfcmonr3",
+      "hash": "Qmbw14c3YFucyNLdszPzAg9BZaucJcKQGjRsnMKcujZwEz",
       "name": "go-libp2p-conn",
-      "version": "1.5.4"
+      "version": "1.5.5"
     },
     {
       "author": "whyrusleeping",
@@ -97,6 +97,6 @@
   "license": "",
   "name": "go-libp2p-swarm",
   "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
-  "version": "1.6.4"
+  "version": "1.6.5"
 }
 
