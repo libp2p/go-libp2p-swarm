@@ -54,7 +54,7 @@ func (s *Swarm) setupInterfaces(addrs []ma.Multiaddr) error {
 
 	for i, e := range errs {
 		if e != nil {
-			log.Warning("listen on %s failed: %s", addrs[i], errs[i])
+			log.Warningf("listen on %s failed: %s", addrs[i], errs[i])
 		}
 	}
 
