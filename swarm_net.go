@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 
-	metrics "gx/ipfs/QmPfeoLzBPsiwbHLwev8ecgjd1RPCYfsAHhdFA8avEnXQm/go-libp2p-metrics"
-	"gx/ipfs/QmSF8fPo3jgVBAy8fpdjjYqgG87dkJgUprRBHRd2tmfgpP/goprocess"
-	ma "gx/ipfs/QmSWLfmj5frN9xVLMMN846dMDriy5wN5jeghUm7aTW3DAG/go-multiaddr"
-	inet "gx/ipfs/QmTWdBq4ZaLGbXcMiNasSR5ywomkgQiJDqQknEU16z3pZR/go-libp2p-net"
-	ipnet "gx/ipfs/QmWNwP8oYzPUK6LqYEH1hoTMuVmQUUbhKQgHeT1AENGkEm/go-libp2p-interface-pnet"
-	peer "gx/ipfs/QmbKtZxyDqUJp7Ad8tGr5nrLqoi9nfgqFxcNbmLJbfaHPe/go-libp2p-peer"
-	pstore "gx/ipfs/QmekwEJM81TqzKzupMvK68hVNfBNvBengWkpc8nAw2bjBf/go-libp2p-peerstore"
+	"github.com/jbenet/goprocess"
+	ipnet "github.com/libp2p/go-libp2p-interface-pnet"
+	metrics "github.com/libp2p/go-libp2p-metrics"
+	inet "github.com/libp2p/go-libp2p-net"
+	peer "github.com/libp2p/go-libp2p-peer"
+	pstore "github.com/libp2p/go-libp2p-peerstore"
+	ma "github.com/multiformats/go-multiaddr"
 )
 
 // Network implements the inet.Network interface.

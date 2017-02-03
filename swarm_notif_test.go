@@ -5,9 +5,9 @@ import (
 	"time"
 
 	"context"
-	ma "gx/ipfs/QmSWLfmj5frN9xVLMMN846dMDriy5wN5jeghUm7aTW3DAG/go-multiaddr"
-	inet "gx/ipfs/QmTWdBq4ZaLGbXcMiNasSR5ywomkgQiJDqQknEU16z3pZR/go-libp2p-net"
-	peer "gx/ipfs/QmbKtZxyDqUJp7Ad8tGr5nrLqoi9nfgqFxcNbmLJbfaHPe/go-libp2p-peer"
+	inet "github.com/libp2p/go-libp2p-net"
+	peer "github.com/libp2p/go-libp2p-peer"
+	ma "github.com/multiformats/go-multiaddr"
 )
 
 func streamsSame(a, b inet.Stream) bool {

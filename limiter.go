@@ -4,10 +4,10 @@ import (
 	"context"
 	"sync"
 
-	iconn "gx/ipfs/QmNmKcQiJB5cUTXXXS1o44s4PdeYevmH8aHhQJCGYjwBj3/go-libp2p-interface-conn"
-	ma "gx/ipfs/QmSWLfmj5frN9xVLMMN846dMDriy5wN5jeghUm7aTW3DAG/go-multiaddr"
-	addrutil "gx/ipfs/Qmb86KiitngVm5AGQ18viwCBwwcTvULAtz3X74YWKAevnc/go-addr-util"
-	peer "gx/ipfs/QmbKtZxyDqUJp7Ad8tGr5nrLqoi9nfgqFxcNbmLJbfaHPe/go-libp2p-peer"
+	addrutil "github.com/libp2p/go-addr-util"
+	iconn "github.com/libp2p/go-libp2p-interface-conn"
+	peer "github.com/libp2p/go-libp2p-peer"
+	ma "github.com/multiformats/go-multiaddr"
 )
 
 type dialResult struct {

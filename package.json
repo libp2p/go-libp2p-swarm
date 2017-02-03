@@ -9,19 +9,19 @@
   "gxDependencies": [
     {
       "author": "whyrusleeping",
-      "hash": "QmTWdBq4ZaLGbXcMiNasSR5ywomkgQiJDqQknEU16z3pZR",
+      "hash": "Qmcu7ebuPAPnCqJy29WJrpEFQaFWpW2krmrPtYqbQ2BPti",
       "name": "go-libp2p-net",
       "version": "1.6.1"
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmTuX6VtWTbWgPwd5PMXHyp411RKsW5nBqLKVVRfJMNneb",
+      "hash": "QmNiCwBNA8MWDADTFVq1BonUEJbS2SvjAoNkZZrhEwcuUi",
       "name": "go-libp2p-crypto",
       "version": "1.3.1"
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmekwEJM81TqzKzupMvK68hVNfBNvBengWkpc8nAw2bjBf",
+      "hash": "QmQMQ2RUjnaEEX8ybmrhuFFGhAwPjyL1Eo6ZoJGD7aAccM",
       "name": "go-libp2p-peerstore",
       "version": "1.4.0"
     },
@@ -75,19 +75,19 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmPfeoLzBPsiwbHLwev8ecgjd1RPCYfsAHhdFA8avEnXQm",
+      "hash": "QmS8W8Jyk63qtvqhdZzSi7GvaTZ2SnZ31gkKyGYU6kRa6Z",
       "name": "go-libp2p-metrics",
       "version": "1.6.1"
     },
     {
       "author": "whyrusleeping",
-      "hash": "Qmf8Br5gq5XgMrSA6Y6dzY3kaBWwJu6aqXJxxuxCCKsbyD",
+      "hash": "QmX11nfjBjzgHSWPxeyzbRzbhxKpvrtsfRWPGtjCR6toJb",
       "name": "go-libp2p-conn",
       "version": "1.5.6"
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmXJfmGL3GycHcuqft7vvhf6Xhzad6nuTiEnoEWwAv3zcd",
+      "hash": "QmUE7L9KeQswGjZi1vgyFMEyXWgZeo6HWiyNzMxzeNM4o1",
       "name": "go-tcp-transport",
       "version": "1.1.0"
     }
@@ -97,6 +97,6 @@
   "license": "",
   "name": "go-libp2p-swarm",
   "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
-  "version": "1.6.8"
+  "version": "1.6.9"
 }
 

@@ -4,11 +4,11 @@ import (
 	"context"
 	"testing"
 
-	metrics "gx/ipfs/QmPfeoLzBPsiwbHLwev8ecgjd1RPCYfsAHhdFA8avEnXQm/go-libp2p-metrics"
-	ma "gx/ipfs/QmSWLfmj5frN9xVLMMN846dMDriy5wN5jeghUm7aTW3DAG/go-multiaddr"
-	addrutil "gx/ipfs/Qmb86KiitngVm5AGQ18viwCBwwcTvULAtz3X74YWKAevnc/go-addr-util"
-	testutil "gx/ipfs/QmbN6CcaGuVSWwhYq5nDQs98hWHgu5PTBgVjnGV28YeGRk/go-testutil"
-	pstore "gx/ipfs/QmekwEJM81TqzKzupMvK68hVNfBNvBengWkpc8nAw2bjBf/go-libp2p-peerstore"
+	addrutil "github.com/libp2p/go-addr-util"
+	metrics "github.com/libp2p/go-libp2p-metrics"
+	pstore "github.com/libp2p/go-libp2p-peerstore"
+	testutil "github.com/libp2p/go-testutil"
+	ma "github.com/multiformats/go-multiaddr"
 )
 
 func TestFilterAddrs(t *testing.T) {

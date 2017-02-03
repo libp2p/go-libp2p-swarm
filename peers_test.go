@@ -4,9 +4,9 @@ import (
 	"testing"
 
 	"context"
-	ma "gx/ipfs/QmSWLfmj5frN9xVLMMN846dMDriy5wN5jeghUm7aTW3DAG/go-multiaddr"
-	peer "gx/ipfs/QmbKtZxyDqUJp7Ad8tGr5nrLqoi9nfgqFxcNbmLJbfaHPe/go-libp2p-peer"
-	pstore "gx/ipfs/QmekwEJM81TqzKzupMvK68hVNfBNvBengWkpc8nAw2bjBf/go-libp2p-peerstore"
+	peer "github.com/libp2p/go-libp2p-peer"
+	pstore "github.com/libp2p/go-libp2p-peerstore"
+	ma "github.com/multiformats/go-multiaddr"
 )
 
 func TestPeers(t *testing.T) {

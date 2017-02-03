@@ -3,9 +3,9 @@ package swarm
 import (
 	"time"
 
-	ps "gx/ipfs/QmSxPTJ2Jb3nekq3AGMgDyXZR3dhPrSPVSggT3FqJWw4Sa/go-peerstream"
-	inet "gx/ipfs/QmTWdBq4ZaLGbXcMiNasSR5ywomkgQiJDqQknEU16z3pZR/go-libp2p-net"
-	protocol "gx/ipfs/QmZNkThpqfVXs9GNbexPrfBbXSLNYeKrE7jwFM2oqHbyqN/go-libp2p-protocol"
+	inet "github.com/libp2p/go-libp2p-net"
+	protocol "github.com/libp2p/go-libp2p-protocol"
+	ps "github.com/libp2p/go-peerstream"
 )
 
 // Stream is a wrapper around a ps.Stream that exposes a way to get

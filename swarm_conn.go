@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	iconn "gx/ipfs/QmNmKcQiJB5cUTXXXS1o44s4PdeYevmH8aHhQJCGYjwBj3/go-libp2p-interface-conn"
-	ma "gx/ipfs/QmSWLfmj5frN9xVLMMN846dMDriy5wN5jeghUm7aTW3DAG/go-multiaddr"
-	ps "gx/ipfs/QmSxPTJ2Jb3nekq3AGMgDyXZR3dhPrSPVSggT3FqJWw4Sa/go-peerstream"
-	inet "gx/ipfs/QmTWdBq4ZaLGbXcMiNasSR5ywomkgQiJDqQknEU16z3pZR/go-libp2p-net"
-	ic "gx/ipfs/QmTuX6VtWTbWgPwd5PMXHyp411RKsW5nBqLKVVRfJMNneb/go-libp2p-crypto"
-	peer "gx/ipfs/QmbKtZxyDqUJp7Ad8tGr5nrLqoi9nfgqFxcNbmLJbfaHPe/go-libp2p-peer"
+	ic "github.com/libp2p/go-libp2p-crypto"
+	iconn "github.com/libp2p/go-libp2p-interface-conn"
+	inet "github.com/libp2p/go-libp2p-net"
+	peer "github.com/libp2p/go-libp2p-peer"
+	ps "github.com/libp2p/go-peerstream"
+	ma "github.com/multiformats/go-multiaddr"
 )
 
 // Conn is a simple wrapper around a ps.Conn that also exposes

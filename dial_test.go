@@ -7,13 +7,13 @@ import (
 	"testing"
 	"time"
 
-	ma "gx/ipfs/QmSWLfmj5frN9xVLMMN846dMDriy5wN5jeghUm7aTW3DAG/go-multiaddr"
-	manet "gx/ipfs/QmVCNGTyD4EkvNYaAp253uMQ9Rjsjy2oGMvcdJJUoVRfja/go-multiaddr-net"
-	addrutil "gx/ipfs/Qmb86KiitngVm5AGQ18viwCBwwcTvULAtz3X74YWKAevnc/go-addr-util"
-	peer "gx/ipfs/QmbKtZxyDqUJp7Ad8tGr5nrLqoi9nfgqFxcNbmLJbfaHPe/go-libp2p-peer"
-	testutil "gx/ipfs/QmbN6CcaGuVSWwhYq5nDQs98hWHgu5PTBgVjnGV28YeGRk/go-testutil"
-	ci "gx/ipfs/QmbN6CcaGuVSWwhYq5nDQs98hWHgu5PTBgVjnGV28YeGRk/go-testutil/ci"
-	pstore "gx/ipfs/QmekwEJM81TqzKzupMvK68hVNfBNvBengWkpc8nAw2bjBf/go-libp2p-peerstore"
+	addrutil "github.com/libp2p/go-addr-util"
+	peer "github.com/libp2p/go-libp2p-peer"
+	pstore "github.com/libp2p/go-libp2p-peerstore"
+	testutil "github.com/libp2p/go-testutil"
+	ci "github.com/libp2p/go-testutil/ci"
+	ma "github.com/multiformats/go-multiaddr"
+	manet "github.com/multiformats/go-multiaddr-net"
 )
 
 func closeSwarms(swarms []*Swarm) {

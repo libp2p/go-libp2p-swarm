@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	iconn "gx/ipfs/QmNmKcQiJB5cUTXXXS1o44s4PdeYevmH8aHhQJCGYjwBj3/go-libp2p-interface-conn"
-	ma "gx/ipfs/QmSWLfmj5frN9xVLMMN846dMDriy5wN5jeghUm7aTW3DAG/go-multiaddr"
-	mafmt "gx/ipfs/QmYjJnSTfXWhYL2cV1xFphPqjqowJqH7ZKLA1As8QrPHbn/mafmt"
-	peer "gx/ipfs/QmbKtZxyDqUJp7Ad8tGr5nrLqoi9nfgqFxcNbmLJbfaHPe/go-libp2p-peer"
+	iconn "github.com/libp2p/go-libp2p-interface-conn"
+	peer "github.com/libp2p/go-libp2p-peer"
+	ma "github.com/multiformats/go-multiaddr"
+	mafmt "github.com/whyrusleeping/mafmt"
 )
 
 func mustAddr(t *testing.T, s string) ma.Multiaddr {
