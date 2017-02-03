@@ -4,14 +4,14 @@ import (
 	"context"
 	"fmt"
 
-	conn "github.com/libp2p/go-libp2p-conn"
-	iconn "github.com/libp2p/go-libp2p-interface-conn"
-	lgbl "github.com/libp2p/go-libp2p-loggables"
-	mconn "github.com/libp2p/go-libp2p-metrics/conn"
-	inet "github.com/libp2p/go-libp2p-net"
-	transport "github.com/libp2p/go-libp2p-transport"
-	ps "github.com/libp2p/go-peerstream"
-	ma "github.com/multiformats/go-multiaddr"
+	iconn "gx/ipfs/QmNmKcQiJB5cUTXXXS1o44s4PdeYevmH8aHhQJCGYjwBj3/go-libp2p-interface-conn"
+	mconn "gx/ipfs/QmPfeoLzBPsiwbHLwev8ecgjd1RPCYfsAHhdFA8avEnXQm/go-libp2p-metrics/conn"
+	transport "gx/ipfs/QmR4YrM1DdvYmox249o8aday8oiotkcsT1Qzv42ujPEQDb/go-libp2p-transport"
+	ma "gx/ipfs/QmSWLfmj5frN9xVLMMN846dMDriy5wN5jeghUm7aTW3DAG/go-multiaddr"
+	ps "gx/ipfs/QmSxPTJ2Jb3nekq3AGMgDyXZR3dhPrSPVSggT3FqJWw4Sa/go-peerstream"
+	inet "gx/ipfs/QmTWdBq4ZaLGbXcMiNasSR5ywomkgQiJDqQknEU16z3pZR/go-libp2p-net"
+	lgbl "gx/ipfs/Qma1v2AjS7d2ceYgye4wUVBFFSdB6UPp7jgL8kNtxvFzWu/go-libp2p-loggables"
+	conn "gx/ipfs/Qmf8Br5gq5XgMrSA6Y6dzY3kaBWwJu6aqXJxxuxCCKsbyD/go-libp2p-conn"
 )
 
 func (s *Swarm) AddListenAddr(a ma.Multiaddr) error {

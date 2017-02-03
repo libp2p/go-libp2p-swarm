@@ -10,12 +10,12 @@ import (
 	"testing"
 	"time"
 
-	metrics "github.com/libp2p/go-libp2p-metrics"
-	inet "github.com/libp2p/go-libp2p-net"
-	peer "github.com/libp2p/go-libp2p-peer"
-	pstore "github.com/libp2p/go-libp2p-peerstore"
-	testutil "github.com/libp2p/go-testutil"
-	ma "github.com/multiformats/go-multiaddr"
+	metrics "gx/ipfs/QmPfeoLzBPsiwbHLwev8ecgjd1RPCYfsAHhdFA8avEnXQm/go-libp2p-metrics"
+	ma "gx/ipfs/QmSWLfmj5frN9xVLMMN846dMDriy5wN5jeghUm7aTW3DAG/go-multiaddr"
+	inet "gx/ipfs/QmTWdBq4ZaLGbXcMiNasSR5ywomkgQiJDqQknEU16z3pZR/go-libp2p-net"
+	peer "gx/ipfs/QmbKtZxyDqUJp7Ad8tGr5nrLqoi9nfgqFxcNbmLJbfaHPe/go-libp2p-peer"
+	testutil "gx/ipfs/QmbN6CcaGuVSWwhYq5nDQs98hWHgu5PTBgVjnGV28YeGRk/go-testutil"
+	pstore "gx/ipfs/QmekwEJM81TqzKzupMvK68hVNfBNvBengWkpc8nAw2bjBf/go-libp2p-peerstore"
 )
 
 func EchoStreamHandler(stream inet.Stream) {

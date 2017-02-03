@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	inet "github.com/libp2p/go-libp2p-net"
-	pstore "github.com/libp2p/go-libp2p-peerstore"
-	tu "github.com/libp2p/go-testutil"
-	ma "github.com/multiformats/go-multiaddr"
+	ma "gx/ipfs/QmSWLfmj5frN9xVLMMN846dMDriy5wN5jeghUm7aTW3DAG/go-multiaddr"
+	inet "gx/ipfs/QmTWdBq4ZaLGbXcMiNasSR5ywomkgQiJDqQknEU16z3pZR/go-libp2p-net"
+	tu "gx/ipfs/QmbN6CcaGuVSWwhYq5nDQs98hWHgu5PTBgVjnGV28YeGRk/go-testutil"
+	pstore "gx/ipfs/QmekwEJM81TqzKzupMvK68hVNfBNvBengWkpc8nAw2bjBf/go-libp2p-peerstore"
 )
 
 func GenSwarmNetwork(t *testing.T, ctx context.Context) *Network {

@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	peer "github.com/libp2p/go-libp2p-peer"
+	peer "gx/ipfs/QmbKtZxyDqUJp7Ad8tGr5nrLqoi9nfgqFxcNbmLJbfaHPe/go-libp2p-peer"
 )
 
 type DialFunc func(context.Context, peer.ID) (*Conn, error)
