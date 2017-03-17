@@ -354,3 +354,29 @@ func TestFilterBounds(t *testing.T) {
 		t.Log("got connect")
 	}
 }
+
+func TestTransports(t *testing.T) {
+	ctx := context.Background()
+	s := makeSwarms(ctx, t, 1)[0]
+	laddr, _ := ma.NewMultiaddr("/ip4/0.0.0.0/tcp/0")
+
+	lis, _ := s.Transports()[0].Listen(laddr)
+	expected := "/ip4/tcp"
+	actual := ""
+	for _, proto := range lis.Multiaddr().Protocols() {
+		actual = actual + "/" + proto.Name
+	}
+	if expected != actual {
+		t.Fatalf("expected %s, got %s", expected, actual)
+	}
+
+	lis, _ = s.Transports()[1].Listen(laddr)
+	expected = "/ip4/tcp/ws"
+	actual = ""
+	for _, proto := range lis.Multiaddr().Protocols() {
+		actual = actual + "/" + proto.Name
+	}
+	if expected != actual {
+		t.Fatalf("expected %s, got %s", expected, actual)
+	}
+}
