@@ -183,6 +183,10 @@ func (s *Swarm) AddTransport(t transport.Transport) {
 	s.transports = append(s.transports, t)
 }
 
+func (s *Swarm) Transports() []transport.Transport {
+	return s.transports
+}
+
 func (s *Swarm) teardown() error {
 	return s.swarm.Close()
 }
