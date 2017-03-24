@@ -9,25 +9,25 @@ import (
 	lgbl "github.com/libp2p/go-libp2p-loggables"
 	mconn "github.com/libp2p/go-libp2p-metrics/conn"
 	inet "github.com/libp2p/go-libp2p-net"
-	transport "github.com/libp2p/go-libp2p-transport"
+	tpt "github.com/libp2p/go-libp2p-transport"
 	ps "github.com/libp2p/go-peerstream"
 	ma "github.com/multiformats/go-multiaddr"
 )
 
 func (s *Swarm) AddListenAddr(a ma.Multiaddr) error {
-	tpt := s.transportForAddr(a)
-	if tpt == nil {
+	transport := s.transportForAddr(a)
+	if transport == nil {
 		return fmt.Errorf("no transport for address: %s", a)
 	}
 
-	d, err := tpt.Dialer(a, transport.TimeoutOpt(DialTimeout), transport.ReusePorts)
+	d, err := transport.Dialer(a, tpt.TimeoutOpt(DialTimeout), tpt.ReusePorts)
 	if err != nil {
 		return err
 	}
 
 	s.dialer.AddDialer(d)
 
-	list, err := tpt.Listen(a)
+	list, err := transport.Listen(a)
 	if err != nil {
 		return err
 	}
@@ -65,7 +65,7 @@ func (s *Swarm) setupInterfaces(addrs []ma.Multiaddr) error {
 	return nil
 }
 
-func (s *Swarm) transportForAddr(a ma.Multiaddr) transport.Transport {
+func (s *Swarm) transportForAddr(a ma.Multiaddr) tpt.Transport {
 	for _, t := range s.transports {
 		if t.Matches(a) {
 			return t
@@ -75,7 +75,7 @@ func (s *Swarm) transportForAddr(a ma.Multiaddr) transport.Transport {
 	return nil
 }
 
-func (s *Swarm) addListener(tptlist transport.Listener) error {
+func (s *Swarm) addListener(tptlist tpt.Listener) error {
 
 	sk := s.peers.PrivKey(s.local)
 	if sk == nil {
@@ -91,7 +91,7 @@ func (s *Swarm) addListener(tptlist transport.Listener) error {
 	list.SetAddrFilters(s.Filters)
 
 	if cw, ok := list.(conn.ListenerConnWrapper); ok && s.bwc != nil {
-		cw.SetConnWrapper(func(c transport.Conn) transport.Conn {
+		cw.SetConnWrapper(func(c tpt.Conn) tpt.Conn {
 			return mconn.WrapConn(s.bwc, c)
 		})
 	}
