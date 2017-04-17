@@ -269,10 +269,10 @@ func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 		logdial["error"] = err.Error()
 		return nil, err
 	}
-	logdial["netconn"] = lgbl.NetConn(connC)
+	logdial["netconn"] = lgbl.Conn(connC)
 
 	// ok try to setup the new connection.
-	defer log.EventBegin(ctx, "swarmDialDoSetup", logdial, lgbl.NetConn(connC)).Done()
+	defer log.EventBegin(ctx, "swarmDialDoSetup", logdial, lgbl.Conn(connC)).Done()
 	swarmC, err := dialConnSetup(ctx, s, connC)
 	if err != nil {
 		logdial["error"] = err.Error()
@@ -356,7 +356,8 @@ func (s *Swarm) dialAddr(ctx context.Context, p peer.ID, addr ma.Multiaddr) (ico
 	remotep := connC.RemotePeer()
 	if remotep != p {
 		connC.Close()
-		_, err := connC.Read(nil) // should return any potential errors (ex: from secio)
+		// TODO: somehow get the error
+		// _, err := connC.Read(nil) // should return any potential errors (ex: from secio)
 		return nil, fmt.Errorf("misdial to %s through %s (got %s): %s", p, addr, remotep, err)
 	}
 
@@ -377,15 +378,16 @@ var ConnSetupTimeout = time.Minute * 5
 // dialConnSetup is the setup logic for a connection from the dial side. it
 // needs to add the Conn to the StreamSwarm, then run newConnSetup
 func dialConnSetup(ctx context.Context, s *Swarm, connC iconn.Conn) (*Conn, error) {
+	// TODO: do we still need this?
+	// deadline, ok := ctx.Deadline()
+	// if !ok {
+	// 	deadline = time.Now().Add(ConnSetupTimeout)
+	// }
 
-	deadline, ok := ctx.Deadline()
-	if !ok {
-		deadline = time.Now().Add(ConnSetupTimeout)
-	}
-
-	if err := connC.SetDeadline(deadline); err != nil {
-		return nil, err
-	}
+	// TODO: do we still need this?
+	// if err := connC.SetDeadline(deadline); err != nil {
+	// 	return nil, err
+	// }
 
 	psC, err := s.swarm.AddConn(connC)
 	if err != nil {
@@ -400,10 +402,11 @@ func dialConnSetup(ctx context.Context, s *Swarm, connC iconn.Conn) (*Conn, erro
 		return nil, err
 	}
 
-	if err := connC.SetDeadline(time.Time{}); err != nil {
-		log.Error("failed to reset connection deadline after setup: ", err)
-		return nil, err
-	}
+	// TODO: do we still need this?
+	// if err := connC.SetDeadline(time.Time{}); err != nil {
+	// 	log.Error("failed to reset connection deadline after setup: ", err)
+	// 	return nil, err
+	// }
 
 	return swarmC, err
 }

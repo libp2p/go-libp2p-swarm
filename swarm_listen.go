@@ -76,14 +76,16 @@ func (s *Swarm) transportForAddr(a ma.Multiaddr) tpt.Transport {
 }
 
 func (s *Swarm) addListener(tptlist tpt.Listener) error {
-
 	sk := s.peers.PrivKey(s.local)
 	if sk == nil {
 		// may be fine for sk to be nil, just log a warning.
 		log.Warning("Listener not given PrivateKey, so WILL NOT SECURE conns.")
 	}
 
-	list, err := conn.WrapTransportListenerWithProtector(s.Context(), tptlist, s.local, sk, s.protec)
+	// this encrypts the connection
+	var list iconn.Listener
+	var err error
+	list, err = conn.WrapTransportListenerWithProtector(s.Context(), tptlist, s.local, sk, s.streamMuxers, s.protec)
 	if err != nil {
 		return err
 	}
@@ -120,7 +122,6 @@ func (s *Swarm) addConnListener(list iconn.Listener) error {
 	// fixing this in our conn.Listener (to ignore them or handle them
 	// differently.)
 	go func(ctx context.Context, sl *ps.Listener) {
-
 		// signal to our notifiees closing
 		defer s.notifyAll(func(n inet.Notifiee) {
 			n.ListenClose((*Network)(s), maddr)
@@ -158,7 +159,7 @@ func (s *Swarm) connHandler(c *ps.Conn) *Conn {
 	sc, err := s.newConnSetup(ctx, c)
 	if err != nil {
 		log.Debug(err)
-		log.Event(ctx, "newConnHandlerDisconnect", lgbl.NetConn(c.NetConn()), lgbl.Error(err))
+		log.Event(ctx, "newConnHandlerDisconnect", lgbl.Conn(c.Conn()), lgbl.Error(err))
 		c.Close() // boom. close it.
 		return nil
 	}

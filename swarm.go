@@ -86,7 +86,8 @@ type Swarm struct {
 	notifmu sync.RWMutex
 	notifs  map[inet.Notifiee]ps.Notifiee
 
-	transports []tpt.Transport
+	streamMuxers smux.Transport
+	transports   []tpt.Transport
 
 	// filters for addresses that shouldnt be dialed
 	Filters *filter.Filters
@@ -116,7 +117,8 @@ func NewSwarmWithProtector(ctx context.Context, listenAddrs []ma.Multiaddr, loca
 		return nil, err
 	}
 
-	var wrap func(c tpt.Conn) tpt.Conn
+	var wrap func(tpt.Conn) tpt.Conn
+
 	if bwc != nil {
 		wrap = func(c tpt.Conn) tpt.Conn {
 			return mconn.WrapConn(bwc, c)
@@ -124,7 +126,7 @@ func NewSwarmWithProtector(ctx context.Context, listenAddrs []ma.Multiaddr, loca
 	}
 
 	s := &Swarm{
-		swarm:  ps.NewSwarm(pstpt),
+		swarm:  ps.NewSwarm(),
 		local:  local,
 		peers:  peers,
 		ctx:    ctx,
@@ -134,11 +136,12 @@ func NewSwarmWithProtector(ctx context.Context, listenAddrs []ma.Multiaddr, loca
 			tcpt.NewTCPTransport(),
 			new(ws.WebsocketTransport),
 		},
-		bwc:         bwc,
-		fdRateLimit: make(chan struct{}, concurrentFdDials),
-		Filters:     filter.NewFilters(),
-		dialer:      conn.NewDialer(local, peers.PrivKey(local), wrap),
-		protec:      protec,
+		streamMuxers: pstpt,
+		bwc:          bwc,
+		fdRateLimit:  make(chan struct{}, concurrentFdDials),
+		Filters:      filter.NewFilters(),
+		dialer:       conn.NewDialer(local, peers.PrivKey(local), wrap, pstpt),
+		protec:       protec,
 	}
 	s.dialer.Protector = protec
 
@@ -159,7 +162,7 @@ func NewSwarmWithProtector(ctx context.Context, listenAddrs []ma.Multiaddr, loca
 
 func NewBlankSwarm(ctx context.Context, id peer.ID, privkey ci.PrivKey, pstpt smux.Transport) *Swarm {
 	s := &Swarm{
-		swarm:       ps.NewSwarm(pstpt),
+		swarm:       ps.NewSwarm(),
 		local:       id,
 		peers:       pstore.NewPeerstore(),
 		ctx:         ctx,
@@ -167,7 +170,7 @@ func NewBlankSwarm(ctx context.Context, id peer.ID, privkey ci.PrivKey, pstpt sm
 		notifs:      make(map[inet.Notifiee]ps.Notifiee),
 		fdRateLimit: make(chan struct{}, concurrentFdDials),
 		Filters:     filter.NewFilters(),
-		dialer:      conn.NewDialer(id, privkey, nil),
+		dialer:      conn.NewDialer(id, privkey, nil, pstpt),
 	}
 
 	// configure Swarm
@@ -243,7 +246,6 @@ func (s *Swarm) StreamSwarm() *ps.Swarm {
 // SetConnHandler assigns the handler for new connections.
 // See peerstream. You will rarely use this. See SetStreamHandler
 func (s *Swarm) SetConnHandler(handler ConnHandler) {
-
 	// handler is nil if user wants to clear the old handler.
 	if handler == nil {
 		s.swarm.SetConnHandler(func(psconn *ps.Conn) {

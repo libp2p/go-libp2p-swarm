@@ -20,7 +20,6 @@ type Network Swarm
 
 func NewNetwork(ctx context.Context, listen []ma.Multiaddr, local peer.ID,
 	peers pstore.Peerstore, bwc metrics.Reporter) (*Network, error) {
-
 	return NewNetworkWithProtector(ctx, listen, local, peers, nil, bwc)
 }
 

@@ -2,18 +2,15 @@ package swarm
 
 import (
 	addrutil "github.com/libp2p/go-addr-util"
-	iconn "github.com/libp2p/go-libp2p-interface-conn"
 	ma "github.com/multiformats/go-multiaddr"
 )
 
 // ListenAddresses returns a list of addresses at which this swarm listens.
 func (s *Swarm) ListenAddresses() []ma.Multiaddr {
 	listeners := s.swarm.Listeners()
-	addrs := make([]ma.Multiaddr, 0, len(listeners))
-	for _, l := range listeners {
-		if l2, ok := l.NetListener().(iconn.Listener); ok {
-			addrs = append(addrs, l2.Multiaddr())
-		}
+	addrs := make([]ma.Multiaddr, len(listeners))
+	for i, l := range listeners {
+		addrs[i] = l.Multiaddr()
 	}
 	return addrs
 }
