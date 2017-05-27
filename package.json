@@ -9,9 +9,9 @@
   "gxDependencies": [
     {
       "author": "whyrusleeping",
-      "hash": "QmVHSBsn8LEeay8m5ERebgUVuhzw838PsyTttCmP6GMJkg",
+      "hash": "QmRscs8KxrSmSv4iuevHv8JfuUzHBMoqiaHzxfDRiksd6e",
       "name": "go-libp2p-net",
-      "version": "1.6.9"
+      "version": "1.6.11"
     },
     {
       "author": "whyrusleeping",
@@ -21,9 +21,9 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmNUVzEjq3XWJ89hegahPvyfJbTXgTaom48pLb7YBD9gHQ",
+      "hash": "QmXZSd1qR5BxZkPyuwfT5jpqQFScZccoZvDneXsKzCNHWX",
       "name": "go-libp2p-peerstore",
-      "version": "1.4.6"
+      "version": "1.4.8"
     },
     {
       "author": "whyrusleeping",
@@ -75,9 +75,9 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmVMbSdq6PbznPC83SENVhH7JZn3BqqxkKgrHJFN2RuARf",
+      "hash": "QmdibiN2wzuuXXz4JvqQ1ZGW3eUkoAy1AWznHFau6iePCc",
       "name": "go-libp2p-metrics",
-      "version": "1.6.7"
+      "version": "1.6.9"
     },
     {
       "author": "whyrusleeping",
@@ -97,6 +97,6 @@
   "license": "",
   "name": "go-libp2p-swarm",
   "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
-  "version": "1.6.14"
+  "version": "1.6.15"
 }
 
