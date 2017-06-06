@@ -28,12 +28,12 @@ import (
 	filter "github.com/libp2p/go-maddr-filter"
 	ps "github.com/libp2p/go-peerstream"
 	tcpt "github.com/libp2p/go-tcp-transport"
+	ws "github.com/libp2p/go-ws-transport"
 	ma "github.com/multiformats/go-multiaddr"
 	psmss "github.com/whyrusleeping/go-smux-multistream"
 	spdy "github.com/whyrusleeping/go-smux-spdystream"
 	yamux "github.com/whyrusleeping/go-smux-yamux"
 	mafilter "github.com/whyrusleeping/multiaddr-filter"
-	ws "github.com/whyrusleeping/ws-transport"
 )
 
 var log = logging.Logger("swarm2")
