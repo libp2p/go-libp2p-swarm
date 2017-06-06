@@ -81,9 +81,9 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmSqJFpQ1VQtuhkntP9tMhTexipzpXAHtgSi4UYWFwjUZx",
+      "hash": "QmYNUuivS62tkjy3Uw5VF5GeVCcKV43DQtGHGtHZgGYJou",
       "name": "go-libp2p-conn",
-      "version": "1.6.2"
+      "version": "1.6.3"
     },
     {
       "author": "whyrusleeping",
@@ -97,6 +97,6 @@
   "license": "MIT",
   "name": "go-libp2p-swarm",
   "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
-  "version": "1.6.16"
+  "version": "1.6.17"
 }
 
