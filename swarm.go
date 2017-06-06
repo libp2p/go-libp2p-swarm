@@ -40,6 +40,7 @@ var log = logging.Logger("swarm2")
 
 // PSTransport is the default peerstream transport that will be used by
 // any libp2p swarms.
+// TODO(lgierth): remove me
 var PSTransport pst.Transport
 
 func init() {
@@ -63,6 +64,8 @@ func init() {
 	}
 
 	PSTransport = msstpt
+	DefaultStreamMuxer = msstpt
+	DefaultDialTimeout = DialTimeout
 }
 
 // Swarm is a connection muxer, allowing connections to other peers to
@@ -103,52 +106,90 @@ type Swarm struct {
 	protec ipnet.Protector
 }
 
-func NewSwarm(ctx context.Context, listenAddrs []ma.Multiaddr, local peer.ID,
-	peers pstore.Peerstore, bwc metrics.Reporter) (*Swarm, error) {
-	return NewSwarmWithProtector(ctx, listenAddrs, local, peers, nil, PSTransport, bwc)
+var DefaultStreamMuxer pst.Transport
+var DefaultDialTimeout time.Duration
+
+func DefaultTransports() []transport.Transport {
+	return []transport.Transport{
+		tcpt.NewTCPTransport(),
+		new(ws.WebsocketTransport),
+	}
 }
 
-// NewSwarm constructs a Swarm, with a Chan.
+type SwarmOpts struct {
+	Transports        []transport.Transport
+	DialTimeout       time.Duration
+	StreamMuxer       pst.Transport
+	StreamMuxerPrefs  []string
+	ListenAddrs       []ma.Multiaddr
+	AddrFilters       []*filter.Filters
+	PrivateNetworking ipnet.Protector
+	BandwidthReporter metrics.Reporter
+}
+
+func NewSwarm(ctx context.Context, listenAddrs []ma.Multiaddr, local peer.ID,
+	peers pstore.Peerstore, bwc metrics.Reporter) (*Swarm, error) {
+	opts := &SwarmOpts{
+		ListenAddrs:       listenAddrs,
+		BandwidthReporter: bwc,
+	}
+	return NewSwarmWithOpts(ctx, local, peers, opts)
+
+	// return NewSwarmWithProtector(ctx, listenAddrs, local, peers, nil, PSTransport, bwc)
+}
+
 func NewSwarmWithProtector(ctx context.Context, listenAddrs []ma.Multiaddr, local peer.ID,
 	peers pstore.Peerstore, protec ipnet.Protector, tpt pst.Transport, bwc metrics.Reporter) (*Swarm, error) {
+	opts := &SwarmOpts{
+		StreamMuxer:       tpt,
+		PrivateNetworking: protec,
+		ListenAddrs:       listenAddrs,
+		BandwidthReporter: bwc,
+	}
+	return NewSwarmWithOpts(ctx, local, peers, opts)
+}
 
-	listenAddrs, err := filterAddrs(listenAddrs)
+func NewSwarmWithOpts(ctx context.Context, id peer.ID, peers pstore.Peerstore, opts *SwarmOpts) (*Swarm, error) {
+	listenAddrs, err := filterAddrs(opts.ListenAddrs)
 	if err != nil {
 		return nil, err
 	}
 
-	var wrap func(c transport.Conn) transport.Conn
-	if bwc != nil {
-		wrap = func(c transport.Conn) transport.Conn {
-			return mconn.WrapConn(bwc, c)
-		}
-	}
-
 	s := &Swarm{
-		swarm:  ps.NewSwarm(tpt),
-		local:  local,
-		peers:  peers,
-		ctx:    ctx,
-		dialT:  DialTimeout,
-		notifs: make(map[inet.Notifiee]ps.Notifiee),
-		transports: []transport.Transport{
-			tcpt.NewTCPTransport(),
-			new(ws.WebsocketTransport),
-		},
-		bwc:         bwc,
+		ctx:         ctx,
+		local:       id,
+		peers:       peers,
+		transports:  DefaultTransports(),
+		dialT:       DefaultDialTimeout,
+		notifs:      make(map[inet.Notifiee]ps.Notifiee),
 		fdRateLimit: make(chan struct{}, concurrentFdDials),
 		Filters:     filter.NewFilters(),
-		dialer:      conn.NewDialer(local, peers.PrivKey(local), wrap),
-		protec:      protec,
 	}
-	s.dialer.Protector = protec
-
 	s.dsync = NewDialSync(s.doDial)
 	s.limiter = newDialLimiter(s.dialAddr)
-
-	// configure Swarm
 	s.proc = goprocessctx.WithContextAndTeardown(ctx, s.teardown)
-	s.SetConnHandler(nil) // make sure to setup our own conn handler.
+
+	if opts.StreamMuxer != nil {
+		s.swarm = ps.NewSwarm(opts.StreamMuxer)
+	} else {
+		s.swarm = ps.NewSwarm(DefaultStreamMuxer)
+	}
+
+	if opts.BandwidthReporter != nil {
+		wrap := func(c transport.Conn) transport.Conn { return mconn.WrapConn(s.bwc, c) }
+		s.dialer = conn.NewDialer(id, peers.PrivKey(id), wrap)
+		s.bwc = opts.BandwidthReporter
+	} else {
+		s.dialer = conn.NewDialer(id, peers.PrivKey(id), nil)
+	}
+
+	if opts.PrivateNetworking != nil {
+		s.protec = opts.PrivateNetworking
+		// TODO(lgierth): this should probably be passed in via conn.NewDialer
+		s.dialer.Protector = opts.PrivateNetworking
+	}
+
+	s.SetConnHandler(nil)
 
 	err = s.setupInterfaces(listenAddrs)
 	if err != nil {

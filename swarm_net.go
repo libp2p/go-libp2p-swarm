@@ -21,18 +21,32 @@ type Network Swarm
 func NewNetwork(ctx context.Context, listen []ma.Multiaddr, local peer.ID,
 	peers pstore.Peerstore, bwc metrics.Reporter) (*Network, error) {
 
-	return NewNetworkWithProtector(ctx, listen, local, peers, nil, bwc)
+	opts := &SwarmOpts{
+		ListenAddrs:       listen,
+		BandwidthReporter: bwc,
+	}
+
+	return NewNetworkWithOpts(ctx, local, peers, opts)
 }
 
 // NewNetwork constructs a new network and starts listening on given addresses.
 func NewNetworkWithProtector(ctx context.Context, listen []ma.Multiaddr, local peer.ID,
 	peers pstore.Peerstore, protec ipnet.Protector, bwc metrics.Reporter) (*Network, error) {
 
-	s, err := NewSwarmWithProtector(ctx, listen, local, peers, protec, PSTransport, bwc)
+	opts := &SwarmOpts{
+		PrivateNetworking: protec,
+		ListenAddrs:       listen,
+		BandwidthReporter: bwc,
+	}
+
+	return NewNetworkWithOpts(ctx, local, peers, opts)
+}
+
+func NewNetworkWithOpts(ctx context.Context, local peer.ID, peers pstore.Peerstore, opts *SwarmOpts) (*Network, error) {
+	s, err := NewSwarmWithOpts(ctx, local, peers, opts)
 	if err != nil {
 		return nil, err
 	}
-
 	return (*Network)(s), nil
 }
 
