@@ -1,7 +1,7 @@
 {
   "author": "whyrusleeping",
   "bugs": {
-    "url": "https://github.com/libp2p/go-libp2p-swarm"
+    "url": "https://github.com/libp2p/go-libp2p-swarm/issues"
   },
   "gx": {
     "dvcsimport": "github.com/libp2p/go-libp2p-swarm"
@@ -58,7 +58,7 @@
     {
       "author": "whyrusleeping",
       "hash": "QmbAnytXbEyaVaiwkA2xPp8PPnkFKnQcfBMdXAcSfnjKtB",
-      "name": "ws-transport",
+      "name": "go-ws-transport",
       "version": "1.4.5"
     },
     {
@@ -94,7 +94,7 @@
   ],
   "gxVersion": "0.9.1",
   "language": "go",
-  "license": "",
+  "license": "MIT",
   "name": "go-libp2p-swarm",
   "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
   "version": "1.6.15"
