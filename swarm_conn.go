@@ -1,7 +1,6 @@
 package swarm
 
 import (
-	"context"
 	"fmt"
 
 	ic "github.com/libp2p/go-libp2p-crypto"
@@ -125,7 +124,7 @@ func wrapConns(conns1 []*ps.Conn) []*Conn {
 
 // newConnSetup does the swarm's "setup" for a connection. returns the underlying
 // conn.Conn this method is used by both swarm.Dial and ps.Swarm connHandler
-func (s *Swarm) newConnSetup(ctx context.Context, psConn *ps.Conn) (*Conn, error) {
+func (s *Swarm) newConnSetup(psConn *ps.Conn) (*Conn, error) {
 	// wrap with a Conn
 	sc, err := wrapConn(psConn)
 	if err != nil {

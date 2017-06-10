@@ -373,22 +373,9 @@ func (s *Swarm) dialAddr(ctx context.Context, p peer.ID, addr ma.Multiaddr) (ico
 	return connC, nil
 }
 
-var ConnSetupTimeout = time.Minute * 5
-
 // dialConnSetup is the setup logic for a connection from the dial side. it
 // needs to add the Conn to the StreamSwarm, then run newConnSetup
 func dialConnSetup(ctx context.Context, s *Swarm, connC iconn.Conn) (*Conn, error) {
-	// TODO: do we still need this?
-	// deadline, ok := ctx.Deadline()
-	// if !ok {
-	// 	deadline = time.Now().Add(ConnSetupTimeout)
-	// }
-
-	// TODO: do we still need this?
-	// if err := connC.SetDeadline(deadline); err != nil {
-	// 	return nil, err
-	// }
-
 	psC, err := s.swarm.AddConn(connC)
 	if err != nil {
 		// connC is closed by caller if we fail.
@@ -396,17 +383,10 @@ func dialConnSetup(ctx context.Context, s *Swarm, connC iconn.Conn) (*Conn, erro
 	}
 
 	// ok try to setup the new connection. (newConnSetup will add to group)
-	swarmC, err := s.newConnSetup(ctx, psC)
+	swarmC, err := s.newConnSetup(psC)
 	if err != nil {
 		psC.Close() // we need to make sure psC is Closed.
 		return nil, err
 	}
-
-	// TODO: do we still need this?
-	// if err := connC.SetDeadline(time.Time{}); err != nil {
-	// 	log.Error("failed to reset connection deadline after setup: ", err)
-	// 	return nil, err
-	// }
-
 	return swarmC, err
 }

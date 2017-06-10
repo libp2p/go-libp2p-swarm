@@ -156,7 +156,7 @@ func (s *Swarm) connHandler(c *ps.Conn) *Conn {
 	// Q: why not have a shorter handshake? think about an HTTP server on really slow conns.
 	// as long as the conn is live (TCP says its online), it tries its best. we follow suit.)
 
-	sc, err := s.newConnSetup(ctx, c)
+	sc, err := s.newConnSetup(c)
 	if err != nil {
 		log.Debug(err)
 		log.Event(ctx, "newConnHandlerDisconnect", lgbl.Conn(c.Conn()), lgbl.Error(err))
