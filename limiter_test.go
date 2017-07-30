@@ -320,3 +320,69 @@ func TestStressLimiter(t *testing.T) {
 		}
 	}
 }
+
+func TestFDLimitUnderflow(t *testing.T) {
+	dials := 0
+
+	df := func(ctx context.Context, p peer.ID, a ma.Multiaddr) (iconn.Conn, error) {
+		dials++
+
+		timeout := make(chan bool, 1)
+		go func() {
+			time.Sleep(time.Second * 5)
+			timeout <- true
+		}()
+
+		select {
+		case <-ctx.Done():
+		case <-timeout:
+		}
+
+		return nil, fmt.Errorf("df timed out")
+	}
+
+	l := newDialLimiterWithParams(df, 20, 3)
+
+	var addrs []ma.Multiaddr
+	for i := 0; i <= 1000; i++ {
+		addrs = append(addrs, addrWithPort(t, i))
+	}
+
+	for i := 0; i < 1000; i++ {
+		go func(id peer.ID, i int) {
+			ctx, cancel := context.WithCancel(context.Background())
+
+			resp := make(chan dialResult)
+			l.AddDialJob(&dialJob{
+				addr: addrs[i],
+				ctx:  ctx,
+				peer: id,
+				resp: resp,
+			})
+
+			//cancel first 60 after 1s, next 60 after 2s
+			if i > 60 {
+				time.Sleep(time.Second * 1)
+			}
+			if i < 120 {
+				time.Sleep(time.Second * 1)
+				cancel()
+				return
+			}
+			defer cancel()
+
+			for res := range resp {
+				if res.Err != nil {
+					return
+				}
+				t.Fatal("got dial res, shouldn't")
+			}
+		}(peer.ID(fmt.Sprintf("testpeer%d", i % 20)), i)
+	}
+
+	time.Sleep(time.Second * 3)
+
+	if l.fdConsuming < 0 {
+		t.Fatalf("l.fdConsuming < 0")
+	}
+}

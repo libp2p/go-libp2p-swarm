@@ -52,10 +52,10 @@ func newDialLimiter(df dialfunc) *dialLimiter {
 	return newDialLimiterWithParams(df, concurrentFdDials, defaultPerPeerRateLimit)
 }
 
-func newDialLimiterWithParams(df dialfunc, fdl, ppl int) *dialLimiter {
+func newDialLimiterWithParams(df dialfunc, fdLimit, perPeerLimit int) *dialLimiter {
 	return &dialLimiter{
-		fdLimit:            fdl,
-		perPeerLimit:       ppl,
+		fdLimit:            fdLimit,
+		perPeerLimit:       perPeerLimit,
 		waitingOnPeerLimit: make(map[peer.ID][]*dialJob),
 		activePerPeer:      make(map[peer.ID]int),
 		dialFunc:           df,
@@ -68,6 +68,7 @@ func (dl *dialLimiter) finishedDial(dj *dialJob) {
 
 	if addrutil.IsFDCostlyTransport(dj.addr) {
 		dl.fdConsuming--
+
 		if len(dl.waitingOnFd) > 0 {
 			next := dl.waitingOnFd[0]
 			dl.waitingOnFd = dl.waitingOnFd[1:]
@@ -89,6 +90,7 @@ func (dl *dialLimiter) finishedDial(dj *dialJob) {
 	waitlist := dl.waitingOnPeerLimit[dj.peer]
 	if !dj.success && len(waitlist) > 0 {
 		next := waitlist[0]
+
 		if len(waitlist) == 1 {
 			delete(dl.waitingOnPeerLimit, dj.peer)
 		} else {
@@ -96,11 +98,20 @@ func (dl *dialLimiter) finishedDial(dj *dialJob) {
 		}
 		dl.activePerPeer[dj.peer]++ // just kidding, we still want this token
 
+		if addrutil.IsFDCostlyTransport(next.addr) {
+			if dl.fdConsuming >= dl.fdLimit {
+				dl.waitingOnFd = append(dl.waitingOnFd, next)
+				return
+			}
+
+			// take token
+			dl.fdConsuming++
+		}
+
 		// can kick this off right here, dials in this list already
 		// have the other tokens needed
 		go dl.executeDial(next)
 	}
-
 }
 
 // AddDialJob tries to take the needed tokens for starting the given dial job.
