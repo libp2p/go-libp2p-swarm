@@ -377,7 +377,7 @@ func TestFDLimitUnderflow(t *testing.T) {
 				}
 				t.Fatal("got dial res, shouldn't")
 			}
-		}(peer.ID(fmt.Sprintf("testpeer%d", i % 20)), i)
+		}(peer.ID(fmt.Sprintf("testpeer%d", i%20)), i)
 	}
 
 	time.Sleep(time.Second * 3)
