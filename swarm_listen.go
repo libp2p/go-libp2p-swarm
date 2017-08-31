@@ -20,11 +20,10 @@ func (s *Swarm) AddListenAddr(a ma.Multiaddr) error {
 		return fmt.Errorf("no transport for address: %s", a)
 	}
 
-	d, err := transport.Dialer(a, tpt.TimeoutOpt(DialTimeout), tpt.ReusePorts)
+	d, err := transport.Dialer(a, tpt.ReusePorts)
 	if err != nil {
 		return err
 	}
-
 	s.dialer.AddDialer(d)
 
 	list, err := transport.Listen(a)

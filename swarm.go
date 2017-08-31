@@ -79,7 +79,6 @@ type Swarm struct {
 
 	dsync *DialSync
 	backf dialbackoff
-	dialT time.Duration // mainly for tests
 
 	dialer *conn.Dialer
 
@@ -130,7 +129,6 @@ func NewSwarmWithProtector(ctx context.Context, listenAddrs []ma.Multiaddr, loca
 		local:  local,
 		peers:  peers,
 		ctx:    ctx,
-		dialT:  DialTimeout,
 		notifs: make(map[inet.Notifiee]ps.Notifiee),
 		transports: []tpt.Transport{
 			tcpt.NewTCPTransport(),
@@ -166,7 +164,6 @@ func NewBlankSwarm(ctx context.Context, id peer.ID, privkey ci.PrivKey, pstpt sm
 		local:       id,
 		peers:       pstore.NewPeerstore(),
 		ctx:         ctx,
-		dialT:       DialTimeout,
 		notifs:      make(map[inet.Notifiee]ps.Notifiee),
 		fdRateLimit: make(chan struct{}, concurrentFdDials),
 		Filters:     filter.NewFilters(),

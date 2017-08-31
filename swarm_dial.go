@@ -48,11 +48,6 @@ const concurrentFdDials = 160
 // number of concurrent outbound dials to make per peer
 const defaultPerPeerRateLimit = 8
 
-// DialTimeout is the amount of time each dial attempt has. We can think about making
-// this larger down the road, or putting more granular timeouts (i.e. within each
-// subcomponent of Dial)
-var DialTimeout = time.Second * 10
-
 // dialbackoff is a struct used to avoid over-dialing the same, dead peers.
 // Whenever we totally time out on a peer (all three attempts), we add them
 // to dialbackoff. Then, whenevers goroutines would _wait_ (dialsync), they
@@ -198,9 +193,7 @@ func (s *Swarm) doDial(ctx context.Context, p peer.ID) (*Conn, error) {
 	// ok, we have been charged to dial! let's do it.
 	// if it succeeds, dial will add the conn to the swarm itself.
 	defer log.EventBegin(ctx, "swarmDialAttemptStart", logdial).Done()
-	ctxT, cancel := context.WithTimeout(ctx, s.dialT)
-	conn, err := s.dial(ctxT, p)
-	cancel()
+	conn, err := s.dial(ctx, p)
 	log.Debugf("dial end %s", conn)
 	if err != nil {
 		log.Event(ctx, "swarmDialBackoffAdd", logdial)
