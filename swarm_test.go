@@ -102,12 +102,10 @@ func connectSwarms(t *testing.T, ctx context.Context, swarms []*Swarm) {
 	}
 
 	log.Info("Connecting swarms simultaneously.")
-	for _, s1 := range swarms {
-		for _, s2 := range swarms {
-			if s2.local != s1.local { // don't connect to self.
-				wg.Add(1)
-				connect(s1, s2.LocalPeer(), s2.ListenAddresses()[0]) // try the first.
-			}
+	for i, s1 := range swarms {
+		for _, s2 := range swarms[i+1:] {
+			wg.Add(1)
+			connect(s1, s2.LocalPeer(), s2.ListenAddresses()[0]) // try the first.
 		}
 	}
 	wg.Wait()
