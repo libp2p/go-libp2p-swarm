@@ -285,7 +285,7 @@ func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 }
 
 func (s *Swarm) dialAddrs(ctx context.Context, p peer.ID, remoteAddrs <-chan ma.Multiaddr) (iconn.Conn, error) {
-	log.Debugf("%s swarm dialing %s %s", s.local, p, remoteAddrs)
+	log.Debugf("%s swarm dialing %s", s.local, p)
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel() // cancel work when we exit func
