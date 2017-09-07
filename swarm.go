@@ -12,7 +12,6 @@ import (
 	"time"
 
 	logging "github.com/ipfs/go-log"
-	pst "github.com/jbenet/go-stream-muxer"
 	"github.com/jbenet/goprocess"
 	goprocessctx "github.com/jbenet/goprocess/context"
 	addrutil "github.com/libp2p/go-addr-util"
@@ -24,9 +23,10 @@ import (
 	inet "github.com/libp2p/go-libp2p-net"
 	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
-	transport "github.com/libp2p/go-libp2p-transport"
+	tpt "github.com/libp2p/go-libp2p-transport"
 	filter "github.com/libp2p/go-maddr-filter"
 	ps "github.com/libp2p/go-peerstream"
+	smux "github.com/libp2p/go-stream-muxer"
 	tcpt "github.com/libp2p/go-tcp-transport"
 	ws "github.com/libp2p/go-ws-transport"
 	ma "github.com/multiformats/go-multiaddr"
@@ -40,7 +40,7 @@ var log = logging.Logger("swarm2")
 
 // PSTransport is the default peerstream transport that will be used by
 // any libp2p swarms.
-var PSTransport pst.Transport
+var PSTransport smux.Transport
 
 func init() {
 	msstpt := psmss.NewBlankTransport()
@@ -79,14 +79,14 @@ type Swarm struct {
 
 	dsync *DialSync
 	backf dialbackoff
-	dialT time.Duration // mainly for tests
 
 	dialer *conn.Dialer
 
 	notifmu sync.RWMutex
 	notifs  map[inet.Notifiee]ps.Notifiee
 
-	transports []transport.Transport
+	streamMuxers smux.Transport
+	transports   []tpt.Transport
 
 	// filters for addresses that shouldnt be dialed
 	Filters *filter.Filters
@@ -110,36 +110,36 @@ func NewSwarm(ctx context.Context, listenAddrs []ma.Multiaddr, local peer.ID,
 
 // NewSwarm constructs a Swarm, with a Chan.
 func NewSwarmWithProtector(ctx context.Context, listenAddrs []ma.Multiaddr, local peer.ID,
-	peers pstore.Peerstore, protec ipnet.Protector, tpt pst.Transport, bwc metrics.Reporter) (*Swarm, error) {
-
+	peers pstore.Peerstore, protec ipnet.Protector, pstpt smux.Transport, bwc metrics.Reporter) (*Swarm, error) {
 	listenAddrs, err := filterAddrs(listenAddrs)
 	if err != nil {
 		return nil, err
 	}
 
-	var wrap func(c transport.Conn) transport.Conn
+	var wrap func(tpt.Conn) tpt.Conn
+
 	if bwc != nil {
-		wrap = func(c transport.Conn) transport.Conn {
+		wrap = func(c tpt.Conn) tpt.Conn {
 			return mconn.WrapConn(bwc, c)
 		}
 	}
 
 	s := &Swarm{
-		swarm:  ps.NewSwarm(tpt),
+		swarm:  ps.NewSwarm(),
 		local:  local,
 		peers:  peers,
 		ctx:    ctx,
-		dialT:  DialTimeout,
 		notifs: make(map[inet.Notifiee]ps.Notifiee),
-		transports: []transport.Transport{
+		transports: []tpt.Transport{
 			tcpt.NewTCPTransport(),
 			new(ws.WebsocketTransport),
 		},
-		bwc:         bwc,
-		fdRateLimit: make(chan struct{}, concurrentFdDials),
-		Filters:     filter.NewFilters(),
-		dialer:      conn.NewDialer(local, peers.PrivKey(local), wrap),
-		protec:      protec,
+		streamMuxers: pstpt,
+		bwc:          bwc,
+		fdRateLimit:  make(chan struct{}, concurrentFdDials),
+		Filters:      filter.NewFilters(),
+		dialer:       conn.NewDialer(local, peers.PrivKey(local), wrap, pstpt),
+		protec:       protec,
 	}
 	s.dialer.Protector = protec
 
@@ -158,17 +158,16 @@ func NewSwarmWithProtector(ctx context.Context, listenAddrs []ma.Multiaddr, loca
 	return s, nil
 }
 
-func NewBlankSwarm(ctx context.Context, id peer.ID, privkey ci.PrivKey, pstpt pst.Transport) *Swarm {
+func NewBlankSwarm(ctx context.Context, id peer.ID, privkey ci.PrivKey, pstpt smux.Transport) *Swarm {
 	s := &Swarm{
-		swarm:       ps.NewSwarm(pstpt),
+		swarm:       ps.NewSwarm(),
 		local:       id,
 		peers:       pstore.NewPeerstore(),
 		ctx:         ctx,
-		dialT:       DialTimeout,
 		notifs:      make(map[inet.Notifiee]ps.Notifiee),
 		fdRateLimit: make(chan struct{}, concurrentFdDials),
 		Filters:     filter.NewFilters(),
-		dialer:      conn.NewDialer(id, privkey, nil),
+		dialer:      conn.NewDialer(id, privkey, nil, pstpt),
 	}
 
 	// configure Swarm
@@ -179,7 +178,7 @@ func NewBlankSwarm(ctx context.Context, id peer.ID, privkey ci.PrivKey, pstpt ps
 	return s
 }
 
-func (s *Swarm) AddTransport(t transport.Transport) {
+func (s *Swarm) AddTransport(t tpt.Transport) {
 	s.transports = append(s.transports, t)
 }
 
@@ -244,7 +243,6 @@ func (s *Swarm) StreamSwarm() *ps.Swarm {
 // SetConnHandler assigns the handler for new connections.
 // See peerstream. You will rarely use this. See SetStreamHandler
 func (s *Swarm) SetConnHandler(handler ConnHandler) {
-
 	// handler is nil if user wants to clear the old handler.
 	if handler == nil {
 		s.swarm.SetConnHandler(func(psconn *ps.Conn) {

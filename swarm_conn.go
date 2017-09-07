@@ -1,7 +1,6 @@
 package swarm
 
 import (
-	"context"
 	"fmt"
 
 	ic "github.com/libp2p/go-libp2p-crypto"
@@ -37,7 +36,7 @@ func (c *Conn) RawConn() iconn.Conn {
 	// invariant that these Conns are all of the typewe expect:
 	// 		ps.Conn wrapping a conn.Conn
 	// if we get something else it is programmer error.
-	return (*ps.Conn)(c).NetConn().(iconn.Conn)
+	return (*ps.Conn)(c).Conn()
 }
 
 func (c *Conn) String() string {
@@ -103,7 +102,8 @@ func (c *Conn) GetStreams() ([]inet.Stream, error) {
 
 func wrapConn(psc *ps.Conn) (*Conn, error) {
 	// grab the underlying connection.
-	if _, ok := psc.NetConn().(iconn.Conn); !ok {
+	// TODO: this will never fail
+	if _, ok := psc.Conn().(iconn.Conn); !ok {
 		// this should never happen. if we see it ocurring it means that we added
 		// a Listener to the ps.Swarm that is NOT one of our net/conn.Listener.
 		return nil, fmt.Errorf("swarm connHandler: invalid conn (not a conn.Conn): %s", psc)
@@ -124,8 +124,7 @@ func wrapConns(conns1 []*ps.Conn) []*Conn {
 
 // newConnSetup does the swarm's "setup" for a connection. returns the underlying
 // conn.Conn this method is used by both swarm.Dial and ps.Swarm connHandler
-func (s *Swarm) newConnSetup(ctx context.Context, psConn *ps.Conn) (*Conn, error) {
-
+func (s *Swarm) newConnSetup(psConn *ps.Conn) (*Conn, error) {
 	// wrap with a Conn
 	sc, err := wrapConn(psConn)
 	if err != nil {

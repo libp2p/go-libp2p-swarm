@@ -9,25 +9,24 @@ import (
 	lgbl "github.com/libp2p/go-libp2p-loggables"
 	mconn "github.com/libp2p/go-libp2p-metrics/conn"
 	inet "github.com/libp2p/go-libp2p-net"
-	transport "github.com/libp2p/go-libp2p-transport"
+	tpt "github.com/libp2p/go-libp2p-transport"
 	ps "github.com/libp2p/go-peerstream"
 	ma "github.com/multiformats/go-multiaddr"
 )
 
 func (s *Swarm) AddListenAddr(a ma.Multiaddr) error {
-	tpt := s.transportForAddr(a)
-	if tpt == nil {
+	transport := s.transportForAddr(a)
+	if transport == nil {
 		return fmt.Errorf("no transport for address: %s", a)
 	}
 
-	d, err := tpt.Dialer(a, transport.TimeoutOpt(DialTimeout), transport.ReusePorts)
+	d, err := transport.Dialer(a, tpt.ReusePorts)
 	if err != nil {
 		return err
 	}
-
 	s.dialer.AddDialer(d)
 
-	list, err := tpt.Listen(a)
+	list, err := transport.Listen(a)
 	if err != nil {
 		return err
 	}
@@ -65,7 +64,7 @@ func (s *Swarm) setupInterfaces(addrs []ma.Multiaddr) error {
 	return nil
 }
 
-func (s *Swarm) transportForAddr(a ma.Multiaddr) transport.Transport {
+func (s *Swarm) transportForAddr(a ma.Multiaddr) tpt.Transport {
 	for _, t := range s.transports {
 		if t.Matches(a) {
 			return t
@@ -75,15 +74,17 @@ func (s *Swarm) transportForAddr(a ma.Multiaddr) transport.Transport {
 	return nil
 }
 
-func (s *Swarm) addListener(tptlist transport.Listener) error {
-
+func (s *Swarm) addListener(tptlist tpt.Listener) error {
 	sk := s.peers.PrivKey(s.local)
 	if sk == nil {
 		// may be fine for sk to be nil, just log a warning.
 		log.Warning("Listener not given PrivateKey, so WILL NOT SECURE conns.")
 	}
 
-	list, err := conn.WrapTransportListenerWithProtector(s.Context(), tptlist, s.local, sk, s.protec)
+	// this encrypts the connection
+	var list iconn.Listener
+	var err error
+	list, err = conn.WrapTransportListenerWithProtector(s.Context(), tptlist, s.local, sk, s.streamMuxers, s.protec)
 	if err != nil {
 		return err
 	}
@@ -91,7 +92,7 @@ func (s *Swarm) addListener(tptlist transport.Listener) error {
 	list.SetAddrFilters(s.Filters)
 
 	if cw, ok := list.(conn.ListenerConnWrapper); ok && s.bwc != nil {
-		cw.SetConnWrapper(func(c transport.Conn) transport.Conn {
+		cw.SetConnWrapper(func(c tpt.Conn) tpt.Conn {
 			return mconn.WrapConn(s.bwc, c)
 		})
 	}
@@ -120,7 +121,6 @@ func (s *Swarm) addConnListener(list iconn.Listener) error {
 	// fixing this in our conn.Listener (to ignore them or handle them
 	// differently.)
 	go func(ctx context.Context, sl *ps.Listener) {
-
 		// signal to our notifiees closing
 		defer s.notifyAll(func(n inet.Notifiee) {
 			n.ListenClose((*Network)(s), maddr)
@@ -155,10 +155,10 @@ func (s *Swarm) connHandler(c *ps.Conn) *Conn {
 	// Q: why not have a shorter handshake? think about an HTTP server on really slow conns.
 	// as long as the conn is live (TCP says its online), it tries its best. we follow suit.)
 
-	sc, err := s.newConnSetup(ctx, c)
+	sc, err := s.newConnSetup(c)
 	if err != nil {
 		log.Debug(err)
-		log.Event(ctx, "newConnHandlerDisconnect", lgbl.NetConn(c.NetConn()), lgbl.Error(err))
+		log.Event(ctx, "newConnHandlerDisconnect", lgbl.Conn(c.Conn()), lgbl.Error(err))
 		c.Close() // boom. close it.
 		return nil
 	}
