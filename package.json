@@ -69,9 +69,9 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "Qma1raveZpdRgcGkhzi1euLqmBgiVPNhHei1Ye39o7Joug",
+      "hash": "QmTMNkpso2WRMevXC8ZxgyBhJvoEHvk24SNeUr9Mf9UM1a",
       "name": "go-peerstream",
-      "version": "2.0.0"
+      "version": "2.0.2"
     },
     {
       "author": "whyrusleeping",
@@ -174,6 +174,6 @@
   "license": "MIT",
   "name": "go-libp2p-swarm",
   "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
-  "version": "2.0.1"
+  "version": "2.0.2"
 }
 
