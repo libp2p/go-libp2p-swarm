@@ -43,6 +43,11 @@ func (s *Stream) Close() error {
 	return s.Stream().Close()
 }
 
+// Reset resets the stream, closing both ends.
+func (s *Stream) Reset() error {
+	return s.Stream().Reset()
+}
+
 func (s *Stream) Protocol() protocol.ID {
 	return (*ps.Stream)(s).Protocol()
 }
