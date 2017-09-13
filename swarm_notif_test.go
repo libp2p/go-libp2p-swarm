@@ -125,7 +125,7 @@ func TestNotifications(t *testing.T) {
 	for _, s := range swarms {
 		s.SetStreamHandler(func(s inet.Stream) {
 			streams <- s
-			s.Close()
+			s.Reset()
 		})
 	}
 
@@ -139,7 +139,7 @@ func TestNotifications(t *testing.T) {
 				t.Error(err)
 			} else {
 				st1.Write([]byte("hello"))
-				st1.Close()
+				st1.Reset()
 				testOCStream(notifiees[i], st1)
 				st2 := <-streams
 				testOCStream(n2, st2)

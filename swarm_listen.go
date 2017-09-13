@@ -145,7 +145,7 @@ func (s *Swarm) addConnListener(list iconn.Listener) error {
 // connHandler is called by the StreamSwarm whenever a new connection is added
 // here we configure it slightly. Note that this is sequential, so if anything
 // will take a while do it in a goroutine.
-// See https://godoc.org/github.com/jbenet/go-peerstream for more information
+// See https://godoc.org/github.com/libp2p/go-peerstream for more information
 func (s *Swarm) connHandler(c *ps.Conn) *Conn {
 	ctx := context.Background()
 	// this context is for running the handshake, which -- when receiveing connections
