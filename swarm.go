@@ -86,7 +86,8 @@ type Swarm struct {
 	notifmu sync.RWMutex
 	notifs  map[inet.Notifiee]ps.Notifiee
 
-	transports []transport.Transport
+	transports    []transport.Transport
+	pktTransports []transport.PacketTransport
 
 	// filters for addresses that shouldnt be dialed
 	Filters *filter.Filters
@@ -181,6 +182,10 @@ func NewBlankSwarm(ctx context.Context, id peer.ID, privkey ci.PrivKey, pstpt ps
 
 func (s *Swarm) AddTransport(t transport.Transport) {
 	s.transports = append(s.transports, t)
+}
+
+func (s *Swarm) AddPacketTransport(t transport.PacketTransport) {
+	s.pktTransports = append(s.pktTransports, t)
 }
 
 func (s *Swarm) teardown() error {
