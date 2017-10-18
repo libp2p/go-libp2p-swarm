@@ -203,8 +203,10 @@ func (s *Swarm) doDial(ctx context.Context, p peer.ID) (*Conn, error) {
 	cancel()
 	log.Debugf("dial end %s", conn)
 	if err != nil {
-		log.Event(ctx, "swarmDialBackoffAdd", logdial)
-		s.backf.AddBackoff(p) // let others know to backoff
+		if err != context.Canceled {
+			log.Event(ctx, "swarmDialBackoffAdd", logdial)
+			s.backf.AddBackoff(p) // let others know to backoff
+		}
 
 		// ok, we failed. try again. (if loop is done, our error is output)
 		return nil, fmt.Errorf("dial attempt failed: %s", err)
