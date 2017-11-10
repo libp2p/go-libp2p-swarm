@@ -129,7 +129,7 @@ func NewSwarmWithProtector(ctx context.Context, listenAddrs []ma.Multiaddr, loca
 		local:  local,
 		peers:  peers,
 		ctx:    ctx,
-		dialT:  DialTimeout,
+		dialT:  conn.DialTimeout,
 		notifs: make(map[inet.Notifiee]ps.Notifiee),
 		transports: []transport.Transport{
 			tcpt.NewTCPTransport(),
@@ -164,7 +164,7 @@ func NewBlankSwarm(ctx context.Context, id peer.ID, privkey ci.PrivKey, pstpt ps
 		local:       id,
 		peers:       pstore.NewPeerstore(),
 		ctx:         ctx,
-		dialT:       DialTimeout,
+		dialT:       conn.DialTimeout,
 		notifs:      make(map[inet.Notifiee]ps.Notifiee),
 		fdRateLimit: make(chan struct{}, concurrentFdDials),
 		Filters:     filter.NewFilters(),
