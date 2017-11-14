@@ -48,11 +48,6 @@ const concurrentFdDials = 160
 // number of concurrent outbound dials to make per peer
 const defaultPerPeerRateLimit = 8
 
-// DialTimeout is the amount of time each dial attempt has. We can think about making
-// this larger down the road, or putting more granular timeouts (i.e. within each
-// subcomponent of Dial)
-var DialTimeout = time.Second * 10
-
 // dialbackoff is a struct used to avoid over-dialing the same, dead peers.
 // Whenever we totally time out on a peer (all three attempts), we add them
 // to dialbackoff. Then, whenevers goroutines would _wait_ (dialsync), they
