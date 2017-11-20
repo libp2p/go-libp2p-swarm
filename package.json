@@ -81,9 +81,9 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmTmknvYRdCyzsgEKWqq3Q7E2aPDEwFR9cNqBpgyQ2mGet",
+      "hash": "QmWUMfzE2RikVCwAtUCiZu7KijhnqRXKxriad9g6WaKgby",
       "name": "go-libp2p-conn",
-      "version": "1.7.0"
+      "version": "1.7.1"
     },
     {
       "author": "whyrusleeping",
@@ -128,9 +128,9 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmWRCn8vruNAzHx8i6SAXinuheRitKEGu8c7m26stKvsYx",
+      "hash": "QmQgLZP9haZheimMHqqAjJh2LhRmNfEoZDfbtkpeMhi9xK",
       "name": "go-testutil",
-      "version": "1.1.11"
+      "version": "1.1.12"
     },
     {
       "author": "whyrusleeping",
@@ -174,6 +174,6 @@
   "license": "MIT",
   "name": "go-libp2p-swarm",
   "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
-  "version": "2.1.0"
+  "version": "2.1.1"
 }
 
