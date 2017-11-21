@@ -71,6 +71,7 @@ func (dl *dialLimiter) finishedDial(dj *dialJob) {
 
 		if len(dl.waitingOnFd) > 0 {
 			next := dl.waitingOnFd[0]
+			dl.waitingOnFd[0] = nil // clear out memory
 			dl.waitingOnFd = dl.waitingOnFd[1:]
 			if len(dl.waitingOnFd) == 0 {
 				dl.waitingOnFd = nil // clear out memory
@@ -94,6 +95,7 @@ func (dl *dialLimiter) finishedDial(dj *dialJob) {
 		if len(waitlist) == 1 {
 			delete(dl.waitingOnPeerLimit, dj.peer)
 		} else {
+			waitlist[0] = nil // clear out memory
 			dl.waitingOnPeerLimit[dj.peer] = waitlist[1:]
 		}
 		dl.activePerPeer[dj.peer]++ // just kidding, we still want this token
