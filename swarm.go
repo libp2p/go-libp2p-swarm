@@ -313,7 +313,7 @@ func (s *Swarm) CloseConnection(p peer.ID) error {
 func (s *Swarm) Peers() []peer.ID {
 	conns := s.Connections()
 
-	seen := make(map[peer.ID]struct{})
+	seen := make(map[peer.ID]struct{}, len(conns))
 	peers := make([]peer.ID, 0, len(conns))
 	for _, c := range conns {
 		p := c.RemotePeer()
