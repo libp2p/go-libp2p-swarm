@@ -6,16 +6,13 @@ os:
 language: go
 
 go:
-    - 1.9
+  - 1.9.x
 
-install: true
-
-before_install:
+install:
   - make deps
 
 script:
-  - go vet
-  - $GOPATH/bin/goveralls -service="travis-ci"
+  - bash <(curl -s https://raw.githubusercontent.com/ipfs/ci-helpers/master/travis-ci/run-standard-tests.sh)
 
 cache:
     directories:
