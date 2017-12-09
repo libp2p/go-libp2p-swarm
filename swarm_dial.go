@@ -352,6 +352,7 @@ func (s *Swarm) dialAddr(ctx context.Context, p peer.ID, addr ma.Multiaddr) (ico
 	// if the connection is to ourselves...
 	// this can happen TONS when Loopback addrs are advertized.
 	// (this should be caught by check above, but let's just make sure.)
+	remotep := connC.RemotePeer()
 	if remotep == s.local {
 		connC.Close()
 		return nil, fmt.Errorf("misdial to %s through %s (got self)", p, addr)
