@@ -144,6 +144,15 @@ func (dl *dialLimiter) AddDialJob(dj *dialJob) {
 	go dl.executeDial(dj)
 }
 
+func (dl *dialLimiter) clearAllPeerDials(p peer.ID) {
+	dl.rllock.Lock()
+	defer dl.rllock.Unlock()
+	delete(dl.waitingOnPeerLimit, p)
+	// NB: the waitingOnFd list doesnt need to be cleaned out here, we will
+	// remove them as we encounter them because they are 'cancelled' at this
+	// point
+}
+
 // executeDial calls the dialFunc, and reports the result through the response
 // channel when finished. Once the response is sent it also releases all tokens
 // it held during the dial.

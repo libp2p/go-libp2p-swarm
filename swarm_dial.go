@@ -293,6 +293,8 @@ func (s *Swarm) dialAddrs(ctx context.Context, p peer.ID, remoteAddrs <-chan ma.
 	defaultDialFail := fmt.Errorf("failed to dial %s (default failure)", p)
 	exitErr := defaultDialFail
 
+	defer s.limiter.clearAllPeerDials(p)
+
 	var active int
 	for {
 		select {
