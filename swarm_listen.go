@@ -147,23 +147,24 @@ func (s *Swarm) addConnListener(list iconn.Listener) error {
 // will take a while do it in a goroutine.
 // See https://godoc.org/github.com/libp2p/go-peerstream for more information
 func (s *Swarm) connHandler(c *ps.Conn) *Conn {
-	ctx := context.Background()
-	// this context is for running the handshake, which -- when receiveing connections
-	// -- we have no bound on beyond what the transport protocol bounds it at.
-	// note that setup + the handshake are bounded by underlying io.
-	// (i.e. if TCP or UDP disconnects (or the swarm closes), we're done.
-	// Q: why not have a shorter handshake? think about an HTTP server on really slow conns.
-	// as long as the conn is live (TCP says its online), it tries its best. we follow suit.)
-
-	sc, err := s.newConnSetup(ctx, c)
+	sc, err := wrapConn(c)
 	if err != nil {
-		log.Debug(err)
-		log.Event(ctx, "newConnHandlerDisconnect", lgbl.NetConn(c.NetConn()), lgbl.Error(err))
+		log.Event(s.Context(), "newConnHandlerDisconnect", lgbl.NetConn(c.NetConn()), lgbl.Error(err))
 		c.Close() // boom. close it.
 		return nil
 	}
 
-	// if a peer dials us, remove from dial backoff.
+	// Add the public key.
+	if pk := sc.RemotePublicKey(); pk != nil {
+		s.peers.AddPubKey(sc.RemotePeer(), pk)
+	}
+
+	// Add the group
+	c.AddGroup(sc.RemotePeer())
+
+	// clear backoff on successful connection.
+	logdial := lgbl.Dial("swarm", sc.LocalPeer(), sc.RemotePeer(), nil, nil)
+	log.Event(s.Context(), "swarmDialBackoffClear", logdial)
 	s.backf.Clear(sc.RemotePeer())
 
 	return sc

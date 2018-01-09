@@ -189,14 +189,16 @@ func (s *Swarm) gatedDialAttempt(ctx context.Context, p peer.ID) (*Conn, error) 
 // doDial is an ugly shim method to retain all the logging and backoff logic
 // of the old dialsync code
 func (s *Swarm) doDial(ctx context.Context, p peer.ID) (*Conn, error) {
-	var logdial = lgbl.Dial("swarm", s.LocalPeer(), p, nil, nil)
+	ctx, cancel := context.WithTimeout(ctx, s.dialT)
+	defer cancel()
+
+	logdial := lgbl.Dial("swarm", s.LocalPeer(), p, nil, nil)
+
 	// ok, we have been charged to dial! let's do it.
 	// if it succeeds, dial will add the conn to the swarm itself.
 	defer log.EventBegin(ctx, "swarmDialAttemptStart", logdial).Done()
-	ctxT, cancel := context.WithTimeout(ctx, s.dialT)
-	conn, err := s.dial(ctxT, p)
-	cancel()
-	log.Debugf("dial end %s", conn)
+
+	conn, err := s.dial(ctx, p)
 	if err != nil {
 		if err != context.Canceled {
 			log.Event(ctx, "swarmDialBackoffAdd", logdial)
@@ -206,8 +208,6 @@ func (s *Swarm) doDial(ctx context.Context, p peer.ID) (*Conn, error) {
 		// ok, we failed. try again. (if loop is done, our error is output)
 		return nil, fmt.Errorf("dial attempt failed: %s", err)
 	}
-	log.Event(ctx, "swarmDialBackoffClear", logdial)
-	s.backf.Clear(p) // okay, no longer need to backoff
 	return conn, nil
 }
 
@@ -373,10 +373,8 @@ func (s *Swarm) dialAddr(ctx context.Context, p peer.ID, addr ma.Multiaddr) (ico
 
 var ConnSetupTimeout = time.Minute * 5
 
-// dialConnSetup is the setup logic for a connection from the dial side. it
-// needs to add the Conn to the StreamSwarm, then run newConnSetup
+// dialConnSetup is the setup logic for a connection from the dial side.
 func dialConnSetup(ctx context.Context, s *Swarm, connC iconn.Conn) (*Conn, error) {
-
 	deadline, ok := ctx.Deadline()
 	if !ok {
 		deadline = time.Now().Add(ConnSetupTimeout)
@@ -386,14 +384,14 @@ func dialConnSetup(ctx context.Context, s *Swarm, connC iconn.Conn) (*Conn, erro
 		return nil, err
 	}
 
+	// Add conn to ps swarm. Setup will be done by the connection handler.
 	psC, err := s.swarm.AddConn(connC)
 	if err != nil {
 		// connC is closed by caller if we fail.
 		return nil, fmt.Errorf("failed to add conn to ps.Swarm: %s", err)
 	}
 
-	// ok try to setup the new connection. (newConnSetup will add to group)
-	swarmC, err := s.newConnSetup(ctx, psC)
+	swarmC, err := wrapConn(psC)
 	if err != nil {
 		psC.Close() // we need to make sure psC is Closed.
 		return nil, err
