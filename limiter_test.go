@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	iconn "github.com/libp2p/go-libp2p-interface-conn"
 	peer "github.com/libp2p/go-libp2p-peer"
+	transport "github.com/libp2p/go-libp2p-transport"
 	ma "github.com/multiformats/go-multiaddr"
 	mafmt "github.com/whyrusleeping/mafmt"
 )
@@ -56,13 +56,13 @@ func tryDialAddrs(ctx context.Context, l *dialLimiter, p peer.ID, addrs []ma.Mul
 }
 
 func hangDialFunc(hang chan struct{}) dialfunc {
-	return func(ctx context.Context, p peer.ID, a ma.Multiaddr) (iconn.Conn, error) {
+	return func(ctx context.Context, p peer.ID, a ma.Multiaddr) (transport.Conn, error) {
 		if mafmt.UTP.Matches(a) {
-			return iconn.Conn(nil), nil
+			return transport.Conn(nil), nil
 		}
 
 		if tcpPortOver(a, 10) {
-			return iconn.Conn(nil), nil
+			return transport.Conn(nil), nil
 		}
 
 		<-hang
@@ -74,7 +74,7 @@ func TestLimiterBasicDials(t *testing.T) {
 	hang := make(chan struct{})
 	defer close(hang)
 
-	l := newDialLimiterWithParams(hangDialFunc(hang), concurrentFdDials, 4)
+	l := newDialLimiterWithParams(hangDialFunc(hang), ConcurrentFdDials, 4)
 
 	bads := []ma.Multiaddr{addrWithPort(t, 1), addrWithPort(t, 2), addrWithPort(t, 3), addrWithPort(t, 4)}
 	good := addrWithPort(t, 20)
@@ -173,9 +173,9 @@ func TestFDLimiting(t *testing.T) {
 func TestTokenRedistribution(t *testing.T) {
 	var lk sync.Mutex
 	hangchs := make(map[peer.ID]chan struct{})
-	df := func(ctx context.Context, p peer.ID, a ma.Multiaddr) (iconn.Conn, error) {
+	df := func(ctx context.Context, p peer.ID, a ma.Multiaddr) (transport.Conn, error) {
 		if tcpPortOver(a, 10) {
-			return (iconn.Conn)(nil), nil
+			return (transport.Conn)(nil), nil
 		}
 
 		lk.Lock()
@@ -268,9 +268,9 @@ func TestTokenRedistribution(t *testing.T) {
 }
 
 func TestStressLimiter(t *testing.T) {
-	df := func(ctx context.Context, p peer.ID, a ma.Multiaddr) (iconn.Conn, error) {
+	df := func(ctx context.Context, p peer.ID, a ma.Multiaddr) (transport.Conn, error) {
 		if tcpPortOver(a, 1000) {
-			return iconn.Conn(nil), nil
+			return transport.Conn(nil), nil
 		}
 
 		time.Sleep(time.Millisecond * time.Duration(5+rand.Intn(100)))
@@ -322,11 +322,7 @@ func TestStressLimiter(t *testing.T) {
 }
 
 func TestFDLimitUnderflow(t *testing.T) {
-	dials := 0
-
-	df := func(ctx context.Context, p peer.ID, a ma.Multiaddr) (iconn.Conn, error) {
-		dials++
-
+	df := func(ctx context.Context, p peer.ID, a ma.Multiaddr) (transport.Conn, error) {
 		timeout := make(chan bool, 1)
 		go func() {
 			time.Sleep(time.Second * 5)
@@ -382,7 +378,11 @@ func TestFDLimitUnderflow(t *testing.T) {
 
 	time.Sleep(time.Second * 3)
 
-	if l.fdConsuming < 0 {
+	l.rllock.Lock()
+	fdConsuming := l.fdConsuming
+	l.rllock.Unlock()
+
+	if fdConsuming < 0 {
 		t.Fatalf("l.fdConsuming < 0")
 	}
 }

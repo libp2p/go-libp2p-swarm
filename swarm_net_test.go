@@ -1,4 +1,4 @@
-package swarm
+package swarm_test
 
 import (
 	"context"
@@ -7,29 +7,9 @@ import (
 	"time"
 
 	inet "github.com/libp2p/go-libp2p-net"
-	pstore "github.com/libp2p/go-libp2p-peerstore"
-	tu "github.com/libp2p/go-testutil"
-	ma "github.com/multiformats/go-multiaddr"
+
+	. "github.com/libp2p/go-libp2p-swarm/testing"
 )
-
-func GenSwarmNetwork(t *testing.T, ctx context.Context) *Network {
-	p := tu.RandPeerNetParamsOrFatal(t)
-	ps := pstore.NewPeerstore()
-	ps.AddPubKey(p.ID, p.PubKey)
-	ps.AddPrivKey(p.ID, p.PrivKey)
-	n, err := NewNetwork(ctx, []ma.Multiaddr{p.Addr}, p.ID, ps, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	ps.AddAddrs(p.ID, n.ListenAddresses(), pstore.PermanentAddrTTL)
-	return n
-}
-
-func DivulgeAddresses(a, b inet.Network) {
-	id := a.LocalPeer()
-	addrs := a.Peerstore().Addrs(id)
-	b.Peerstore().AddAddrs(id, addrs, pstore.PermanentAddrTTL)
-}
 
 // TestConnectednessCorrect starts a few networks, connects a few
 // and tests Connectedness value is correct.
@@ -39,7 +19,7 @@ func TestConnectednessCorrect(t *testing.T) {
 
 	nets := make([]inet.Network, 4)
 	for i := 0; i < 4; i++ {
-		nets[i] = GenSwarmNetwork(t, ctx)
+		nets[i] = GenSwarm(t, ctx)
 	}
 
 	// connect 0-1, 0-2, 0-3, 1-2, 2-3
@@ -130,7 +110,7 @@ func TestNetworkOpenStream(t *testing.T) {
 
 	nets := make([]inet.Network, 4)
 	for i := 0; i < 4; i++ {
-		nets[i] = GenSwarmNetwork(t, ctx)
+		nets[i] = GenSwarm(t, ctx)
 	}
 
 	dial := func(a, b inet.Network) {
@@ -165,7 +145,7 @@ func TestNetworkOpenStream(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	streams, err := nets[0].ConnsToPeer(nets[1].LocalPeer())[0].GetStreams()
+	streams := nets[0].ConnsToPeer(nets[1].LocalPeer())[0].GetStreams()
 	if err != nil {
 		t.Fatal(err)
 	}
