@@ -106,7 +106,7 @@ func demo() {
 	ctx := context.Background()
 	swarm, err := NewSwarm(ctx, nil, pid, ps, nil)
 
-	// viola! A functioning swarm!
+	// voila! A functioning swarm!
 }
 ```
 
