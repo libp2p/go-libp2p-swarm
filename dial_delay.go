@@ -11,9 +11,10 @@ import (
 const p_circuit = 290
 
 const numTiers = 2
-const tierDelay = 2 * time.Second
 
-var relay = mafmt.Or(mafmt.Base(p_circuit), mafmt.And(mafmt.IPFS, mafmt.Base(p_circuit)))
+var tierDelay = 2 * time.Second
+
+var relay = mafmt.Or(mafmt.And(mafmt.Base(p_circuit), mafmt.Base(ma.P_IPFS)), mafmt.And(mafmt.Base(ma.P_IPFS), mafmt.Base(p_circuit), mafmt.Base(ma.P_IPFS)))
 
 // delayDialAddrs returns a address channel sorted by priority, pushing the
 // addresses with delay between them. The other channel can be used to trigger
@@ -27,7 +28,7 @@ func delayDialAddrs(ctx context.Context, c <-chan ma.Multiaddr) (<-chan ma.Multi
 		defer delay.Stop()
 		defer close(out)
 		var pending [numTiers][]ma.Multiaddr
-		lastTier := 0
+		lastTier := -1
 
 		// put enqueues the mutliaddr
 		put := func(addr ma.Multiaddr) {
@@ -80,11 +81,12 @@ func delayDialAddrs(ctx context.Context, c <-chan ma.Multiaddr) (<-chan ma.Multi
 			}
 
 			// Jumping a tier?
-			if tier > lastTier {
+			if tier > lastTier && lastTier != -1 {
 				// Wait the delay (preempt with new addresses or when the dialer
 				// requests more addresses)
 				select {
 				case addr, ok := <-c:
+					put(next)
 					if !ok {
 						break outer
 					}
@@ -129,7 +131,7 @@ func delayDialAddrs(ctx context.Context, c <-chan ma.Multiaddr) (<-chan ma.Multi
 			if next == nil {
 				return
 			}
-			if tier > lastTier {
+			if tier > lastTier && lastTier != -1 {
 				select {
 				case <-delay.C:
 				case <-triggerNext:
@@ -141,7 +143,7 @@ func delayDialAddrs(ctx context.Context, c <-chan ma.Multiaddr) (<-chan ma.Multi
 					return
 				}
 			}
-			tier = lastTier
+			lastTier = tier
 			select {
 			case out <- next:
 				delay.Stop()
