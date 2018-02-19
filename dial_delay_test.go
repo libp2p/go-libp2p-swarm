@@ -32,6 +32,12 @@ func prepare() {
 	tierDelay = 32 * time.Millisecond // 2x windows timer resolution
 }
 
+// addrChan creates a multiaddr channel with `nsync` size. If nsync is larger
+// than 0, the entries will get pre-buffered in the channel.
+// addrDelays is a set of addresses and delays between sending them. If a string
+// starts with '/' it will be parsed as an address and sent to the channel.
+// Otherwise it will get parsed as a time to sleep before sending next addresses
+// or closing the channel
 func addrChan(t *testing.T, nsync int, addrDelays ...string) <-chan ma.Multiaddr {
 	out := make(chan ma.Multiaddr, nsync)
 	c := sync.NewCond(&sync.Mutex{})

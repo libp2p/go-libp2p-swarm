@@ -49,38 +49,38 @@ func delayDialAddrs(ctx context.Context, c <-chan ma.Multiaddr) (<-chan ma.Multi
 			return nil, -1
 		}
 
-	outer:
-		for {
-		fill:
+		// fillBuckets reads pending addresses form the channel without blocking
+		fillBuckets := func() bool {
 			for {
 				select {
 				case addr, ok := <-c:
 					if !ok {
-						break outer
+						return false
 					}
 					put(addr)
 				default:
-					break fill
+					return true
 				}
 			}
+		}
 
-			next, tier := get()
-
-			// Nothing? Block!
-			if next == nil {
-				select {
-				case addr, ok := <-c:
-					if !ok {
-						break outer
-					}
-					put(addr)
-				case <-ctx.Done():
-					return
+		// waitForMore woits for addresses from the channel
+		waitForMore := func() (bool, error) {
+			select {
+			case addr, ok := <-c:
+				if !ok {
+					return false, nil
 				}
-				continue
+				put(addr)
+			case <-ctx.Done():
+				return false, ctx.Err()
 			}
+			return true, nil
+		}
 
-			// Jumping a tier?
+		// maybeJumpTier will check if the address tier is changing and optionally
+		// wait some time.
+		maybeJumpTier := func(tier int, next ma.Multiaddr) (cont bool, brk bool, err error) {
 			if tier > lastTier && lastTier != -1 {
 				// Wait the delay (preempt with new addresses or when the dialer
 				// requests more addresses)
@@ -88,10 +88,10 @@ func delayDialAddrs(ctx context.Context, c <-chan ma.Multiaddr) (<-chan ma.Multi
 				case addr, ok := <-c:
 					put(next)
 					if !ok {
-						break outer
+						return false, true, nil
 					}
 					put(addr)
-					continue
+					return true, false, nil
 				case <-delay.C:
 					delay.Reset(tierDelay)
 				case <-triggerNext:
@@ -100,20 +100,24 @@ func delayDialAddrs(ctx context.Context, c <-chan ma.Multiaddr) (<-chan ma.Multi
 					}
 					delay.Reset(tierDelay)
 				case <-ctx.Done():
-					return
+					return false, false, ctx.Err()
 				}
 			}
 
+			// Note that we want to only update the tier after we've done the waiting
+			// or we were asked to finish early
 			lastTier = tier
+			return false, false, nil
+		}
 
+		recvOrSend := func(next ma.Multiaddr) (brk bool, err error) {
 			select {
 			case addr, ok := <-c:
 				put(next)
 				if !ok {
-					break outer
+					return true, nil
 				}
 				put(addr)
-				continue
 			case out <- next:
 				// Always count the timeout since the last dial.
 				if !delay.Stop() {
@@ -121,9 +125,54 @@ func delayDialAddrs(ctx context.Context, c <-chan ma.Multiaddr) (<-chan ma.Multi
 				}
 				delay.Reset(tierDelay)
 			case <-ctx.Done():
+				return false, ctx.Err()
+			}
+			return false, nil
+		}
+
+		// process the address stream
+		for {
+			if !fillBuckets() {
+				break // input channel closed
+			}
+
+			next, tier := get()
+
+			// Nothing? Block!
+			if next == nil {
+				ok, err := waitForMore()
+				if err != nil {
+					return
+				}
+				if !ok {
+					break // input channel closed
+				}
+				continue
+			}
+
+			cont, brk, err := maybeJumpTier(tier, next)
+			if cont {
+				continue // received an address while waiting, in case it's lower tier
+				// look at it immediately
+			}
+			if brk {
+				break // input channel closed
+			}
+			if err != nil {
+				return
+			}
+
+			brk, err = recvOrSend(next)
+			if brk {
+				break // input channel closed
+			}
+			if err != nil {
 				return
 			}
 		}
+
+		// the channel is closed by now
+		c = nil
 
 		// finish sending
 		for {
@@ -131,24 +180,14 @@ func delayDialAddrs(ctx context.Context, c <-chan ma.Multiaddr) (<-chan ma.Multi
 			if next == nil {
 				return
 			}
-			if tier > lastTier && lastTier != -1 {
-				select {
-				case <-delay.C:
-				case <-triggerNext:
-					if !delay.Stop() {
-						<-delay.C
-					}
-					delay.Reset(tierDelay)
-				case <-ctx.Done():
-					return
-				}
+
+			_, _, err := maybeJumpTier(tier, next)
+			if err != nil {
+				return
 			}
-			lastTier = tier
-			select {
-			case out <- next:
-				delay.Stop()
-				delay.Reset(tierDelay)
-			case <-ctx.Done():
+
+			_, err = recvOrSend(next)
+			if err != nil {
 				return
 			}
 		}
