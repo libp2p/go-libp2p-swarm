@@ -1,7 +1,6 @@
 package swarm
 
 import (
-	"context"
 	"fmt"
 
 	ic "github.com/libp2p/go-libp2p-crypto"
@@ -120,32 +119,4 @@ func wrapConns(conns1 []*ps.Conn) []*Conn {
 		}
 	}
 	return conns2
-}
-
-// newConnSetup does the swarm's "setup" for a connection. returns the underlying
-// conn.Conn this method is used by both swarm.Dial and ps.Swarm connHandler
-func (s *Swarm) newConnSetup(ctx context.Context, psConn *ps.Conn) (*Conn, error) {
-
-	// wrap with a Conn
-	sc, err := wrapConn(psConn)
-	if err != nil {
-		return nil, err
-	}
-
-	// if we have a public key, make sure we add it to our peerstore!
-	// This is an important detail. Otherwise we must fetch the public
-	// key from the DHT or some other system.
-	if pk := sc.RemotePublicKey(); pk != nil {
-		s.peers.AddPubKey(sc.RemotePeer(), pk)
-	}
-
-	// ok great! we can use it. add it to our group.
-
-	// set the RemotePeer as a group on the conn. this lets us group
-	// connections in the StreamSwarm by peer, and get a streams from
-	// any available connection in the group (better multiconn):
-	//   swarm.StreamSwarm().NewStreamWithGroup(remotePeer)
-	psConn.AddGroup(sc.RemotePeer())
-
-	return sc, nil
 }
