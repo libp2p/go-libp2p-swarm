@@ -28,6 +28,7 @@ import (
 	ps "github.com/libp2p/go-peerstream"
 	pst "github.com/libp2p/go-stream-muxer"
 	tcpt "github.com/libp2p/go-tcp-transport"
+	udpt "github.com/libp2p/go-udp-transport"
 	ws "github.com/libp2p/go-ws-transport"
 	ma "github.com/multiformats/go-multiaddr"
 	psmss "github.com/whyrusleeping/go-smux-multistream"
@@ -135,6 +136,9 @@ func NewSwarmWithProtector(ctx context.Context, listenAddrs []ma.Multiaddr, loca
 		transports: []transport.Transport{
 			tcpt.NewTCPTransport(),
 			new(ws.WebsocketTransport),
+		},
+		pktTransports: []transport.PacketTransport{
+			udpt.NewUDPTransport(),
 		},
 		bwc:         bwc,
 		fdRateLimit: make(chan struct{}, concurrentFdDials),
