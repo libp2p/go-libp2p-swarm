@@ -12,7 +12,7 @@ const p_circuit = 290
 
 const numTiers = 2
 
-var tierDelay = 2 * time.Second
+var TierDelay = 1 * time.Second
 
 var relay = mafmt.Or(mafmt.And(mafmt.Base(p_circuit), mafmt.Base(ma.P_IPFS)), mafmt.And(mafmt.Base(ma.P_IPFS), mafmt.Base(p_circuit), mafmt.Base(ma.P_IPFS)))
 
@@ -21,7 +21,7 @@ var relay = mafmt.Or(mafmt.And(mafmt.Base(p_circuit), mafmt.Base(ma.P_IPFS)), ma
 // sending more addresses in case all previous failed
 func delayDialAddrs(ctx context.Context, c <-chan ma.Multiaddr) (<-chan ma.Multiaddr, chan<- struct{}) {
 	out := make(chan ma.Multiaddr)
-	delay := time.NewTimer(tierDelay)
+	delay := time.NewTimer(TierDelay)
 	triggerNext := make(chan struct{}, 1)
 
 	go func() {
@@ -30,13 +30,14 @@ func delayDialAddrs(ctx context.Context, c <-chan ma.Multiaddr) (<-chan ma.Multi
 		var pending [numTiers][]ma.Multiaddr
 		lastTier := -1
 
-		// put enqueues the mutliaddr
+		// put enqueues the multiaddr
 		put := func(addr ma.Multiaddr) {
 			tier := getTier(addr)
 			pending[tier] = append(pending[tier], addr)
 		}
 
 		// get gets the best (lowest tier) multiaddr available
+		// note that within a single tier put/get behave like a stack (LIFO)
 		get := func() (ma.Multiaddr, int) {
 			for i, tier := range pending[:] {
 				if len(tier) > 0 {
@@ -64,7 +65,7 @@ func delayDialAddrs(ctx context.Context, c <-chan ma.Multiaddr) (<-chan ma.Multi
 			}
 		}
 
-		// waitForMore woits for addresses from the channel
+		// waitForMore waits for addresses from the channel
 		waitForMore := func() (bool, error) {
 			select {
 			case addr, ok := <-c:
@@ -93,12 +94,12 @@ func delayDialAddrs(ctx context.Context, c <-chan ma.Multiaddr) (<-chan ma.Multi
 					put(addr)
 					return true, false, nil
 				case <-delay.C:
-					delay.Reset(tierDelay)
+					delay.Reset(TierDelay)
 				case <-triggerNext:
 					if !delay.Stop() {
 						<-delay.C
 					}
-					delay.Reset(tierDelay)
+					delay.Reset(TierDelay)
 				case <-ctx.Done():
 					return false, false, ctx.Err()
 				}
@@ -123,7 +124,7 @@ func delayDialAddrs(ctx context.Context, c <-chan ma.Multiaddr) (<-chan ma.Multi
 				if !delay.Stop() {
 					<-delay.C
 				}
-				delay.Reset(tierDelay)
+				delay.Reset(TierDelay)
 			case <-ctx.Done():
 				return false, ctx.Err()
 			}

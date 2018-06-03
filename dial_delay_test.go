@@ -29,7 +29,7 @@ func prepare() {
 	}
 	_ = ma.AddProtocol(circuitProto)
 
-	tierDelay = 32 * time.Millisecond // 2x windows timer resolution
+	TierDelay = 32 * time.Millisecond // 2x windows timer resolution
 }
 
 // addrChan creates a multiaddr channel with `nsync` size. If nsync is larger
@@ -250,7 +250,7 @@ func TestDelayMoreT1T0(t *testing.T) {
 func TestDelaySingleT0T1WaitT0(t *testing.T) {
 	ctx := context.Background()
 	prepare()
-	tierDelay = 64 * time.Millisecond // 4x windows timer resolution
+	TierDelay = 64 * time.Millisecond // 4x windows timer resolution
 
 	start := time.Now()
 	ch, _ := delayDialAddrs(ctx, addrChan(t, 2, T0_A, T1_A, "16ms", T0_B))
