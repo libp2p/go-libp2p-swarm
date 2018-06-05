@@ -351,17 +351,10 @@ func (s *Swarm) dialAddr(ctx context.Context, p peer.ID, addr ma.Multiaddr) (ico
 		return nil, fmt.Errorf("%s --> %s dial attempt failed: %s", s.local, p, err)
 	}
 
-	// if the connection is not to whom we thought it would be...
-	remotep := connC.RemotePeer()
-	if remotep != p {
-		connC.Close()
-		_, err := connC.Read(nil) // should return any potential errors (ex: from secio)
-		return nil, fmt.Errorf("misdial to %s through %s (got %s): %s", p, addr, remotep, err)
-	}
-
 	// if the connection is to ourselves...
 	// this can happen TONS when Loopback addrs are advertized.
-	// (this should be caught by two checks above, but let's just make sure.)
+	// (this should be caught by check above, but let's just make sure.)
+	remotep := connC.RemotePeer()
 	if remotep == s.local {
 		connC.Close()
 		return nil, fmt.Errorf("misdial to %s through %s (got self)", p, addr)
