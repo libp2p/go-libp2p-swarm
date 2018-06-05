@@ -30,6 +30,7 @@ import (
 	tcpt "github.com/libp2p/go-tcp-transport"
 	ws "github.com/libp2p/go-ws-transport"
 	ma "github.com/multiformats/go-multiaddr"
+	mplex "github.com/whyrusleeping/go-smux-multiplex"
 	psmss "github.com/whyrusleeping/go-smux-multistream"
 	spdy "github.com/whyrusleeping/go-smux-spdystream"
 	yamux "github.com/whyrusleeping/go-smux-yamux"
@@ -56,6 +57,7 @@ func init() {
 
 	msstpt.AddTransport("/yamux/1.0.0", ymxtpt)
 	msstpt.AddTransport("/spdy/3.1.0", spdy.Transport)
+	msstpt.AddTransport("/multiplex/6.7.0", mplex.DefaultTransport)
 
 	// allow overriding of muxer preferences
 	if prefs := os.Getenv("LIBP2P_MUX_PREFS"); prefs != "" {
