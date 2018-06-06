@@ -1,4 +1,4 @@
-package swarm
+package swarm_test
 
 import (
 	"context"
@@ -10,11 +10,18 @@ import (
 	addrutil "github.com/libp2p/go-addr-util"
 	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
+	swarmt "github.com/libp2p/go-libp2p-swarm/testing"
 	testutil "github.com/libp2p/go-testutil"
 	ci "github.com/libp2p/go-testutil/ci"
 	ma "github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr-net"
+
+	. "github.com/libp2p/go-libp2p-swarm"
 )
+
+func init() {
+	DialTimeout = time.Second
+}
 
 func closeSwarms(swarms []*Swarm) {
 	for _, s := range swarms {
@@ -22,7 +29,7 @@ func closeSwarms(swarms []*Swarm) {
 	}
 }
 
-func TestBasicDial(t *testing.T) {
+func TestBasicDialPeer(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
@@ -31,9 +38,9 @@ func TestBasicDial(t *testing.T) {
 	s1 := swarms[0]
 	s2 := swarms[1]
 
-	s1.peers.AddAddrs(s2.local, s2.ListenAddresses(), pstore.PermanentAddrTTL)
+	s1.Peerstore().AddAddrs(s2.LocalPeer(), s2.ListenAddresses(), pstore.PermanentAddrTTL)
 
-	c, err := s1.Dial(ctx, s2.local)
+	c, err := s1.DialPeer(ctx, s2.LocalPeer())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,9 +63,9 @@ func TestDialWithNoListeners(t *testing.T) {
 	defer closeSwarms(swarms)
 	s2 := swarms[0]
 
-	s1.peers.AddAddrs(s2.local, s2.ListenAddresses(), pstore.PermanentAddrTTL)
+	s1.Peerstore().AddAddrs(s2.LocalPeer(), s2.ListenAddresses(), pstore.PermanentAddrTTL)
 
-	c, err := s1.Dial(ctx, s2.local)
+	c, err := s1.DialPeer(ctx, s2.LocalPeer())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,16 +99,16 @@ func TestSimultDials(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	swarms := makeSwarms(ctx, t, 2)
+	swarms := makeSwarms(ctx, t, 2, swarmt.OptDisableReuseport)
 
 	// connect everyone
 	{
 		var wg sync.WaitGroup
 		connect := func(s *Swarm, dst peer.ID, addr ma.Multiaddr) {
 			// copy for other peer
-			log.Debugf("TestSimultOpen: connecting: %s --> %s (%s)", s.local, dst, addr)
-			s.peers.AddAddr(dst, addr, pstore.TempAddrTTL)
-			if _, err := s.Dial(ctx, dst); err != nil {
+			log.Debugf("TestSimultOpen: connecting: %s --> %s (%s)", s.LocalPeer(), dst, addr)
+			s.Peerstore().AddAddr(dst, addr, pstore.TempAddrTTL)
+			if _, err := s.DialPeer(ctx, dst); err != nil {
 				t.Fatal("error swarm dialing to peer", err)
 			}
 			wg.Done()
@@ -119,18 +126,18 @@ func TestSimultDials(t *testing.T) {
 		log.Info("Connecting swarms simultaneously.")
 		for i := 0; i < 10; i++ { // connect 10x for each.
 			wg.Add(2)
-			go connect(swarms[0], swarms[1].local, ifaceAddrs1[0])
-			go connect(swarms[1], swarms[0].local, ifaceAddrs0[0])
+			go connect(swarms[0], swarms[1].LocalPeer(), ifaceAddrs1[0])
+			go connect(swarms[1], swarms[0].LocalPeer(), ifaceAddrs0[0])
 		}
 		wg.Wait()
 	}
 
 	// should still just have 1, at most 2 connections :)
-	c01l := len(swarms[0].ConnectionsToPeer(swarms[1].local))
+	c01l := len(swarms[0].ConnsToPeer(swarms[1].LocalPeer()))
 	if c01l > 2 {
 		t.Error("0->1 has", c01l)
 	}
-	c10l := len(swarms[1].ConnectionsToPeer(swarms[0].local))
+	c10l := len(swarms[1].ConnsToPeer(swarms[0].LocalPeer()))
 	if c10l > 2 {
 		t.Error("1->0 has", c10l)
 	}
@@ -168,19 +175,14 @@ func TestDialWait(t *testing.T) {
 	s1 := swarms[0]
 	defer s1.Close()
 
-	s1.dialT = time.Millisecond * 300 // lower timeout for tests.
-	if ci.IsRunning() {
-		s1.dialT = time.Second
-	}
-
 	// dial to a non-existent peer.
 	s2p, s2addr, s2l := newSilentPeer(t)
 	go acceptAndHang(s2l)
 	defer s2l.Close()
-	s1.peers.AddAddr(s2p, s2addr, pstore.PermanentAddrTTL)
+	s1.Peerstore().AddAddr(s2p, s2addr, pstore.PermanentAddrTTL)
 
 	before := time.Now()
-	if c, err := s1.Dial(ctx, s2p); err == nil {
+	if c, err := s1.DialPeer(ctx, s2p); err == nil {
 		defer c.Close()
 		t.Fatal("error swarm dialing to unknown peer worked...", err)
 	} else {
@@ -188,15 +190,14 @@ func TestDialWait(t *testing.T) {
 	}
 	duration := time.Since(before)
 
-	dt := s1.dialT
-	if duration < dt*dialAttempts {
-		t.Error("< DialTimeout * dialAttempts not being respected", duration, dt*dialAttempts)
+	if duration < DialTimeout*DialAttempts {
+		t.Error("< DialTimeout * DialAttempts not being respected", duration, DialTimeout*DialAttempts)
 	}
-	if duration > 2*dt*dialAttempts {
-		t.Error("> 2*DialTimeout * dialAttempts not being respected", duration, 2*dt*dialAttempts)
+	if duration > 2*DialTimeout*DialAttempts {
+		t.Error("> 2*DialTimeout * DialAttempts not being respected", duration, 2*DialTimeout*DialAttempts)
 	}
 
-	if !s1.backf.Backoff(s2p) {
+	if !s1.Backoff().Backoff(s2p) {
 		t.Error("s2 should now be on backoff")
 	}
 }
@@ -216,20 +217,17 @@ func TestDialBackoff(t *testing.T) {
 	defer s1.Close()
 	defer s2.Close()
 
-	s1.dialT = time.Second // lower timeout for tests.
-	s2.dialT = time.Second // lower timeout for tests.
-
 	s2addrs, err := s2.InterfaceListenAddresses()
 	if err != nil {
 		t.Fatal(err)
 	}
-	s1.peers.AddAddrs(s2.local, s2addrs, pstore.PermanentAddrTTL)
+	s1.Peerstore().AddAddrs(s2.LocalPeer(), s2addrs, pstore.PermanentAddrTTL)
 
 	// dial to a non-existent peer.
 	s3p, s3addr, s3l := newSilentPeer(t)
 	go acceptAndHang(s3l)
 	defer s3l.Close()
-	s1.peers.AddAddr(s3p, s3addr, pstore.PermanentAddrTTL)
+	s1.Peerstore().AddAddr(s3p, s3addr, pstore.PermanentAddrTTL)
 
 	// in this test we will:
 	//   1) dial 10x to each node.
@@ -246,7 +244,7 @@ func TestDialBackoff(t *testing.T) {
 		ch := make(chan bool)
 		for i := 0; i < times; i++ {
 			go func() {
-				if _, err := s1.Dial(ctx, dst); err != nil {
+				if _, err := s1.DialPeer(ctx, dst); err != nil {
 					t.Error("error dialing", dst, err)
 					ch <- false
 				} else {
@@ -261,7 +259,7 @@ func TestDialBackoff(t *testing.T) {
 		ch := make(chan bool)
 		for i := 0; i < times; i++ {
 			go func() {
-				if c, err := s1.Dial(ctx, dst); err != nil {
+				if c, err := s1.DialPeer(ctx, dst); err != nil {
 					ch <- false
 				} else {
 					t.Error("succeeded in dialing", dst)
@@ -276,13 +274,12 @@ func TestDialBackoff(t *testing.T) {
 	{
 		// 1) dial 10x to each node.
 		N := 10
-		s2done := dialOnlineNode(s2.local, N)
+		s2done := dialOnlineNode(s2.LocalPeer(), N)
 		s3done := dialOfflineNode(s3p, N)
 
 		// when all dials should be done by:
-		dialTimeout1x := time.After(s1.dialT)
-		// dialTimeout1Ax := time.After(s1.dialT * 2)       // dialAttempts)
-		dialTimeout10Ax := time.After(s1.dialT * 2 * 10) // dialAttempts * 10)
+		dialTimeout1x := time.After(DialTimeout)
+		dialTimeout10Ax := time.After(DialTimeout * 2 * 10) // DialAttempts * 10)
 
 		// 2) all dials should hang
 		select {
@@ -337,22 +334,22 @@ func TestDialBackoff(t *testing.T) {
 		}
 
 		// check backoff state
-		if s1.backf.Backoff(s2.local) {
+		if s1.Backoff().Backoff(s2.LocalPeer()) {
 			t.Error("s2 should not be on backoff")
 		}
-		if !s1.backf.Backoff(s3p) {
+		if !s1.Backoff().Backoff(s3p) {
 			t.Error("s3 should be on backoff")
 		}
 
 		// 5) disconnect entirely
 
-		for _, c := range s1.Connections() {
+		for _, c := range s1.Conns() {
 			c.Close()
 		}
-		for i := 0; i < 100 && len(s1.Connections()) > 0; i++ {
+		for i := 0; i < 100 && len(s1.Conns()) > 0; i++ {
 			<-time.After(time.Millisecond)
 		}
-		if len(s1.Connections()) > 0 {
+		if len(s1.Conns()) > 0 {
 			t.Fatal("s1 conns must exit")
 		}
 	}
@@ -360,13 +357,12 @@ func TestDialBackoff(t *testing.T) {
 	{
 		// 6) dial 10x to each node again
 		N := 10
-		s2done := dialOnlineNode(s2.local, N)
+		s2done := dialOnlineNode(s2.LocalPeer(), N)
 		s3done := dialOfflineNode(s3p, N)
 
 		// when all dials should be done by:
-		dialTimeout1x := time.After(s1.dialT)
-		// dialTimeout1Ax := time.After(s1.dialT * 2)       // dialAttempts)
-		dialTimeout10Ax := time.After(s1.dialT * 2 * 10) // dialAttempts * 10)
+		dialTimeout1x := time.After(DialTimeout)
+		dialTimeout10Ax := time.After(DialTimeout * 2 * 10) // DialAttempts * 10)
 
 		// 7) s3 dials should all return immediately (except 1)
 		for i := 0; i < N-1; i++ {
@@ -408,10 +404,10 @@ func TestDialBackoff(t *testing.T) {
 		}
 
 		// check backoff state (the same)
-		if s1.backf.Backoff(s2.local) {
+		if s1.Backoff().Backoff(s2.LocalPeer()) {
 			t.Error("s2 should not be on backoff")
 		}
-		if !s1.backf.Backoff(s3p) {
+		if !s1.Backoff().Backoff(s3p) {
 			t.Error("s3 should be on backoff")
 		}
 	}
@@ -427,12 +423,6 @@ func TestDialBackoffClears(t *testing.T) {
 	s2 := swarms[1]
 	defer s1.Close()
 	defer s2.Close()
-	s1.dialT = time.Millisecond * 300 // lower timeout for tests.
-	s2.dialT = time.Millisecond * 300 // lower timeout for tests.
-	if ci.IsRunning() {
-		s1.dialT = 2 * time.Second
-		s2.dialT = 2 * time.Second
-	}
 
 	// use another address first, that accept and hang on conns
 	_, s2bad, s2l := newSilentPeer(t)
@@ -440,10 +430,10 @@ func TestDialBackoffClears(t *testing.T) {
 	defer s2l.Close()
 
 	// phase 1 -- dial to non-operational addresses
-	s1.peers.AddAddr(s2.local, s2bad, pstore.PermanentAddrTTL)
+	s1.Peerstore().AddAddr(s2.LocalPeer(), s2bad, pstore.PermanentAddrTTL)
 
 	before := time.Now()
-	if c, err := s1.Dial(ctx, s2.local); err == nil {
+	if c, err := s1.DialPeer(ctx, s2.LocalPeer()); err == nil {
 		t.Fatal("dialing to broken addr worked...", err)
 		defer c.Close()
 	} else {
@@ -451,15 +441,14 @@ func TestDialBackoffClears(t *testing.T) {
 	}
 	duration := time.Since(before)
 
-	dt := s1.dialT
-	if duration < dt*dialAttempts {
-		t.Error("< DialTimeout * dialAttempts not being respected", duration, dt*dialAttempts)
+	if duration < DialTimeout*DialAttempts {
+		t.Error("< DialTimeout * DialAttempts not being respected", duration, DialTimeout*DialAttempts)
 	}
-	if duration > 2*dt*dialAttempts {
-		t.Error("> 2*DialTimeout * dialAttempts not being respected", duration, 2*dt*dialAttempts)
+	if duration > 2*DialTimeout*DialAttempts {
+		t.Error("> 2*DialTimeout * DialAttempts not being respected", duration, 2*DialTimeout*DialAttempts)
 	}
 
-	if !s1.backf.Backoff(s2.local) {
+	if !s1.Backoff().Backoff(s2.LocalPeer()) {
 		t.Error("s2 should now be on backoff")
 	} else {
 		t.Log("correctly added to backoff")
@@ -470,22 +459,22 @@ func TestDialBackoffClears(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s1.peers.AddAddrs(s2.local, ifaceAddrs1, pstore.PermanentAddrTTL)
+	s1.Peerstore().AddAddrs(s2.LocalPeer(), ifaceAddrs1, pstore.PermanentAddrTTL)
 
-	if _, err := s1.Dial(ctx, s2.local); err == nil {
+	if _, err := s1.DialPeer(ctx, s2.LocalPeer()); err == nil {
 		t.Fatal("should have failed to dial backed off peer")
 	}
 
-	time.Sleep(baseBackoffTime)
+	time.Sleep(BackoffBase)
 
-	if c, err := s1.Dial(ctx, s2.local); err != nil {
+	if c, err := s1.DialPeer(ctx, s2.LocalPeer()); err != nil {
 		t.Fatal(err)
 	} else {
 		c.Close()
 		t.Log("correctly connected")
 	}
 
-	if s1.backf.Backoff(s2.local) {
+	if s1.Backoff().Backoff(s2.LocalPeer()) {
 		t.Error("s2 should no longer be on backoff")
 	} else {
 		t.Log("correctly cleared backoff")

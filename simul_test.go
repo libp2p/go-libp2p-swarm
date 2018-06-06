@@ -1,4 +1,4 @@
-package swarm
+package swarm_test
 
 import (
 	"context"
@@ -11,6 +11,9 @@ import (
 	pstore "github.com/libp2p/go-libp2p-peerstore"
 	ci "github.com/libp2p/go-testutil/ci"
 	ma "github.com/multiformats/go-multiaddr"
+
+	. "github.com/libp2p/go-libp2p-swarm"
+	swarmt "github.com/libp2p/go-libp2p-swarm/testing"
 )
 
 func TestSimultOpen(t *testing.T) {
@@ -18,16 +21,16 @@ func TestSimultOpen(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	swarms := makeSwarms(ctx, t, 2)
+	swarms := makeSwarms(ctx, t, 2, swarmt.OptDisableReuseport)
 
 	// connect everyone
 	{
 		var wg sync.WaitGroup
 		connect := func(s *Swarm, dst peer.ID, addr ma.Multiaddr) {
 			// copy for other peer
-			log.Debugf("TestSimultOpen: connecting: %s --> %s (%s)", s.local, dst, addr)
-			s.peers.AddAddr(dst, addr, pstore.PermanentAddrTTL)
-			if _, err := s.Dial(ctx, dst); err != nil {
+			log.Debugf("TestSimultOpen: connecting: %s --> %s (%s)", s.LocalPeer(), dst, addr)
+			s.Peerstore().AddAddr(dst, addr, pstore.PermanentAddrTTL)
+			if _, err := s.DialPeer(ctx, dst); err != nil {
 				t.Fatal("error swarm dialing to peer", err)
 			}
 			wg.Done()
@@ -35,8 +38,8 @@ func TestSimultOpen(t *testing.T) {
 
 		log.Info("Connecting swarms simultaneously.")
 		wg.Add(2)
-		go connect(swarms[0], swarms[1].local, swarms[1].ListenAddresses()[0])
-		go connect(swarms[1], swarms[0].local, swarms[0].ListenAddresses()[0])
+		go connect(swarms[0], swarms[1].LocalPeer(), swarms[1].ListenAddresses()[0])
+		go connect(swarms[1], swarms[0].LocalPeer(), swarms[0].ListenAddresses()[0])
 		wg.Wait()
 	}
 

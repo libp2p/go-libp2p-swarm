@@ -1,4 +1,4 @@
-package swarm
+package swarm_test
 
 import (
 	"testing"
@@ -8,13 +8,9 @@ import (
 	inet "github.com/libp2p/go-libp2p-net"
 	peer "github.com/libp2p/go-libp2p-peer"
 	ma "github.com/multiformats/go-multiaddr"
-)
 
-func streamsSame(a, b inet.Stream) bool {
-	sa := a.(*Stream)
-	sb := b.(*Stream)
-	return sa.Stream() == sb.Stream()
-}
+	. "github.com/libp2p/go-libp2p-swarm"
+)
 
 func TestNotifications(t *testing.T) {
 	const swarmSize = 5
@@ -52,7 +48,7 @@ func TestNotifications(t *testing.T) {
 			}
 
 			// this feels a little sketchy, but its probably okay
-			for len(s.ConnectionsToPeer(s2.LocalPeer())) != len(notifs[s2.LocalPeer()]) {
+			for len(s.ConnsToPeer(s2.LocalPeer())) != len(notifs[s2.LocalPeer()]) {
 				select {
 				case c := <-n.connected:
 					nfp := notifs[c.RemotePeer()]
@@ -64,7 +60,7 @@ func TestNotifications(t *testing.T) {
 		}
 
 		for p, cons := range notifs {
-			expect := s.ConnectionsToPeer(p)
+			expect := s.ConnsToPeer(p)
 			if len(expect) != len(cons) {
 				t.Fatal("got different number of connections")
 			}
@@ -87,10 +83,10 @@ func TestNotifications(t *testing.T) {
 
 	complement := func(c inet.Conn) (*Swarm, *netNotifiee, *Conn) {
 		for i, s := range swarms {
-			for _, c2 := range s.Connections() {
+			for _, c2 := range s.Conns() {
 				if c.LocalMultiaddr().Equal(c2.RemoteMultiaddr()) &&
 					c2.LocalMultiaddr().Equal(c.RemoteMultiaddr()) {
-					return s, notifiees[i], c2
+					return s, notifiees[i], c2.(*Conn)
 				}
 			}
 		}
@@ -106,7 +102,7 @@ func TestNotifications(t *testing.T) {
 		case <-time.After(timeout):
 			t.Fatal("timeout")
 		}
-		if !streamsSame(s, s2) {
+		if s != s2 {
 			t.Fatal("got incorrect stream", s.Conn(), s2.Conn())
 		}
 
@@ -116,7 +112,7 @@ func TestNotifications(t *testing.T) {
 		case <-time.After(timeout):
 			t.Fatal("timeout")
 		}
-		if !streamsSame(s, s2) {
+		if s != s2 {
 			t.Fatal("got incorrect stream", s.Conn(), s2.Conn())
 		}
 	}
@@ -131,7 +127,7 @@ func TestNotifications(t *testing.T) {
 
 	// open a streams in each conn
 	for i, s := range swarms {
-		for _, c := range s.Connections() {
+		for _, c := range s.Conns() {
 			_, n2, _ := complement(c)
 
 			st1, err := c.NewStream()
@@ -150,7 +146,7 @@ func TestNotifications(t *testing.T) {
 	// close conns
 	for i, s := range swarms {
 		n := notifiees[i]
-		for _, c := range s.Connections() {
+		for _, c := range s.Conns() {
 			_, n2, c2 := complement(c)
 			c.Close()
 			c2.Close()

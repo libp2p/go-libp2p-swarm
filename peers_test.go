@@ -1,12 +1,15 @@
-package swarm
+package swarm_test
 
 import (
 	"testing"
 
 	"context"
+	inet "github.com/libp2p/go-libp2p-net"
 	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
 	ma "github.com/multiformats/go-multiaddr"
+
+	. "github.com/libp2p/go-libp2p-swarm"
 )
 
 func TestPeers(t *testing.T) {
@@ -18,13 +21,13 @@ func TestPeers(t *testing.T) {
 
 	connect := func(s *Swarm, dst peer.ID, addr ma.Multiaddr) {
 		// TODO: make a DialAddr func.
-		s.peers.AddAddr(dst, addr, pstore.PermanentAddrTTL)
+		s.Peerstore().AddAddr(dst, addr, pstore.PermanentAddrTTL)
 		// t.Logf("connections from %s", s.LocalPeer())
-		// for _, c := range s.ConnectionsToPeer(dst) {
+		// for _, c := range s.ConnsToPeer(dst) {
 		// 	t.Logf("connection from %s to %s: %v", s.LocalPeer(), dst, c)
 		// }
 		// t.Logf("")
-		if _, err := s.Dial(ctx, dst); err != nil {
+		if _, err := s.DialPeer(ctx, dst); err != nil {
 			t.Fatal("error swarm dialing to peer", err)
 		}
 		// t.Log(s.swarm.Dump())
@@ -32,10 +35,10 @@ func TestPeers(t *testing.T) {
 
 	s1GotConn := make(chan struct{}, 0)
 	s2GotConn := make(chan struct{}, 0)
-	s1.SetConnHandler(func(c *Conn) {
+	s1.SetConnHandler(func(c inet.Conn) {
 		s1GotConn <- struct{}{}
 	})
-	s2.SetConnHandler(func(c *Conn) {
+	s2.SetConnHandler(func(c inet.Conn) {
 		s2GotConn <- struct{}{}
 	})
 
@@ -49,7 +52,7 @@ func TestPeers(t *testing.T) {
 	}
 
 	for _, s := range swarms {
-		log.Infof("%s swarm routing table: %s", s.local, s.Peers())
+		log.Infof("%s swarm routing table: %s", s.LocalPeer(), s.Peers())
 	}
 
 	test := func(s *Swarm) {
@@ -57,12 +60,10 @@ func TestPeers(t *testing.T) {
 		actual := len(s.Peers())
 		if actual != expect {
 			t.Errorf("%s has %d peers, not %d: %v", s.LocalPeer(), actual, expect, s.Peers())
-			t.Log(s.swarm.Dump())
 		}
-		actual = len(s.Connections())
+		actual = len(s.Conns())
 		if actual != expect {
-			t.Errorf("%s has %d conns, not %d: %v", s.LocalPeer(), actual, expect, s.Connections())
-			t.Log(s.swarm.Dump())
+			t.Errorf("%s has %d conns, not %d: %v", s.LocalPeer(), actual, expect, s.Conns())
 		}
 	}
 

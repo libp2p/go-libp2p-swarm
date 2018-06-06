@@ -1,4 +1,4 @@
-package swarm
+package swarm_test
 
 import (
 	"context"
@@ -6,6 +6,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	. "github.com/libp2p/go-libp2p-swarm"
 
 	peer "github.com/libp2p/go-libp2p-peer"
 )
