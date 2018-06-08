@@ -221,9 +221,6 @@ func (s *Swarm) doDial(ctx context.Context, p peer.ID) (*Conn, error) {
 		return c, nil
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, DialTimeout)
-	defer cancel()
-
 	logdial := lgbl.Dial("swarm", s.LocalPeer(), p, nil, nil)
 
 	// ok, we have been charged to dial! let's do it.
@@ -259,6 +256,9 @@ func (s *Swarm) canDial(addr ma.Multiaddr) bool {
 
 // dial is the actual swarm's dial logic, gated by Dial.
 func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
+	ctx, cancel := context.WithTimeout(ctx, DialTimeout)
+	defer cancel()
+
 	var logdial = lgbl.Dial("swarm", s.LocalPeer(), p, nil, nil)
 	if p == s.local {
 		log.Event(ctx, "swarmDialDoDialSelf", logdial)
@@ -398,12 +398,15 @@ func (s *Swarm) dialAddr(ctx context.Context, p peer.ID, addr ma.Multiaddr) (tra
 	}
 	log.Debugf("%s swarm dialing %s %s", s.local, p, addr)
 
-	transport := s.TransportForDialing(addr)
-	if transport == nil {
+	tpt := s.TransportForDialing(addr)
+	if tpt == nil {
 		return nil, ErrNoTransport
 	}
 
-	connC, err := transport.Dial(ctx, addr, p)
+	ctx, cancel := context.WithTimeout(ctx, transport.DialTimeout)
+	defer cancel()
+
+	connC, err := tpt.Dial(ctx, addr, p)
 	if err != nil {
 		return nil, fmt.Errorf("%s --> %s dial attempt failed: %s", s.local, p, err)
 	}
@@ -411,7 +414,7 @@ func (s *Swarm) dialAddr(ctx context.Context, p peer.ID, addr ma.Multiaddr) (tra
 	// Trust the transport? Yeah... right.
 	if connC.RemotePeer() != p {
 		connC.Close()
-		err = fmt.Errorf("BUG in transport %T: tried to dial %s, dialed %s", p, connC.RemotePeer(), transport)
+		err = fmt.Errorf("BUG in transport %T: tried to dial %s, dialed %s", p, connC.RemotePeer(), tpt)
 		log.Error(err)
 		return nil, err
 	}
