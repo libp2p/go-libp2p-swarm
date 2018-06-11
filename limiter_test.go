@@ -378,9 +378,9 @@ func TestFDLimitUnderflow(t *testing.T) {
 
 	time.Sleep(time.Second * 3)
 
-	l.rllock.Lock()
+	l.lk.Lock()
 	fdConsuming := l.fdConsuming
-	l.rllock.Unlock()
+	l.lk.Unlock()
 
 	if fdConsuming < 0 {
 		t.Fatalf("l.fdConsuming < 0")
