@@ -18,11 +18,10 @@ type dialResult struct {
 }
 
 type dialJob struct {
-	addr    ma.Multiaddr
-	peer    peer.ID
-	ctx     context.Context
-	resp    chan dialResult
-	success bool
+	addr ma.Multiaddr
+	peer peer.ID
+	ctx  context.Context
+	resp chan dialResult
 }
 
 func (dj *dialJob) cancelled() bool {
@@ -100,7 +99,7 @@ func (dl *dialLimiter) freePeerToken(dj *dialJob) {
 	}
 
 	waitlist := dl.waitingOnPeerLimit[dj.peer]
-	if !dj.success && len(waitlist) > 0 {
+	if len(waitlist) > 0 {
 		next := waitlist[0]
 		if len(waitlist) == 1 {
 			delete(dl.waitingOnPeerLimit, next.peer)
