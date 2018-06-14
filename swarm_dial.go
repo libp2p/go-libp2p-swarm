@@ -202,10 +202,15 @@ func (s *Swarm) dialPeer(ctx context.Context, p peer.ID) (*Conn, error) {
 		return nil, ErrDialBackoff
 	}
 
+	// apply the DialPeer timeout
+	ctx, cancel := context.WithTimeout(ctx, inet.GetDialPeerTimeout(ctx))
+	defer cancel()
+
 	conn, err := s.dsync.DialLock(ctx, p)
 	if err != nil {
 		return nil, err
 	}
+
 	log.Debugf("network for %s finished dialing %s", s.local, p)
 	return conn, err
 }
@@ -256,9 +261,6 @@ func (s *Swarm) canDial(addr ma.Multiaddr) bool {
 
 // dial is the actual swarm's dial logic, gated by Dial.
 func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
-	ctx, cancel := context.WithTimeout(ctx, DialTimeout)
-	defer cancel()
-
 	var logdial = lgbl.Dial("swarm", s.LocalPeer(), p, nil, nil)
 	if p == s.local {
 		log.Event(ctx, "swarmDialDoDialSelf", logdial)

@@ -37,11 +37,6 @@ var ErrSwarmClosed = errors.New("swarm closed")
 // transport is misbehaving.
 var ErrAddrFiltered = errors.New("address filtered")
 
-// DialTimeout is the maximum duration a Dial is allowed to take.
-// This includes the time between dialing the raw network connection,
-// protocol selection as well the handshake, if applicable.
-var DialTimeout = 60 * time.Second
-
 // Swarm is a connection muxer, allowing connections to other peers to
 // be opened and closed, while still using the same Chan for all
 // communication. The Chan sends/receives Messages, which note the
