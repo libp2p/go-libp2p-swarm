@@ -325,7 +325,8 @@ func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 		"localAddr":  connC.LocalMultiaddr(),
 		"remoteAddr": connC.RemoteMultiaddr(),
 	}
-	swarmC, err := s.addConn(connC)
+	stat := inet.Stat{Direction: inet.DirOutbound}
+	swarmC, err := s.addConn(connC, stat)
 	if err != nil {
 		logdial["error"] = err.Error()
 		connC.Close() // close the connection. didn't work out :(
