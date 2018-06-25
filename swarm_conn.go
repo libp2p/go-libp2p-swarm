@@ -100,8 +100,7 @@ func (c *Conn) start() {
 			}
 			c.swarm.refs.Add(1)
 			go func() {
-				stat := inet.Stat{Direction: inet.DirInbound}
-				s, err := c.addStream(ts, stat)
+				s, err := c.addStream(ts, inet.DirInbound)
 
 				// Don't defer this. We don't want to block
 				// swarm shutdown on the connection handler.
@@ -172,11 +171,10 @@ func (c *Conn) NewStream() (inet.Stream, error) {
 	if err != nil {
 		return nil, err
 	}
-	stat := inet.Stat{Direction: inet.DirOutbound}
-	return c.addStream(ts, stat)
+	return c.addStream(ts, inet.DirOutbound)
 }
 
-func (c *Conn) addStream(ts smux.Stream, stat inet.Stat) (*Stream, error) {
+func (c *Conn) addStream(ts smux.Stream, dir inet.Direction) (*Stream, error) {
 	c.streams.Lock()
 	// Are we still online?
 	if c.streams.m == nil {
@@ -186,6 +184,7 @@ func (c *Conn) addStream(ts smux.Stream, stat inet.Stat) (*Stream, error) {
 	}
 
 	// Wrap and register the stream.
+	stat := inet.Stat{Direction: dir}
 	s := &Stream{
 		stream: ts,
 		conn:   c,

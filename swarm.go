@@ -165,7 +165,7 @@ func (s *Swarm) Process() goprocess.Process {
 	return s.proc
 }
 
-func (s *Swarm) addConn(tc transport.Conn, stat inet.Stat) (*Conn, error) {
+func (s *Swarm) addConn(tc transport.Conn, dir inet.Direction) (*Conn, error) {
 	// The underlying transport (or the dialer) *should* filter it's own
 	// connections but we should double check anyways.
 	raddr := tc.RemoteMultiaddr()
@@ -194,6 +194,7 @@ func (s *Swarm) addConn(tc transport.Conn, stat inet.Stat) (*Conn, error) {
 	}
 
 	// Wrap and register the connection.
+	stat := inet.Stat{Direction: dir}
 	c := &Conn{
 		conn:  tc,
 		swarm: s,
