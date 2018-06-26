@@ -11,6 +11,7 @@ import (
 	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
 	swarmt "github.com/libp2p/go-libp2p-swarm/testing"
+	transport "github.com/libp2p/go-libp2p-transport"
 	testutil "github.com/libp2p/go-testutil"
 	ci "github.com/libp2p/go-testutil/ci"
 	ma "github.com/multiformats/go-multiaddr"
@@ -20,7 +21,7 @@ import (
 )
 
 func init() {
-	DialTimeout = time.Second
+	transport.DialTimeout = time.Second
 }
 
 func closeSwarms(swarms []*Swarm) {
@@ -190,11 +191,11 @@ func TestDialWait(t *testing.T) {
 	}
 	duration := time.Since(before)
 
-	if duration < DialTimeout*DialAttempts {
-		t.Error("< DialTimeout * DialAttempts not being respected", duration, DialTimeout*DialAttempts)
+	if duration < transport.DialTimeout*DialAttempts {
+		t.Error("< transport.DialTimeout * DialAttempts not being respected", duration, transport.DialTimeout*DialAttempts)
 	}
-	if duration > 2*DialTimeout*DialAttempts {
-		t.Error("> 2*DialTimeout * DialAttempts not being respected", duration, 2*DialTimeout*DialAttempts)
+	if duration > 2*transport.DialTimeout*DialAttempts {
+		t.Error("> 2*transport.DialTimeout * DialAttempts not being respected", duration, 2*transport.DialTimeout*DialAttempts)
 	}
 
 	if !s1.Backoff().Backoff(s2p) {
@@ -278,8 +279,8 @@ func TestDialBackoff(t *testing.T) {
 		s3done := dialOfflineNode(s3p, N)
 
 		// when all dials should be done by:
-		dialTimeout1x := time.After(DialTimeout)
-		dialTimeout10Ax := time.After(DialTimeout * 2 * 10) // DialAttempts * 10)
+		dialTimeout1x := time.After(transport.DialTimeout)
+		dialTimeout10Ax := time.After(transport.DialTimeout * 2 * 10) // DialAttempts * 10)
 
 		// 2) all dials should hang
 		select {
@@ -361,8 +362,8 @@ func TestDialBackoff(t *testing.T) {
 		s3done := dialOfflineNode(s3p, N)
 
 		// when all dials should be done by:
-		dialTimeout1x := time.After(DialTimeout)
-		dialTimeout10Ax := time.After(DialTimeout * 2 * 10) // DialAttempts * 10)
+		dialTimeout1x := time.After(transport.DialTimeout)
+		dialTimeout10Ax := time.After(transport.DialTimeout * 2 * 10) // DialAttempts * 10)
 
 		// 7) s3 dials should all return immediately (except 1)
 		for i := 0; i < N-1; i++ {
@@ -441,11 +442,11 @@ func TestDialBackoffClears(t *testing.T) {
 	}
 	duration := time.Since(before)
 
-	if duration < DialTimeout*DialAttempts {
-		t.Error("< DialTimeout * DialAttempts not being respected", duration, DialTimeout*DialAttempts)
+	if duration < transport.DialTimeout*DialAttempts {
+		t.Error("< transport.DialTimeout * DialAttempts not being respected", duration, transport.DialTimeout*DialAttempts)
 	}
-	if duration > 2*DialTimeout*DialAttempts {
-		t.Error("> 2*DialTimeout * DialAttempts not being respected", duration, 2*DialTimeout*DialAttempts)
+	if duration > 2*transport.DialTimeout*DialAttempts {
+		t.Error("> 2*transport.DialTimeout * DialAttempts not being respected", duration, 2*transport.DialTimeout*DialAttempts)
 	}
 
 	if !s1.Backoff().Backoff(s2.LocalPeer()) {
