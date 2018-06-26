@@ -405,9 +405,6 @@ func (s *Swarm) dialAddr(ctx context.Context, p peer.ID, addr ma.Multiaddr) (tra
 		return nil, ErrNoTransport
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, transport.DialTimeout)
-	defer cancel()
-
 	connC, err := tpt.Dial(ctx, addr, p)
 	if err != nil {
 		return nil, fmt.Errorf("%s --> %s dial attempt failed: %s", s.local, p, err)
