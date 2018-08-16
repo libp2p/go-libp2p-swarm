@@ -183,6 +183,11 @@ func (s *Swarm) DialPeer(ctx context.Context, p peer.ID) (inet.Conn, error) {
 func (s *Swarm) dialPeer(ctx context.Context, p peer.ID) (*Conn, error) {
 	log.Debugf("[%s] swarm dialing peer [%s]", s.local, p)
 	var logdial = lgbl.Dial("swarm", s.LocalPeer(), p, nil, nil)
+	err := p.Validate()
+	if err != nil {
+		return nil, err
+	}
+
 	if p == s.local {
 		log.Event(ctx, "swarmDialSelf", logdial)
 		return nil, ErrDialToSelf
@@ -206,7 +211,7 @@ func (s *Swarm) dialPeer(ctx context.Context, p peer.ID) (*Conn, error) {
 	ctx, cancel := context.WithTimeout(ctx, inet.GetDialPeerTimeout(ctx))
 	defer cancel()
 
-	conn, err := s.dsync.DialLock(ctx, p)
+	conn, err = s.dsync.DialLock(ctx, p)
 	if err != nil {
 		return nil, err
 	}
