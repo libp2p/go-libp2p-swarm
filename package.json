@@ -9,9 +9,9 @@
   "gxDependencies": [
     {
       "author": "whyrusleeping",
-      "hash": "QmX5J1q63BrrDTbpcHifrFbxH3cMZsvaNajy6u3zCpzBXs",
+      "hash": "QmQSbtGXCyNrj34LWL8EgXyNNYDZ8r3SwQcpW5pPxVhLnM",
       "name": "go-libp2p-net",
-      "version": "3.0.7"
+      "version": "3.0.8"
     },
     {
       "author": "whyrusleeping",
@@ -33,9 +33,9 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmYr9RHifaqHTFZdAsUPLmiMAi2oNeEqA48AFKxXJAsLpJ",
+      "hash": "QmcDUyb52N62J8ZamGgUWUyWc1MtuCBce7WFA4D9xA6cwF",
       "name": "go-libp2p-transport",
-      "version": "3.0.7"
+      "version": "3.0.8"
     },
     {
       "author": "whyrusleeping",
@@ -63,9 +63,9 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmcK89iqkFV8TqpRUgx1481YZbhjPFnBjqkpBQJfJqmSfm",
+      "hash": "Qmcw9fndogcYwyGs4a5TPDbnZPBLxvtrBZzpvyyVDzxDWT",
       "name": "go-tcp-transport",
-      "version": "2.0.7"
+      "version": "2.0.8"
     },
     {
       "author": "whyrusleeping",
@@ -134,21 +134,21 @@
     },
     {
       "author": "stebalien",
-      "hash": "Qma6UXLMHjdVFExQZLYqdb5KAesbnoXuthQzovrwRZ64fG",
+      "hash": "QmSbkqfiFmJCdczVQ7mkFZf5FUUNpuP5Ne2LxY2htXGtrZ",
       "name": "go-conn-security-multistream",
-      "version": "0.1.6"
-    },
-    {
-      "author": "steb",
-      "hash": "QmfNvpHX396fhMeauERV6eFnSJg78rUjhjpFf1JvbjxaYM",
-      "name": "go-libp2p-transport-upgrader",
       "version": "0.1.7"
     },
     {
+      "author": "steb",
+      "hash": "QmefQrpDSYX6jQRtUyhcASFVBDkoAsDTPXemyxGMzA3phK",
+      "name": "go-libp2p-transport-upgrader",
+      "version": "0.1.8"
+    },
+    {
       "author": "whyrusleeping",
-      "hash": "QmWKKkNLFRcznF5vDqt2eeRsnQqQhwbjVf8zJ9KC2RXrzN",
+      "hash": "QmWri2HWdxHjWBUermhWy7QWJqN1cV8Gd1QbDiB5m86f1H",
       "name": "go-libp2p-secio",
-      "version": "2.0.7"
+      "version": "2.0.8"
     }
   ],
   "gxVersion": "0.9.1",
