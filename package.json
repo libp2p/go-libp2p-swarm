@@ -39,9 +39,9 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmWzjXAyBTygw6CeCTUnhJzhFucfxY5FJivSoiGuiSbPjS",
+      "hash": "QmRYdszNNq7ykPqavVNKMVyyjX59AcTisHqzussDfhwHkK",
       "name": "go-smux-multistream",
-      "version": "2.0.1"
+      "version": "2.0.2"
     },
     {
       "author": "whyrusleeping",
@@ -134,9 +134,9 @@
     },
     {
       "author": "stebalien",
-      "hash": "QmSbkqfiFmJCdczVQ7mkFZf5FUUNpuP5Ne2LxY2htXGtrZ",
+      "hash": "Qmd4VzS3T7ckhHcLCpWwgVMYe6RcKhYjNKfy1g7LJ5myjv",
       "name": "go-conn-security-multistream",
-      "version": "0.1.7"
+      "version": "0.1.8"
     },
     {
       "author": "steb",
@@ -156,6 +156,6 @@
   "license": "MIT",
   "name": "go-libp2p-swarm",
   "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
-  "version": "3.0.9"
+  "version": "3.0.10"
 }
 
