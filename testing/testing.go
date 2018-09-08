@@ -8,6 +8,7 @@ import (
 	metrics "github.com/libp2p/go-libp2p-metrics"
 	inet "github.com/libp2p/go-libp2p-net"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
+	pstoremem "github.com/libp2p/go-libp2p-peerstore/pstoremem"
 	secio "github.com/libp2p/go-libp2p-secio"
 	tptu "github.com/libp2p/go-libp2p-transport-upgrader"
 	tcp "github.com/libp2p/go-tcp-transport"
@@ -66,7 +67,7 @@ func GenSwarm(t *testing.T, ctx context.Context, opts ...Option) *swarm.Swarm {
 
 	p := tu.RandPeerNetParamsOrFatal(t)
 
-	ps := pstore.NewPeerstore()
+	ps := pstoremem.NewPeerstore()
 	ps.AddPubKey(p.ID, p.PubKey)
 	ps.AddPrivKey(p.ID, p.PrivKey)
 	s := swarm.NewSwarm(ctx, p.ID, ps, metrics.NewBandwidthCounter())

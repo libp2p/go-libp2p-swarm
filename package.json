@@ -9,9 +9,9 @@
   "gxDependencies": [
     {
       "author": "whyrusleeping",
-      "hash": "QmQSbtGXCyNrj34LWL8EgXyNNYDZ8r3SwQcpW5pPxVhLnM",
+      "hash": "QmZNJyx9GGCX4GeuHnLB8fxaxMLs4MjTjHokxfQcCd6Nve",
       "name": "go-libp2p-net",
-      "version": "3.0.8"
+      "version": "3.0.9"
     },
     {
       "author": "whyrusleeping",
@@ -21,9 +21,9 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmeKD8YT7887Xu6Z86iZmpYNxrLogJexqxEugSmaf14k64",
+      "hash": "Qmda4cPRvSRyox3SqgJN6DfSZGU5TtHufPTp9uXjFj71X6",
       "name": "go-libp2p-peerstore",
-      "version": "1.4.24"
+      "version": "2.0.0"
     },
     {
       "author": "whyrusleeping",
@@ -33,9 +33,9 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmcDUyb52N62J8ZamGgUWUyWc1MtuCBce7WFA4D9xA6cwF",
+      "hash": "QmU129xU8dM79BgR97hu4fsiUDkTQrNHbzkiYfyrkNci8o",
       "name": "go-libp2p-transport",
-      "version": "3.0.8"
+      "version": "3.0.9"
     },
     {
       "author": "whyrusleeping",
@@ -63,9 +63,9 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "Qmcw9fndogcYwyGs4a5TPDbnZPBLxvtrBZzpvyyVDzxDWT",
+      "hash": "QmV8KW6eBanaxCxGNrXx8Q3fZUqvumCz2Hwd2FGpb3vzYC",
       "name": "go-tcp-transport",
-      "version": "2.0.8"
+      "version": "2.0.9"
     },
     {
       "author": "whyrusleeping",
@@ -134,21 +134,21 @@
     },
     {
       "author": "stebalien",
-      "hash": "Qmd4VzS3T7ckhHcLCpWwgVMYe6RcKhYjNKfy1g7LJ5myjv",
+      "hash": "QmPGWMxTWBJwfH1dJo4J7eV4Fgpzb9gukPRkeEN1ycAkNu",
       "name": "go-conn-security-multistream",
-      "version": "0.1.8"
+      "version": "0.1.9"
     },
     {
       "author": "steb",
-      "hash": "QmefQrpDSYX6jQRtUyhcASFVBDkoAsDTPXemyxGMzA3phK",
+      "hash": "QmWRcKvbFVND1vSTJZv5imdBxmkj9FFJ5Jku1qWxasAAMo",
       "name": "go-libp2p-transport-upgrader",
-      "version": "0.1.8"
+      "version": "0.1.9"
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmWri2HWdxHjWBUermhWy7QWJqN1cV8Gd1QbDiB5m86f1H",
+      "hash": "QmReYSQGHjf28pKf93FwyD72mLXoZo94MB2Cq6VBSUHvFB",
       "name": "go-libp2p-secio",
-      "version": "2.0.8"
+      "version": "2.0.9"
     }
   ],
   "gxVersion": "0.9.1",
