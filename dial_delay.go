@@ -5,16 +5,13 @@ import (
 	"time"
 
 	ma "github.com/multiformats/go-multiaddr"
-	mafmt "github.com/whyrusleeping/mafmt"
 )
 
-const p_circuit = 290
+const P_CIRCUIT = 290
 
 const numTiers = 2
 
 var TierDelay = 1 * time.Second
-
-var relay = mafmt.Or(mafmt.And(mafmt.Base(p_circuit), mafmt.Base(ma.P_IPFS)), mafmt.And(mafmt.Base(ma.P_IPFS), mafmt.Base(p_circuit), mafmt.Base(ma.P_IPFS)))
 
 // delayDialAddrs returns a address channel sorted by priority, pushing the
 // addresses with delay between them. The other channel can be used to trigger
@@ -201,9 +198,14 @@ func delayDialAddrs(ctx context.Context, c <-chan ma.Multiaddr) (<-chan ma.Multi
 // return value must be > 0 & < numTiers.
 func getTier(addr ma.Multiaddr) int {
 	switch {
-	case relay.Matches(addr):
+	case isRelayAddr(addr):
 		return 1
 	default:
 		return 0
 	}
+}
+
+func isRelayAddr(addr ma.Multiaddr) bool {
+	_, err := addr.ValueForProtocol(P_CIRCUIT)
+	return err == nil
 }

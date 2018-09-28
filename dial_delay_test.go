@@ -22,10 +22,10 @@ const (
 
 func prepare() {
 	var circuitProto = ma.Protocol{
-		Code:  p_circuit,
+		Code:  P_CIRCUIT,
 		Size:  0,
 		Name:  "p2p-circuit",
-		VCode: ma.CodeToVarint(p_circuit),
+		VCode: ma.CodeToVarint(P_CIRCUIT),
 	}
 	_ = ma.AddProtocol(circuitProto)
 
@@ -90,7 +90,7 @@ func TestRelayMatch(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if relay.Matches(addr) {
+	if isRelayAddr(addr) {
 		t.Error("T0_A shouldn't match")
 	}
 
@@ -99,7 +99,7 @@ func TestRelayMatch(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if !relay.Matches(addr) {
+	if isRelayAddr(addr) {
 		t.Error("T1_A should match")
 	}
 
@@ -108,7 +108,7 @@ func TestRelayMatch(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if !relay.Matches(addr) {
+	if isRelayAddr(addr) {
 		t.Error("T1_C should match")
 	}
 }
