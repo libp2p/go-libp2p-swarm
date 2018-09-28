@@ -99,7 +99,7 @@ func TestRelayMatch(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if isRelayAddr(addr) {
+	if !isRelayAddr(addr) {
 		t.Error("T1_A should match")
 	}
 
@@ -108,7 +108,7 @@ func TestRelayMatch(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if isRelayAddr(addr) {
+	if !isRelayAddr(addr) {
 		t.Error("T1_C should match")
 	}
 }
