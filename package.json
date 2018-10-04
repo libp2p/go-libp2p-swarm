@@ -146,9 +146,9 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmUdVuLDQCQD4WPBpgDsbBAaqui3GW4d7exBHK2PUKRQpv",
+      "hash": "QmNkxudvyUjdKw5ComDSCbJTHCjrjNGYjEAUdhoEUUjFsX",
       "name": "go-libp2p-secio",
-      "version": "2.0.11"
+      "version": "2.0.12"
     }
   ],
   "gxVersion": "0.9.1",
@@ -156,6 +156,6 @@
   "license": "MIT",
   "name": "go-libp2p-swarm",
   "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
-  "version": "3.0.14"
+  "version": "3.0.15"
 }
 
