@@ -45,9 +45,9 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmcsgrV3nCAKjiHKZhKVXWc4oY3WBECJCqahXEMpHeMrev",
+      "hash": "QmejxafYByb7s4rEMoKjmThZm6HfQ1seASNejVNKde6LBZ",
       "name": "go-smux-yamux",
-      "version": "2.0.3"
+      "version": "2.0.4"
     },
     {
       "author": "whyrusleeping",
@@ -63,9 +63,9 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmdbYtEnF2imic8M5UmZtxgsvxPo6CdZ7tJNF1iyY7E59g",
+      "hash": "Qmd995jEtfoM7dipVGFSvpGdXJpwUxF1Lqof296kgexh7q",
       "name": "go-tcp-transport",
-      "version": "2.0.12"
+      "version": "2.0.13"
     },
     {
       "author": "whyrusleeping",
@@ -140,15 +140,15 @@
     },
     {
       "author": "steb",
-      "hash": "QmQkCDQnrQgS2StMmLhro8Bd9LxRQXrysq27cj7hPxEvsb",
+      "hash": "QmXffKE4ikCV3medQiCzbzuoE5QUuLd2rGr4EyiC6b9Mye",
       "name": "go-libp2p-transport-upgrader",
-      "version": "0.1.12"
+      "version": "0.1.13"
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmeUYMcQMwV9GvNhuh35G52EXCV77qPZUFkQc2TCPt27Fy",
+      "hash": "QmZSHe9kqEcqUG6DSBrKYULk8EeZLDd1skpHNoSaK6rW4M",
       "name": "go-libp2p-secio",
-      "version": "2.0.13"
+      "version": "2.0.14"
     }
   ],
   "gxVersion": "0.9.1",
@@ -156,6 +156,6 @@
   "license": "MIT",
   "name": "go-libp2p-swarm",
   "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
-  "version": "3.0.16"
+  "version": "3.0.17"
 }
 
