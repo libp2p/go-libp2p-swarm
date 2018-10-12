@@ -45,9 +45,9 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmSNsTp6CjGoPj5yqjTMruAEoKcqicrzjsXfsaBLtKToVd",
+      "hash": "QmVwYCtShoL74Xi8TgEg9jXvHVVtWwZ3Hg1QZqQvQA9xji",
       "name": "go-smux-yamux",
-      "version": "2.0.5"
+      "version": "2.0.6"
     },
     {
       "author": "whyrusleeping",
@@ -156,6 +156,6 @@
   "license": "MIT",
   "name": "go-libp2p-swarm",
   "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
-  "version": "3.0.18"
+  "version": "3.0.19"
 }
 
