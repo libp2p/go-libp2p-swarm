@@ -42,10 +42,6 @@ var _ Throttler = (*throttler)(nil)
 func (t *throttler) Start(ctx context.Context, inCh <-chan *Job, dialCh chan<- *Job) {
 	t.inCh = inCh
 	t.dialCh = dialCh
-	t.finishedCh = make(chan *Job, 100)
-	t.fdTokenFreed = make(chan struct{}, 1)
-	t.peerTokenFreed = make(chan peer.ID, 1)
-	t.localCloseCh = make(chan struct{}, 1)
 
 THROTTLE_LOOP:
 	for {
@@ -155,6 +151,9 @@ func NewThrottlerWithParams(fdLimit, perPeerLimit int) *throttler {
 		waitingOnPeerLimit: make(map[peer.ID][]*Job),
 		activePerPeer:      make(map[peer.ID]int),
 		localCloseCh:       make(chan struct{}),
+		finishedCh:         make(chan *Job, 100),
+		fdTokenFreed:       make(chan struct{}, 1),
+		peerTokenFreed:     make(chan peer.ID, 1),
 	}
 }
 

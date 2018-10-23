@@ -19,7 +19,10 @@ type executor struct {
 var _ Executor = (*executor)(nil)
 
 func NewExecutor(resolver TransportResolverFn) Executor {
-	return &executor{resolver: resolver, localCloseCh: make(chan struct{})}
+	return &executor{
+		resolver:     resolver,
+		localCloseCh: make(chan struct{}),
+	}
 }
 
 func (e *executor) Start(ctx context.Context, dialCh <-chan *Job) {
