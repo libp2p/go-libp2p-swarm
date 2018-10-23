@@ -10,6 +10,7 @@ import (
 	addrutil "github.com/libp2p/go-addr-util"
 	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
+	dial "github.com/libp2p/go-libp2p-swarm/dial"
 	swarmt "github.com/libp2p/go-libp2p-swarm/testing"
 	transport "github.com/libp2p/go-libp2p-transport"
 	testutil "github.com/libp2p/go-testutil"
@@ -466,7 +467,7 @@ func TestDialBackoffClears(t *testing.T) {
 		t.Fatal("should have failed to dial backed off peer")
 	}
 
-	time.Sleep(BackoffBase)
+	time.Sleep(dial.BackoffBase)
 
 	if c, err := s1.DialPeer(ctx, s2.LocalPeer()); err != nil {
 		t.Fatal(err)

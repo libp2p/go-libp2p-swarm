@@ -1,11 +1,14 @@
 package swarm
 
 import (
+	"errors"
 	"fmt"
 
 	inet "github.com/libp2p/go-libp2p-net"
 	ma "github.com/multiformats/go-multiaddr"
 )
+
+var ErrNoTransport = errors.New("no transport for protocol")
 
 // Listen sets up listeners for all of the given addresses.
 // It returns as long as we successfully listen on at least *one* address.
