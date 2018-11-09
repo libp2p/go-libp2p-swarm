@@ -150,11 +150,14 @@ func (s *Swarm) defaultPipeline() *dial.Pipeline {
 	s.backoff = dial.NewBackoff().(*dial.Backoff)
 
 	// preparers
-	p.Component("validator", dial.NewValidator(bestConnFn))
-	p.Component("request_timeout", dial.NewRequestTimeout())
-	p.Component("syncer", dial.NewDialSync())
-	p.Component("backoff", s.backoff)
-	p.Component("addr_resolver", dial.NewAddrResolver(sFilters, dial.DefaultDynamicFilters()))
+	var seq dial.PreparerSeq
+	seq.AddLast("validator", dial.NewValidator(bestConnFn))
+	seq.AddLast("request_timeout", dial.NewRequestTimeout())
+	seq.AddLast("syncer", dial.NewDialSync())
+	seq.AddLast("backoff", s.backoff)
+	seq.AddLast("addr_resolver", dial.NewAddrResolver(sFilters, dial.DefaultDynamicFilters()))
+
+	p.Component("preparers", seq)
 
 	// throttler
 	p.Component("throttler", dial.NewDefaultThrottler())
