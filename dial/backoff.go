@@ -61,7 +61,9 @@ type Backoff struct {
 }
 
 func NewBackoff() Preparer {
-	return &Backoff{}
+	return &Backoff{
+		entries: make(map[peer.ID]*backoffPeer),
+	}
 }
 
 func (db *Backoff) Prepare(req *Request) {
@@ -87,18 +89,12 @@ type backoffPeer struct {
 	until time.Time
 }
 
-func (db *Backoff) init() {
-	if db.entries == nil {
-		db.entries = make(map[peer.ID]*backoffPeer)
-	}
-}
-
 // Backoff returns whether the client should backoff from dialing
 // peer p
 func (db *Backoff) Backoff(p peer.ID) (backoff bool) {
 	db.lock.Lock()
 	defer db.lock.Unlock()
-	db.init()
+
 	bp, found := db.entries[p]
 	if found && time.Now().Before(bp.until) {
 		return true
@@ -119,7 +115,7 @@ func (db *Backoff) Backoff(p peer.ID) (backoff bool) {
 func (db *Backoff) AddBackoff(p peer.ID) {
 	db.lock.Lock()
 	defer db.lock.Unlock()
-	db.init()
+
 	bp, ok := db.entries[p]
 	if !ok {
 		db.entries[p] = &backoffPeer{
@@ -142,6 +138,6 @@ func (db *Backoff) AddBackoff(p peer.ID) {
 func (db *Backoff) ClearBackoff(p peer.ID) {
 	db.lock.Lock()
 	defer db.lock.Unlock()
-	db.init()
+
 	delete(db.entries, p)
 }
