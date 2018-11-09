@@ -4,8 +4,6 @@ import (
 	"context"
 	"io"
 
-	"github.com/libp2p/go-libp2p-net"
-	"github.com/libp2p/go-libp2p-peer"
 	tpt "github.com/libp2p/go-libp2p-transport"
 	ma "github.com/multiformats/go-multiaddr"
 )
@@ -69,4 +67,3 @@ type Selector interface {
 }
 
 type TransportResolverFn func(a ma.Multiaddr) tpt.Transport
-type BestConnFn func(p peer.ID) inet.Conn

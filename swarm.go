@@ -127,18 +127,7 @@ func NewSwarm(ctx context.Context, local peer.ID, peers pstore.Peerstore, bwc me
 }
 
 func (s *Swarm) defaultPipeline() *dial.Pipeline {
-	// go cannot deal with contravariant types in return values, we *have* to do this proxying.
-	addConnFn := func(tc transport.Conn, dir inet.Direction) (inet.Conn, error) { return s.addConn(tc, dir) }
-	bestConnFn := func(p peer.ID) inet.Conn {
-		// this is necessary because of https://golang.org/doc/faq#nil_error
-		c := s.bestConnToPeer(p)
-		if c == nil {
-			return nil
-		}
-		return c
-	}
-
-	p := dial.NewPipeline(s.ctx, s, addConnFn)
+	p := dial.NewPipeline(s.ctx, s, s.addConn)
 
 	canDial := func(addr ma.Multiaddr) bool {
 		t := s.TransportForDialing(addr)
@@ -151,7 +140,7 @@ func (s *Swarm) defaultPipeline() *dial.Pipeline {
 
 	// preparers
 	seq := new(dial.PreparerSeq)
-	seq.AddLast("validator", dial.NewValidator(bestConnFn))
+	seq.AddLast("validator", dial.NewValidator())
 	seq.AddLast("request_timeout", dial.NewRequestTimeout())
 	seq.AddLast("syncer", dial.NewDialSync())
 	seq.AddLast("backoff", s.backoff)
@@ -181,6 +170,11 @@ func (s *Swarm) defaultPipeline() *dial.Pipeline {
 // This allows us to use various transport protocols, do NAT traversal/relay,
 // etc. to achieve connection.
 func (s *Swarm) DialPeer(ctx context.Context, p peer.ID) (inet.Conn, error) {
+	// check if we already have an open connection first
+	if conn := s.bestConnToPeer(p); conn != nil {
+		return conn, nil
+	}
+
 	return s.pipeline.Dial(ctx, p)
 }
 
@@ -248,7 +242,7 @@ func (s *Swarm) Process() goprocess.Process {
 	return s.proc
 }
 
-func (s *Swarm) addConn(tc transport.Conn, dir inet.Direction) (*Conn, error) {
+func (s *Swarm) addConn(tc transport.Conn, dir inet.Direction) (inet.Conn, error) {
 	// The underlying transport (or the dialer) *should* filter it's own
 	// connections but we should double check anyways.
 	raddr := tc.RemoteMultiaddr()
