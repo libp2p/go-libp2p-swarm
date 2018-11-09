@@ -294,22 +294,24 @@ type Pipeline struct {
 	addConnFn AddConnFn
 }
 
-func (p *Pipeline) Component(name string, comp interface{}) error {
-	switch comp.(type) {
-	case Preparer:
-		p.preparer = comp.(Preparer)
-	case Planner:
-		p.planner = comp.(Planner)
-	case Throttler:
-		p.throttler = comp.(Throttler)
-	case Executor:
-		p.executor = comp.(Executor)
-	case Selector:
-		p.selector = comp.(Selector)
-	default:
-		return errors.New("unrecognized pipeline component")
-	}
-	return nil
+func (p *Pipeline) Preparer(pr Preparer) {
+	p.preparer = pr
+}
+
+func (p *Pipeline) Planner(pl Planner) {
+	p.planner = pl
+}
+
+func (p *Pipeline) Throttler(t Throttler) {
+	p.throttler = t
+}
+
+func (p *Pipeline) Executor(ex Executor) {
+	p.executor = ex
+}
+
+func (p *Pipeline) Selector(s Selector) {
+	p.selector = s
 }
 
 func NewPipeline(ctx context.Context, net inet.Network, addConnFn AddConnFn) *Pipeline {
