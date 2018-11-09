@@ -70,6 +70,7 @@ func (db *Backoff) Prepare(req *Request) {
 	req.AddCallback(func() {
 		if req.err != nil {
 			db.AddBackoff(req.id)
+			return
 		}
 		db.ClearBackoff(req.id)
 	})
