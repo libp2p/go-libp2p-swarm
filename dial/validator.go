@@ -13,9 +13,9 @@ type validator struct {
 	bestConnFn BestConnFn
 }
 
-var _ RequestPreparer = (*validator)(nil)
+var _ Preparer = (*validator)(nil)
 
-func NewValidator(bestConnFn BestConnFn) RequestPreparer {
+func NewValidator(bestConnFn BestConnFn) Preparer {
 	return &validator{bestConnFn: bestConnFn}
 }
 

@@ -37,9 +37,9 @@ func DefaultDynamicFilters() []func(req *Request) func(ma.Multiaddr) bool {
 
 type AddrFilterFactory func(req *Request) []func(ma.Multiaddr) bool
 
-var _ RequestPreparer = (*validator)(nil)
+var _ Preparer = (*validator)(nil)
 
-func NewAddrResolver(staticFilters []func(ma.Multiaddr) bool, dynamicFilters []func(req *Request) func(ma.Multiaddr) bool) RequestPreparer {
+func NewAddrResolver(staticFilters []func(ma.Multiaddr) bool, dynamicFilters []func(req *Request) func(ma.Multiaddr) bool) Preparer {
 	return &AddrResolver{
 		sFilters: staticFilters,
 		dFilters: dynamicFilters,

@@ -149,7 +149,7 @@ func (s *Swarm) defaultPipeline() *dial.Pipeline {
 
 	s.backoff = dial.NewBackoff().(*dial.Backoff)
 
-	// request preparer
+	// preparers
 	p.Component("validator", dial.NewValidator(bestConnFn))
 	p.Component("request_timeout", dial.NewRequestTimeout())
 	p.Component("syncer", dial.NewDialSync())
@@ -159,14 +159,11 @@ func (s *Swarm) defaultPipeline() *dial.Pipeline {
 	// throttler
 	p.Component("throttler", dial.NewDefaultThrottler())
 
-	// job preparer
-	p.Component("job_timeout", dial.NewJobTimeout())
-
 	// planner
 	p.Component("single_burst_planner", dial.NewSingleBurstPlanner())
 
 	// executor
-	p.Component("executor", dial.NewExecutor(s.TransportForDialing))
+	p.Component("executor", dial.NewExecutor(s.TransportForDialing, dial.SetDialTimeout))
 
 	// selector
 	p.Component("selector", dial.NewSelectFirstSuccessfulDial())

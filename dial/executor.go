@@ -12,15 +12,17 @@ var ErrNoTransport = errors.New("no transport for protocol")
 
 type executor struct {
 	resolver TransportResolverFn
+	predial  []func(*Job)
 
 	localCloseCh chan struct{}
 }
 
 var _ Executor = (*executor)(nil)
 
-func NewExecutor(resolver TransportResolverFn) Executor {
+func NewExecutor(resolver TransportResolverFn, predial ...func(*Job)) Executor {
 	return &executor{
 		resolver:     resolver,
+		predial:      predial,
 		localCloseCh: make(chan struct{}),
 	}
 }
@@ -48,8 +50,13 @@ func (e *executor) processDial(job *Job) {
 		job.completeCh <- job
 	}()
 
-	addr, id := job.addr, job.req.id
+	for _, pd := range e.predial {
+		pd(job)
+	}
 
+	// TODO: check if cancelled
+
+	addr, id := job.addr, job.req.id
 	log.Debugf("%s swarm dialing %s %s", job.req.net.LocalPeer(), id, addr)
 
 	tpt := e.resolver(addr)

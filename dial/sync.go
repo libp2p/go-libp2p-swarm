@@ -20,7 +20,7 @@ type Sync struct {
 	dials   map[peer.ID]*Request
 }
 
-var _ RequestPreparer = (*Sync)(nil)
+var _ Preparer = (*Sync)(nil)
 
 func (ds *Sync) Prepare(req *Request) {
 	id := req.id

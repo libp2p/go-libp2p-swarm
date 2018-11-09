@@ -60,7 +60,7 @@ type Backoff struct {
 	lock    sync.RWMutex
 }
 
-func NewBackoff() RequestPreparer {
+func NewBackoff() Preparer {
 	return &Backoff{}
 }
 
@@ -80,7 +80,7 @@ func (db *Backoff) Prepare(req *Request) {
 	req.Complete(nil, ErrDialBackoff)
 }
 
-var _ RequestPreparer = (*Backoff)(nil)
+var _ Preparer = (*Backoff)(nil)
 
 type backoffPeer struct {
 	tries int

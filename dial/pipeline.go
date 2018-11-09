@@ -37,7 +37,7 @@ type Request struct {
 	// The request starts with the peer ID only.
 	id peer.ID
 
-	// Addresses to be populated by RequestPreparers.
+	// Addresses to be populated by a Preparer.
 	addrs []ma.Multiaddr
 
 	// Functions to call when the request completes, either successfully or in error.
@@ -162,18 +162,29 @@ func (djs *dialJobs) sift() (success dialJobs, failed dialJobs) {
 
 type AddConnFn func(tc tpt.Conn, dir inet.Direction) (inet.Conn, error)
 
+type compositePreparer []Preparer
+
+var _ Preparer = (*compositePreparer)(nil)
+
+func (crp *compositePreparer) Prepare(req *Request) {
+	for _, p := range *crp {
+		if p.Prepare(req); req.IsComplete() {
+			break
+		}
+	}
+}
+
 type Pipeline struct {
 	lk  sync.RWMutex
 	ctx context.Context
 
 	net inet.Network
 
-	reqPreparers []RequestPreparer
-	planner      Planner
-	throttler    Throttler
-	jobPreparers []JobPreparer
-	executor     Executor
-	selector     Selector
+	preparer  Preparer
+	planner   Planner
+	throttler Throttler
+	executor  Executor
+	selector  Selector
 
 	throttleCh chan *Job
 	dialCh     chan *Job
@@ -183,14 +194,12 @@ type Pipeline struct {
 
 func (p *Pipeline) Component(name string, comp interface{}) error {
 	switch comp.(type) {
-	case RequestPreparer:
-		p.reqPreparers = append(p.reqPreparers, comp.(RequestPreparer))
+	case Preparer:
+		p.preparer = comp.(Preparer)
 	case Planner:
 		p.planner = comp.(Planner)
 	case Throttler:
 		p.throttler = comp.(Throttler)
-	case JobPreparer:
-		p.jobPreparers = append(p.jobPreparers, comp.(JobPreparer))
 	case Executor:
 		p.executor = comp.(Executor)
 	case Selector:
@@ -222,10 +231,8 @@ func (p *Pipeline) Dial(ctx context.Context, id peer.ID) (inet.Conn, error) {
 	req := NewDialRequest(ctx, p.net, id)
 
 	// Prepare the dial.
-	for _, p := range p.reqPreparers {
-		if p.Prepare(req); req.IsComplete() {
-			return req.Values()
-		}
+	if p.preparer.Prepare(req); req.IsComplete() {
+		return req.Values()
 	}
 
 	if len(req.addrs) == 0 {

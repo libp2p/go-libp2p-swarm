@@ -10,18 +10,12 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 )
 
-// A request preparer can perform operations on a dial Request before it is sent to the Planner.
-// Examples include validation, de-duplication, back-off, etc.
+// A preparer can perform operations on a dial Request before it is sent to the Planner.
+// Examples include validation, de-duplication, back-off, address resolution, etc.
 //
-// A RequestPreparer may cancel the dial preemptively in error or in success, by calling Complete() on the Request.
-type RequestPreparer interface {
+// A Preparer may cancel the dial preemptively in error or in success, by calling Complete() on the Request.
+type Preparer interface {
 	Prepare(req *Request)
-}
-
-// A job preparer can perform operations on a dial Job as soon as it is emitted from the Planner, and before
-// it is sent to the Throttler. Examples include timeout setting, address rewriting, dial filtering, etc.
-type JobPreparer interface {
-	Prepare(job *Job)
 }
 
 // Dial planners take a Request (populated with multiaddrs) and emit dial jobs on dialCh for the addresses

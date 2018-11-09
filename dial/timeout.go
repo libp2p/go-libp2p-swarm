@@ -41,30 +41,7 @@ func init() {
 	}
 }
 
-type reqTimeout struct{}
-
-var _ RequestPreparer = (*reqTimeout)(nil)
-
-func NewRequestTimeout() RequestPreparer {
-	return &reqTimeout{}
-}
-
-func NewJobTimeout() JobPreparer {
-	return &jobTimeout{}
-}
-
-func (t *reqTimeout) Prepare(req *Request) {
-	// apply the DialPeer timeout
-	ctx, cancel := context.WithTimeout(req.ctx, inet.GetDialPeerTimeout(req.ctx))
-	req.ctx = ctx
-	req.AddCallback(cancel)
-}
-
-type jobTimeout struct{}
-
-var _ JobPreparer = (*jobTimeout)(nil)
-
-func (*jobTimeout) Prepare(job *Job) {
+func SetDialTimeout(job *Job) {
 	timeout := tpt.DialTimeout
 	if lowTimeoutFilters.AddrBlocked(job.addr) {
 		timeout = TimeoutLocal
@@ -72,4 +49,19 @@ func (*jobTimeout) Prepare(job *Job) {
 	ctx, cancelFn := context.WithTimeout(job.ctx, timeout)
 	job.ctx = ctx
 	job.AddCallback(cancelFn)
+}
+
+type reqTimeout struct{}
+
+var _ Preparer = (*reqTimeout)(nil)
+
+func NewRequestTimeout() Preparer {
+	return &reqTimeout{}
+}
+
+func (t *reqTimeout) Prepare(req *Request) {
+	// apply the DialPeer timeout
+	ctx, cancel := context.WithTimeout(req.ctx, inet.GetDialPeerTimeout(req.ctx))
+	req.ctx = ctx
+	req.AddCallback(cancel)
 }
