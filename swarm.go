@@ -142,7 +142,7 @@ func (s *Swarm) defaultPipeline() *dial.Pipeline {
 	seq := new(dial.PreparerSeq)
 	seq.AddLast("validator", dial.NewValidator())
 	seq.AddLast("request_timeout", dial.NewRequestTimeout())
-	seq.AddLast("syncer", dial.NewDialSync())
+	seq.AddLast("syncer", dial.NewDialDedup())
 	seq.AddLast("backoff", s.backoff)
 	seq.AddLast("addr_resolver", dial.NewAddrResolver(sFilters, dial.DefaultDynamicFilters()))
 

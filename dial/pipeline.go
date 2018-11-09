@@ -32,7 +32,6 @@ type Request struct {
 	status int32
 
 	// ctx is the parent context covering the entire request.
-	// dial job preparers may stem child contexts from this ctx.
 	ctx context.Context
 
 	// The request starts with the peer ID only.
@@ -78,6 +77,10 @@ func (req *Request) Complete(conn inet.Conn, err error) error {
 
 	close(req.notifyCh)
 	return nil
+}
+
+func (req *Request) CompleteFrom(other *Request) {
+	req.Complete(other.Values())
 }
 
 func (req *Request) IsComplete() bool {
