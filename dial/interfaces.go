@@ -33,6 +33,14 @@ type Planner interface {
 	// When the planner is satisfied and has no more dials to request, it must signal so by closing
 	// the dialCh channel.
 	Next(req *Request, dialed dialJobs, last *Job, dialCh chan dialJobs) error
+
+	// Select picks the optimal successful connection to return to the consumer.
+	//
+	// It is called by the Pipeline once all inflight dial jobs complete, no more dials are to be performed, and
+	// multiple dial jobs have succeeded.
+	//
+	// The Pipeline takes care of closing unselected successful connections.
+	Select(successful dialJobs) (tpt.Conn, error)
 }
 
 // A throttler is a goroutine that applies a throttling process to dial jobs requested by the Planner.
@@ -57,13 +65,6 @@ type Executor interface {
 	// goroutines, or maintaining a finite set of child workers, to carry out the dials.
 	// The Executor must never block.
 	Start(ctx context.Context, dialCh <-chan *Job)
-}
-
-// Once the Planner is satisfied with the result of the dials, and all inflight dials have finished executing,
-// the Selector picks the optimal successful connection to return to the consumer. The Pipeline takes care of
-// closing unselected successful connections.
-type Selector interface {
-	Select(successful dialJobs) (tpt.Conn, error)
 }
 
 type TransportResolverFn func(a ma.Multiaddr) tpt.Transport

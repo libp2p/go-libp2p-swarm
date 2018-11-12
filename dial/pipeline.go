@@ -304,6 +304,12 @@ func (ps *PreparerSeq) Remove(name string) {
 	}
 }
 
+// The Pipeline is the central structure of the dialer. One could think of it as the controller or coordinator.
+//
+// It is comprised by a chain of components that are wired together, following the _pipeline_ design pattern
+// in traditional software architecture.
+//
+// TODO: more docs.
 type Pipeline struct {
 	lk  sync.RWMutex
 	ctx context.Context
@@ -314,7 +320,6 @@ type Pipeline struct {
 	planner   Planner
 	throttler Throttler
 	executor  Executor
-	selector  Selector
 
 	throttleCh chan *Job
 	dialCh     chan *Job
@@ -336,10 +341,6 @@ func (p *Pipeline) Throttler(t Throttler) {
 
 func (p *Pipeline) Executor(ex Executor) {
 	p.executor = ex
-}
-
-func (p *Pipeline) Selector(s Selector) {
-	p.selector = s
 }
 
 func NewPipeline(ctx context.Context, net inet.Network, addConnFn AddConnFn) *Pipeline {
@@ -429,7 +430,7 @@ PLAN_EXECUTE:
 		sconn, err := p.addConnFn(success[0].tconn, inet.DirOutbound)
 		req.Complete(sconn, err)
 	default:
-		conn, err = p.selector.Select(success)
+		conn, err = p.planner.Select(success)
 		if err != nil {
 			req.Complete(nil, errors.New("failed while selecting a connection"))
 			break

@@ -157,9 +157,6 @@ func (s *Swarm) defaultPipeline() *dial.Pipeline {
 	// executor
 	p.Executor(dial.NewExecutor(s.TransportForDialing, dial.SetDialTimeout))
 
-	// selector
-	p.Selector(dial.NewSelectFirstSuccessfulDial())
-
 	return p
 }
 
