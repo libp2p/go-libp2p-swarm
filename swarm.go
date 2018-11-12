@@ -146,16 +146,16 @@ func (s *Swarm) defaultPipeline() *dial.Pipeline {
 	seq.AddLast("backoff", s.backoff)
 	seq.AddLast("addr_resolver", dial.NewAddrResolver(sFilters, dial.DefaultDynamicFilters()))
 
-	p.Preparer(seq)
+	p.SetPreparer(seq)
 
 	// throttler
-	p.Throttler(dial.NewDefaultThrottler())
+	p.SetThrottler(dial.NewDefaultThrottler())
 
 	// planner
-	p.Planner(dial.NewSingleBurstPlanner())
+	p.SetPlanner(dial.NewSingleBurstPlanner())
 
 	// executor
-	p.Executor(dial.NewExecutor(s.TransportForDialing, dial.SetDialTimeout))
+	p.SetExecutor(dial.NewExecutor(s.TransportForDialing, dial.SetDialTimeout))
 
 	return p
 }
