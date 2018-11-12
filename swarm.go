@@ -84,9 +84,6 @@ type Swarm struct {
 	// filters for addresses that shouldnt be dialed (or accepted)
 	Filters *filter.Filters
 
-	// explicit reference needed to maintain Backoff() backwards compatibility
-	backoff *dial.Backoff
-
 	proc goprocess.Process
 	ctx  context.Context
 	bwc  metrics.Reporter
@@ -136,14 +133,12 @@ func (s *Swarm) defaultPipeline() *dial.Pipeline {
 
 	sFilters := append(dial.DefaultStaticFilters(), canDial, addrutil.FilterNeg(s.Filters.AddrBlocked))
 
-	s.backoff = dial.NewBackoff().(*dial.Backoff)
-
 	// preparers
 	seq := new(dial.PreparerSeq)
 	seq.AddLast("validator", dial.NewValidator())
 	seq.AddLast("request_timeout", dial.NewRequestTimeout())
 	seq.AddLast("syncer", dial.NewDialDedup())
-	seq.AddLast("backoff", s.backoff)
+	seq.AddLast("backoff", dial.NewBackoff())
 	seq.AddLast("addr_resolver", dial.NewAddrResolver(sFilters, dial.DefaultDynamicFilters()))
 
 	p.SetPreparer(seq)
@@ -232,6 +227,10 @@ func (s *Swarm) AddAddrFilter(f string) error {
 
 	s.Filters.AddDialFilter(m)
 	return nil
+}
+
+func (s *Swarm) Pipeline() *dial.Pipeline {
+	return s.pipeline
 }
 
 // Process returns the Process of the swarm
@@ -497,12 +496,6 @@ func (s *Swarm) Peers() []peer.ID {
 // LocalPeer returns the local peer swarm is associated to.
 func (s *Swarm) LocalPeer() peer.ID {
 	return s.local
-}
-
-// Backoff returns the DialBackoff object for this swarm.
-// TODO
-func (s *Swarm) Backoff() *dial.Backoff {
-	return s.backoff
 }
 
 // notifyAll sends a signal to all Notifiees

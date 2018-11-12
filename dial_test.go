@@ -199,7 +199,8 @@ func TestDialWait(t *testing.T) {
 		t.Error("> 2*transport.DialTimeout * DialAttempts not being respected", duration, 2*transport.DialTimeout*DialAttempts)
 	}
 
-	if !s1.Backoff().Backoff(s2p) {
+	backoff := s1.Pipeline().Preparer().(*dial.PreparerSeq).Get("backoff").(*dial.Backoff)
+	if !backoff.Backoff(s2p) {
 		t.Error("s2 should now be on backoff")
 	}
 }
@@ -218,6 +219,8 @@ func TestDialBackoff(t *testing.T) {
 	s2 := swarms[1]
 	defer s1.Close()
 	defer s2.Close()
+
+	backoff := s1.Pipeline().Preparer().(*dial.PreparerSeq).Get("backoff").(*dial.Backoff)
 
 	s2addrs, err := s2.InterfaceListenAddresses()
 	if err != nil {
@@ -336,10 +339,10 @@ func TestDialBackoff(t *testing.T) {
 		}
 
 		// check backoff state
-		if s1.Backoff().Backoff(s2.LocalPeer()) {
+		if backoff.Backoff(s2.LocalPeer()) {
 			t.Error("s2 should not be on backoff")
 		}
-		if !s1.Backoff().Backoff(s3p) {
+		if !backoff.Backoff(s3p) {
 			t.Error("s3 should be on backoff")
 		}
 
@@ -406,10 +409,10 @@ func TestDialBackoff(t *testing.T) {
 		}
 
 		// check backoff state (the same)
-		if s1.Backoff().Backoff(s2.LocalPeer()) {
+		if backoff.Backoff(s2.LocalPeer()) {
 			t.Error("s2 should not be on backoff")
 		}
-		if !s1.Backoff().Backoff(s3p) {
+		if !backoff.Backoff(s3p) {
 			t.Error("s3 should be on backoff")
 		}
 	}
@@ -425,6 +428,8 @@ func TestDialBackoffClears(t *testing.T) {
 	s2 := swarms[1]
 	defer s1.Close()
 	defer s2.Close()
+
+	backoff := s1.Pipeline().Preparer().(*dial.PreparerSeq).Get("backoff").(*dial.Backoff)
 
 	// use another address first, that accept and hang on conns
 	_, s2bad, s2l := newSilentPeer(t)
@@ -450,7 +455,7 @@ func TestDialBackoffClears(t *testing.T) {
 		t.Error("> 2*transport.DialTimeout * DialAttempts not being respected", duration, 2*transport.DialTimeout*DialAttempts)
 	}
 
-	if !s1.Backoff().Backoff(s2.LocalPeer()) {
+	if !backoff.Backoff(s2.LocalPeer()) {
 		t.Error("s2 should now be on backoff")
 	} else {
 		t.Log("correctly added to backoff")
@@ -476,7 +481,7 @@ func TestDialBackoffClears(t *testing.T) {
 		t.Log("correctly connected")
 	}
 
-	if s1.Backoff().Backoff(s2.LocalPeer()) {
+	if backoff.Backoff(s2.LocalPeer()) {
 		t.Error("s2 should no longer be on backoff")
 	} else {
 		t.Log("correctly cleared backoff")
