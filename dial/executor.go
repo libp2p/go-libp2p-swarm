@@ -65,7 +65,7 @@ func (e *executor) processDial(job *Job) {
 		return
 	}
 
-	tconn, err := tpt.Dial(job.req.ctx, addr, id)
+	tconn, err := tpt.Dial(job.ctx, addr, id)
 	if err != nil {
 		err = fmt.Errorf("%s --> %s dial attempt failed: %s", job.req.net.LocalPeer(), id, job.err)
 		job.Complete(tconn, err)
