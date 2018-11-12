@@ -13,6 +13,9 @@ type validator struct{}
 
 var _ Preparer = (*validator)(nil)
 
+// NewValidator creates a Preparer that performs a sanity check on the dial request:
+// * errors if the peer ID is badly-formed.
+// * errors if we are dialing to ourselves.
 func NewValidator() Preparer {
 	return &validator{}
 }

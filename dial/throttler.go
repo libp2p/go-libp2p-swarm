@@ -43,9 +43,8 @@ func (t *throttler) Start(ctx context.Context, inCh <-chan *Job, dialCh chan<- *
 	t.inCh = inCh
 	t.dialCh = dialCh
 
-THROTTLE_LOOP:
+ThrottleLoop:
 	for {
-
 		// Process any token releases to avoid those channels getting backed up.
 		select {
 		case id := <-t.peerTokenFreed:
@@ -64,11 +63,11 @@ THROTTLE_LOOP:
 					t.executeDial(next)
 				}
 			}
-			continue THROTTLE_LOOP
+			continue ThrottleLoop
 
 		case <-t.fdTokenFreed:
 			if len(t.waitingOnFd) == 0 {
-				continue THROTTLE_LOOP
+				continue ThrottleLoop
 			}
 			next := t.waitingOnFd[0]
 			t.waitingOnFd[0] = nil // clear out memory
@@ -78,7 +77,7 @@ THROTTLE_LOOP:
 			}
 			t.fdConsuming++
 			t.executeDial(next)
-			continue THROTTLE_LOOP
+			continue ThrottleLoop
 
 		default:
 		}

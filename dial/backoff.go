@@ -76,19 +76,18 @@ func (db *Backoff) Prepare(req *Request) {
 	})
 
 	// if this peer has been backed off, complete the dial immediately
-	if !db.Backoff(req.id) {
-		return
+	if db.Backoff(req.id) {
+		log.Event(req.ctx, "swarmDialBackoff", req.id)
+		req.Complete(nil, ErrDialBackoff)
 	}
-	log.Event(req.ctx, "swarmDialBackoff", req.id)
-	req.Complete(nil, ErrDialBackoff)
 }
-
-var _ Preparer = (*Backoff)(nil)
 
 type backoffPeer struct {
 	tries int
 	until time.Time
 }
+
+var _ Preparer = (*Backoff)(nil)
 
 // Backoff returns whether the client should backoff from dialing
 // peer p
