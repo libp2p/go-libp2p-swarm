@@ -16,18 +16,19 @@ import (
 
 const (
 	requestInflight = iota
-	requestFinished
+	requestCompleted
 
 	jobInflight = iota
 	jobFinished
 )
 
-var ErrDialRequestInvalidStatus = errors.New("invalid dial request status")
+var ErrDialRequestCompleted = errors.New("invalid dial request status")
 var ErrDialJobInvalidStatus = errors.New("invalid dial job status")
 
 // Request represents a request from consumer code to dial a peer.
 // TODO: some of these fields need to be exported to enable dial components to be implemented outside this package.
 type Request struct {
+	lk     sync.RWMutex
 	net    inet.Network
 	status int32
 
@@ -66,41 +67,65 @@ func NewDialRequest(ctx context.Context, net inet.Network, id peer.ID) *Request 
 //
 // Complete invokes all callbacks associated with this Request, and closes the notifyCh.
 func (req *Request) Complete(conn inet.Conn, err error) error {
-	if !atomic.CompareAndSwapInt32(&req.status, requestInflight, requestFinished) {
-		return ErrDialRequestInvalidStatus
+	// guard against callbacks calling Complete().
+	if atomic.LoadInt32(&req.status) == requestCompleted {
+		return ErrDialRequestCompleted
 	}
 
+	req.lk.Lock()
+
+	if !atomic.CompareAndSwapInt32(&req.status, requestInflight, requestCompleted) {
+		req.lk.Unlock()
+		return ErrDialRequestCompleted
+	}
+
+	// notify anybody who's waiting on us to complete -- will be closed after releasing the lock.
+	defer close(req.notifyCh)
+	defer req.lk.Unlock()
+
+	// set the completed values.
 	req.conn, req.err = conn, err
+
+	// call the callbacks in reverse order as they were added.
 	for i := len(req.callbacks); i > 0; i-- {
 		req.callbacks[i-1]()
 	}
 
-	close(req.notifyCh)
 	return nil
 }
 
+// CompleteFrom completes the request using the values from the other request.
 func (req *Request) CompleteFrom(other *Request) {
 	req.Complete(other.Values())
 }
 
 func (req *Request) IsComplete() bool {
-	return atomic.LoadInt32(&req.status) == requestFinished
+	req.lk.RLock()
+	defer req.lk.RUnlock()
+
+	return atomic.LoadInt32(&req.status) == requestCompleted
 }
 
 // Values returns the connection and error fields from this request.
 // Both return values may be nil or incoherent unless the request has completed (see IsComplete).
 func (req *Request) Values() (inet.Conn, error) {
+	req.lk.RLock()
+	defer req.lk.RUnlock()
+
 	return req.conn, req.err
 }
 
 // AddCallback adds a function that will be invoked when this request completes, either in success
 // or in failure.
 func (req *Request) AddCallback(cb func()) {
+	req.lk.Lock()
+	defer req.lk.Unlock()
+
 	req.callbacks = append(req.callbacks, cb)
 }
 
-// Job represents a dial attempt to a single multiaddr. It is associated 1-* to a Request.
-// It can carry its own context and its own callbacks.
+// Job represents a dial attempt to a single multiaddr, within the scope of a Request.
+// It can hold its own context, and its own callbacks.
 type Job struct {
 	status int32
 	req    *Request
