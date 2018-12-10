@@ -9,6 +9,7 @@ import (
 	inet "github.com/libp2p/go-libp2p-net"
 	peer "github.com/libp2p/go-libp2p-peer"
 	tpt "github.com/libp2p/go-libp2p-transport"
+	errors2 "github.com/pkg/errors"
 )
 
 type AddConnFn func(tc tpt.Conn, dir inet.Direction) (inet.Conn, error)
@@ -26,6 +27,7 @@ type Pipeline struct {
 	net inet.Network
 
 	preparer  Preparer
+	resolver  AddressResolver
 	planner   Planner
 	throttler Throttler
 	executor  Executor
@@ -38,6 +40,10 @@ type Pipeline struct {
 
 func (p *Pipeline) SetPreparer(pr Preparer) {
 	p.preparer = pr
+}
+
+func (p *Pipeline) SetAddressResolver(ar AddressResolver) {
+	p.resolver = ar
 }
 
 func (p *Pipeline) SetPlanner(pl Planner) {
@@ -93,14 +99,18 @@ func (p *Pipeline) Dial(ctx context.Context, id peer.ID) (inet.Conn, error) {
 		return req.Values()
 	}
 
-	if len(req.addrs) == 0 {
-		return nil, errors.New("no addresses to dial")
+	more, err := p.resolver.Resolve(req)
+	if err != nil {
+		return nil, errors2.Wrapf(err, "error while resolving addresses for peer %s", id.Pretty())
+	}
+
+	if len(req.addrs) == 0 && more == nil {
+		return nil, fmt.Errorf("no addresses to dial for peer %s", id.Pretty())
 	}
 
 	// At this point we have a set of dialable maddrs.
 	var (
 		conn   tpt.Conn
-		err    error
 		dialed dialJobs
 		planCh = make(chan dialJobs, 1)
 		respCh = make(chan *Job)

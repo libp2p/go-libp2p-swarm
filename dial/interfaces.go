@@ -9,11 +9,26 @@ import (
 )
 
 // A preparer can perform operations on a dial Request before it is sent to the Planner.
-// Examples include validation, de-duplication, back-off, address resolution, etc.
+// Examples include validation, de-duplication, back-off, etc.
 //
 // A Preparer may cancel the dial preemptively in error or in success, by calling Complete() on the Request.
 type Preparer interface {
 	Prepare(req *Request)
+}
+
+// An address resolver takes a Request to dial a peer ID and synchronously enriches it with all known addresses for
+// that peer (normally from the Peerstore). Optionally the address resolver can initiate a discovery process for
+// additional addresses, in which case it must return the channel where it'll send new Multiaddrs.
+// This need not be a buffered channel: the pipeline won't block.
+//
+// Either party can close the channel at any time:
+// - If closed by the pipeline, the address resolver should terminate the discovery process.
+// - If closed by the address resolver, the pipeline should not expect any more addresses for the peer.
+//
+// If an error occurs, no multiaddrs will be returned synchronously or asynchronously (the first two return values
+// will be nil).
+type AddressResolver interface {
+	Resolve(req *Request) (more <-chan []ma.Multiaddr, err error)
 }
 
 // Dial planners take a Request (populated with multiaddrs) and emit dial jobs on dialCh for the addresses

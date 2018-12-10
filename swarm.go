@@ -126,12 +126,16 @@ func NewSwarm(ctx context.Context, local peer.ID, peers pstore.Peerstore, bwc me
 func (s *Swarm) defaultPipeline() *dial.Pipeline {
 	p := dial.NewPipeline(s.ctx, s, s.addConn)
 
-	canDial := func(addr ma.Multiaddr) bool {
-		t := s.TransportForDialing(addr)
-		return t != nil && t.CanDial(addr)
+	canDial := func(_ inet.Network) dial.AddrFilterFn {
+		return func(addr ma.Multiaddr) bool {
+			t := s.TransportForDialing(addr)
+			return t != nil && t.CanDial(addr)
+		}
 	}
 
-	sFilters := append(dial.DefaultStaticFilters(), canDial, addrutil.FilterNeg(s.Filters.AddrBlocked))
+	excludeBlockedAddr := func(_ inet.Network) dial.AddrFilterFn {
+		return addrutil.FilterNeg(s.Filters.AddrBlocked)
+	}
 
 	// preparers
 	seq := new(dial.PreparerSeq)
@@ -139,9 +143,10 @@ func (s *Swarm) defaultPipeline() *dial.Pipeline {
 	seq.AddLast("request_timeout", dial.NewRequestTimeout())
 	seq.AddLast("syncer", dial.NewDialDedup())
 	seq.AddLast("backoff", dial.NewBackoff())
-	seq.AddLast("addr_resolver", dial.NewAddrResolver(sFilters, dial.DefaultDynamicFilters()))
-
 	p.SetPreparer(seq)
+
+	// address resolver
+	p.SetAddressResolver(dial.NewAddrResolver(true, canDial, excludeBlockedAddr))
 
 	// throttler
 	p.SetThrottler(dial.NewDefaultThrottler())

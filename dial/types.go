@@ -24,7 +24,6 @@ var ErrDialRequestCompleted = errors.New("invalid dial request status")
 var ErrDialJobInvalidStatus = errors.New("invalid dial job status")
 
 // Request represents a request from consumer code to dial a peer.
-// TODO: some of these fields need to be exported to enable dial components to be implemented outside this package.
 type Request struct {
 	lk     sync.RWMutex
 	net    inet.Network
