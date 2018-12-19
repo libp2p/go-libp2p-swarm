@@ -9,6 +9,7 @@ import (
 	peer "github.com/libp2p/go-libp2p-peer"
 	transport "github.com/libp2p/go-libp2p-transport"
 	ma "github.com/multiformats/go-multiaddr"
+	"math"
 )
 
 type dialResult struct {
@@ -52,7 +53,7 @@ type dialLimiter struct {
 	dialFunc dialfunc
 
 	activePerPeer      map[peer.ID]int
-	perPeerLimit       int
+	perPeerLimitMax    int
 	waitingOnPeerLimit map[peer.ID][]*dialJob
 }
 
@@ -65,11 +66,16 @@ func newDialLimiter(df dialfunc) *dialLimiter {
 func newDialLimiterWithParams(df dialfunc, fdLimit, perPeerLimit int) *dialLimiter {
 	return &dialLimiter{
 		fdLimit:            fdLimit,
-		perPeerLimit:       perPeerLimit,
+		perPeerLimitMax:    perPeerLimit,
 		waitingOnPeerLimit: make(map[peer.ID][]*dialJob),
 		activePerPeer:      make(map[peer.ID]int),
 		dialFunc:           df,
 	}
+}
+
+func (dl *dialLimiter) perPeerLimit() int {
+	fdPeerRatio := float64(dl.fdLimit) / float64(dl.fdConsuming + 1)
+	return int(math.Ceil(math.Min(fdPeerRatio, float64(dl.perPeerLimitMax))))
 }
 
 // freeFDToken frees FD token and if there are any schedules another waiting dialJob
@@ -91,6 +97,33 @@ func (dl *dialLimiter) freeFDToken() {
 	}
 }
 
+func (dl *dialLimiter) updateWaitingPerPeer() {
+	for p := range dl.activePerPeer {
+		for {
+			if dl.activePerPeer[p] >= dl.perPeerLimit() {
+				break
+			}
+
+			waitlist := dl.waitingOnPeerLimit[p]
+			if len(waitlist) == 0 {
+				break
+			}
+
+			next := waitlist[0]
+			if len(waitlist) == 1 {
+				delete(dl.waitingOnPeerLimit, p)
+			} else {
+				waitlist[0] = nil // clear out memory
+				dl.waitingOnPeerLimit[p] = waitlist[1:]
+			}
+
+			dl.activePerPeer[p]++
+
+			dl.addCheckFdLimit(next)
+		}
+	}
+}
+
 func (dl *dialLimiter) freePeerToken(dj *dialJob) {
 	// release tokens in reverse order than we take them
 	dl.activePerPeer[dj.peer]--
@@ -98,20 +131,7 @@ func (dl *dialLimiter) freePeerToken(dj *dialJob) {
 		delete(dl.activePerPeer, dj.peer)
 	}
 
-	waitlist := dl.waitingOnPeerLimit[dj.peer]
-	if len(waitlist) > 0 {
-		next := waitlist[0]
-		if len(waitlist) == 1 {
-			delete(dl.waitingOnPeerLimit, next.peer)
-		} else {
-			waitlist[0] = nil // clear out memory
-			dl.waitingOnPeerLimit[next.peer] = waitlist[1:]
-		}
-
-		dl.activePerPeer[next.peer]++ // just kidding, we still want this token
-
-		dl.addCheckFdLimit(next)
-	}
+	dl.updateWaitingPerPeer()
 }
 
 func (dl *dialLimiter) finishedDial(dj *dialJob) {
@@ -140,7 +160,7 @@ func (dl *dialLimiter) addCheckFdLimit(dj *dialJob) {
 }
 
 func (dl *dialLimiter) addCheckPeerLimit(dj *dialJob) {
-	if dl.activePerPeer[dj.peer] >= dl.perPeerLimit {
+	if dl.activePerPeer[dj.peer] >= dl.perPeerLimit() {
 		wlist := dl.waitingOnPeerLimit[dj.peer]
 		dl.waitingOnPeerLimit[dj.peer] = append(wlist, dj)
 		return
