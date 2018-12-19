@@ -16,16 +16,39 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 )
 
-// Diagram of dial sync:
+//                              Diagram of Dial
 //
-//   many callers of Dial()   synched w.  dials many addrs       results to callers
-//  ----------------------\    dialsync    use earliest            /--------------
-//  -----------------------\              |----------\           /----------------
-//  ------------------------>------------<-------     >---------<-----------------
-//  -----------------------|              \----x                 \----------------
-//  ----------------------|                \-----x                \---------------
-//                                         any may fail          if no addr at end
-//                                                             retry dialAttempt x
+// Concurrent Calls
+//  to Dial(peerId)                             dial finds dialable
+//       /                                      addresses and passes
+//       v                                        them to dialAddrs
+//  Dial(peerId) --------------------\                     |
+//        Dial(peerId)  -------------|                     v
+//          Dial(peerId) ------------>----> doDial() --> dial() --> dialAddrs() <- dialAddrs concurrently dials
+//          Dial(peerId) ------------| ^                              __/\__       all known peer addresses
+//                Dial(peerId) ------/ |                             /||||||\
+//                                    /                              ||||||||
+//                            Synced with dialsync                   LLLLL--- <- Costly paths are delayed
+//                              calls doDial                         DDDDD
+//                                                                   |||||
+//                                /--------------------------------> ||---  <- limitedDial (LD) limits
+//     Each connection is established                                ||        concurrency for transports
+//     by dialAddr, which starts a       Some connection attempts -> x|-       which require file descriptors
+//     network connection and sets               may fail         |   ||
+//     up the encryption layers                                   |   ||  --- <- if needed, dials through costly
+//                                                                |   ||  |||    paths (such as relay) will start
+//                                                                |   ||  LLL
+//                                                                \-> xx--DDD
+//                                                                      |||||
+//                                       eventually a connection will   |||||
+//                                        get established (C), other -> |C|||
+//       Connection setup will be        attempts will get cancelled    x|xxx
+//     performed with dialConnSetup.                                     |
+//     It adds the connection to the ----------------------------------> |
+//        swarm and agrees on the                                        |
+//            muxer to use                                             /---\
+//                                        The result is distributed -> |||||
+//                                            to callers of Dial       |||||
 
 var (
 	// ErrDialBackoff is returned by the backoff code when a given peer has
@@ -349,6 +372,8 @@ func (s *Swarm) dialAddrs(ctx context.Context, p peer.ID, remoteAddrs <-chan ma.
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel() // cancel work when we exit func
 
+	sortedAddrs, triggerMore := delayDialAddrs(ctx, remoteAddrs)
+
 	// use a single response type instead of errs and conns, reduces complexity *a ton*
 	respch := make(chan dialResult)
 
@@ -358,11 +383,12 @@ func (s *Swarm) dialAddrs(ctx context.Context, p peer.ID, remoteAddrs <-chan ma.
 	defer s.limiter.clearAllPeerDials(p)
 
 	var active int
+
 	for {
 		select {
-		case addr, ok := <-remoteAddrs:
+		case addr, ok := <-sortedAddrs:
 			if !ok {
-				remoteAddrs = nil
+				sortedAddrs = nil
 				if active == 0 {
 					return nil, exitErr
 				}
@@ -383,8 +409,14 @@ func (s *Swarm) dialAddrs(ctx context.Context, p peer.ID, remoteAddrs <-chan ma.
 				// Errors are normal, lots of dials will fail
 				exitErr = resp.Err
 
-				if remoteAddrs == nil && active == 0 {
+				if sortedAddrs == nil && active == 0 {
 					return nil, exitErr
+				}
+				if active == 0 {
+					select {
+					case triggerMore <- struct{}{}:
+					default:
+					}
 				}
 			} else if resp.Conn != nil {
 				return resp.Conn, nil
