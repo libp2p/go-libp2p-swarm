@@ -77,17 +77,26 @@ func newDialLimiterWithParams(df dialfunc, fdLimit, perPeerLimit int) *dialLimit
 func (dl *dialLimiter) freeFDToken() {
 	dl.fdConsuming--
 
-	if len(dl.waitingOnFd) > 0 {
+	for len(dl.waitingOnFd) > 0 {
 		next := dl.waitingOnFd[0]
 		dl.waitingOnFd[0] = nil // clear out memory
 		dl.waitingOnFd = dl.waitingOnFd[1:]
+
 		if len(dl.waitingOnFd) == 0 {
-			dl.waitingOnFd = nil // clear out memory
+			// clear out memory.
+			dl.waitingOnFd = nil
+		}
+
+		// Skip over canceled dials instead of queuing up a goroutine.
+		if next.cancelled() {
+			dl.freePeerToken(next)
+			continue
 		}
 		dl.fdConsuming++
 
 		// we already have activePerPeer token at this point so we can just dial
 		go dl.executeDial(next)
+		return
 	}
 }
 
@@ -99,18 +108,25 @@ func (dl *dialLimiter) freePeerToken(dj *dialJob) {
 	}
 
 	waitlist := dl.waitingOnPeerLimit[dj.peer]
-	if len(waitlist) > 0 {
+	for len(waitlist) > 0 {
 		next := waitlist[0]
-		if len(waitlist) == 1 {
+		waitlist[0] = nil // clear out memory
+		waitlist = waitlist[1:]
+
+		if len(waitlist) == 0 {
 			delete(dl.waitingOnPeerLimit, next.peer)
 		} else {
-			waitlist[0] = nil // clear out memory
-			dl.waitingOnPeerLimit[next.peer] = waitlist[1:]
+			dl.waitingOnPeerLimit[next.peer] = waitlist
+		}
+
+		if next.cancelled() {
+			continue
 		}
 
 		dl.activePerPeer[next.peer]++ // just kidding, we still want this token
 
 		dl.addCheckFdLimit(next)
+		return
 	}
 }
 
