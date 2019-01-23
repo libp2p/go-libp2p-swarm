@@ -358,14 +358,34 @@ func (s *Swarm) dialAddrs(ctx context.Context, p peer.ID, remoteAddrs <-chan ma.
 	defer s.limiter.clearAllPeerDials(p)
 
 	var active int
-	for {
+	for remoteAddrs != nil || active > 0 {
+		// Check for context cancellations and/or responses first.
+		select {
+		case <-ctx.Done():
+			if exitErr == defaultDialFail {
+				exitErr = ctx.Err()
+			}
+			return nil, exitErr
+		case resp := <-respch:
+			active--
+			if resp.Err != nil {
+				log.Infof("got error on dial to %s: %s", resp.Addr, resp.Err)
+				// Errors are normal, lots of dials will fail
+				exitErr = resp.Err
+			} else if resp.Conn != nil {
+				return resp.Conn, nil
+			}
+
+			// We got a result, try again from the top.
+			continue
+		default:
+		}
+
+		// Now, attempt to dial.
 		select {
 		case addr, ok := <-remoteAddrs:
 			if !ok {
 				remoteAddrs = nil
-				if active == 0 {
-					return nil, exitErr
-				}
 				continue
 			}
 
@@ -382,15 +402,12 @@ func (s *Swarm) dialAddrs(ctx context.Context, p peer.ID, remoteAddrs <-chan ma.
 				log.Infof("got error on dial to %s: %s", resp.Addr, resp.Err)
 				// Errors are normal, lots of dials will fail
 				exitErr = resp.Err
-
-				if remoteAddrs == nil && active == 0 {
-					return nil, exitErr
-				}
 			} else if resp.Conn != nil {
 				return resp.Conn, nil
 			}
 		}
 	}
+	return nil, exitErr
 }
 
 // limitedDial will start a dial to the given peer when
