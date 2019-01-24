@@ -10,14 +10,14 @@ import (
 	addrutil "github.com/libp2p/go-addr-util"
 	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
-	swarmt "github.com/libp2p/go-libp2p-swarm/testing"
+	swarmt "github.com/libp2p/go-libp2p-swarm/v4/testing"
 	transport "github.com/libp2p/go-libp2p-transport"
 	testutil "github.com/libp2p/go-testutil"
 	ci "github.com/libp2p/go-testutil/ci"
 	ma "github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr-net"
 
-	. "github.com/libp2p/go-libp2p-swarm"
+	. "github.com/libp2p/go-libp2p-swarm/v4"
 )
 
 func init() {

@@ -16,7 +16,7 @@ import (
 	msmux "github.com/whyrusleeping/go-smux-multistream"
 	yamux "github.com/whyrusleeping/go-smux-yamux"
 
-	swarm "github.com/libp2p/go-libp2p-swarm"
+	swarm "github.com/libp2p/go-libp2p-swarm/v4"
 )
 
 type config struct {

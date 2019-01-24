@@ -9,7 +9,7 @@ import (
 	peer "github.com/libp2p/go-libp2p-peer"
 	ma "github.com/multiformats/go-multiaddr"
 
-	. "github.com/libp2p/go-libp2p-swarm"
+	. "github.com/libp2p/go-libp2p-swarm/v4"
 )
 
 func TestNotifications(t *testing.T) {

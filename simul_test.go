@@ -12,8 +12,8 @@ import (
 	ci "github.com/libp2p/go-testutil/ci"
 	ma "github.com/multiformats/go-multiaddr"
 
-	. "github.com/libp2p/go-libp2p-swarm"
-	swarmt "github.com/libp2p/go-libp2p-swarm/testing"
+	. "github.com/libp2p/go-libp2p-swarm/v4"
+	swarmt "github.com/libp2p/go-libp2p-swarm/v4/testing"
 )
 
 func TestSimultOpen(t *testing.T) {

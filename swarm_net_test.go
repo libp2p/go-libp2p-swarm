@@ -8,7 +8,7 @@ import (
 
 	inet "github.com/libp2p/go-libp2p-net"
 
-	. "github.com/libp2p/go-libp2p-swarm/testing"
+	. "github.com/libp2p/go-libp2p-swarm/v4/testing"
 )
 
 // TestConnectednessCorrect starts a few networks, connects a few

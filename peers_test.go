@@ -9,7 +9,7 @@ import (
 	pstore "github.com/libp2p/go-libp2p-peerstore"
 	ma "github.com/multiformats/go-multiaddr"
 
-	. "github.com/libp2p/go-libp2p-swarm"
+	. "github.com/libp2p/go-libp2p-swarm/v4"
 )
 
 func TestPeers(t *testing.T) {
