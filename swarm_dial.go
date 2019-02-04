@@ -385,7 +385,11 @@ func (s *Swarm) dialAddrs(ctx context.Context, p peer.ID, remoteAddrs <-chan ma.
 			}
 		}
 	}
-	return nil, errors.New("no remote addresses")
+	if lastDialErr != nil {
+		return nil, lastDialErr
+	} else {
+		return nil, errors.New("no remote addresses")
+	}
 }
 
 // limitedDial will start a dial to the given peer when
