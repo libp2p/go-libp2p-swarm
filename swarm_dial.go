@@ -290,6 +290,9 @@ func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 		that we previously had (halting a dial when we run out of addrs)
 	*/
 	goodAddrs := s.filterKnownUndialables(s.peers.Addrs(p))
+	if len(goodAddrs) == 0 {
+		return nil, errors.New("no good addresses")
+	}
 	goodAddrsChan := make(chan ma.Multiaddr, len(goodAddrs))
 	for _, a := range goodAddrs {
 		goodAddrsChan <- a
@@ -343,71 +346,46 @@ func (s *Swarm) filterKnownUndialables(addrs []ma.Multiaddr) []ma.Multiaddr {
 	)
 }
 
-func (s *Swarm) dialAddrs(ctx context.Context, p peer.ID, remoteAddrs <-chan ma.Multiaddr) (transport.Conn, error) {
+func (s *Swarm) dialAddrs(ctx context.Context, p peer.ID, remoteAddrs <-chan ma.Multiaddr) (conn transport.Conn, err error) {
 	log.Debugf("%s swarm dialing %s", s.local, p)
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel() // cancel work when we exit func
 
-	// use a single response type instead of errs and conns, reduces complexity *a ton*
-	respch := make(chan dialResult)
+	dialResults := make(chan dialResult)
 
-	defaultDialFail := fmt.Errorf("failed to dial %s (default failure)", p)
-	exitErr := defaultDialFail
+	var lastDialErr error
 
 	defer s.limiter.clearAllPeerDials(p)
 
 	var active int
 	for remoteAddrs != nil || active > 0 {
-		// Check for context cancellations and/or responses first.
-		select {
-		case <-ctx.Done():
-			if exitErr == defaultDialFail {
-				exitErr = ctx.Err()
-			}
-			return nil, exitErr
-		case resp := <-respch:
-			active--
-			if resp.Err != nil {
-				log.Infof("got error on dial to %s: %s", resp.Addr, resp.Err)
-				// Errors are normal, lots of dials will fail
-				exitErr = resp.Err
-			} else if resp.Conn != nil {
-				return resp.Conn, nil
-			}
-
-			// We got a result, try again from the top.
-			continue
-		default:
-		}
-
-		// Now, attempt to dial.
 		select {
 		case addr, ok := <-remoteAddrs:
 			if !ok {
 				remoteAddrs = nil
 				continue
 			}
-
-			s.limitedDial(ctx, p, addr, respch)
+			s.limitedDial(ctx, p, addr, dialResults)
 			active++
 		case <-ctx.Done():
-			if exitErr == defaultDialFail {
-				exitErr = ctx.Err()
+			if lastDialErr != nil {
+				return nil, lastDialErr
+			} else {
+				return nil, ctx.Err()
 			}
-			return nil, exitErr
-		case resp := <-respch:
+		case resp := <-dialResults:
 			active--
 			if resp.Err != nil {
 				log.Infof("got error on dial to %s: %s", resp.Addr, resp.Err)
 				// Errors are normal, lots of dials will fail
-				exitErr = resp.Err
-			} else if resp.Conn != nil {
+				lastDialErr = resp.Err
+			} else {
 				return resp.Conn, nil
 			}
 		}
 	}
-	return nil, exitErr
+	return nil, errors.New("no remote addresses")
 }
 
 // limitedDial will start a dial to the given peer when
