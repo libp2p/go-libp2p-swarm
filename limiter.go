@@ -203,8 +203,6 @@ func (dl *dialLimiter) clearAllPeerDials(p peer.ID) {
 // channel when finished. Once the response is sent it also releases all tokens
 // it held during the dial.
 func (dl *dialLimiter) executeDial(j *dialJob) {
-	log.Debugf("[limiter] executing dial (dialfunc); peer: %s; addr: %s; FD consuming: %d; waiting: %d",
-		j.peer, j.addr, dl.fdConsuming, len(dl.waitingOnFd))
 	defer dl.finishedDial(j)
 	if j.cancelled() {
 		return
