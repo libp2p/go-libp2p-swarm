@@ -65,17 +65,10 @@ func (c *Conn) doClose() {
 		s.Reset()
 	}
 
-	// do this in a goroutine to avoid deadlocking if we call close in an open notification.
-	go func() {
-		// prevents us from issuing close notifications before finishing the open notifications
-		c.notifyLk.Lock()
-		defer c.notifyLk.Unlock()
-
-		c.swarm.notifyAll(func(f inet.Notifiee) {
-			f.Disconnected(c.swarm, c)
-		})
-		c.swarm.refs.Done() // taken in Swarm.addConn
-	}()
+	c.swarm.notifyAll(func(f inet.Notifiee) {
+		f.Disconnected(c.swarm, c)
+	})
+	c.swarm.refs.Done() // taken in Swarm.addConn
 }
 
 func (c *Conn) removeStream(s *Stream) {

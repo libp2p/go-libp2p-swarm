@@ -208,9 +208,6 @@ func (s *Swarm) addConn(tc transport.Conn, dir inet.Direction) (*Conn, error) {
 	// * The other will be decremented when Conn.start exits.
 	s.refs.Add(2)
 
-	// Take the notification lock before releasing the conns lock to block
-	// Disconnect notifications until after the Connect notifications done.
-	c.notifyLk.Lock()
 	s.conns.Unlock()
 
 	// We have a connection now. Cancel all other in-progress dials.
@@ -220,7 +217,6 @@ func (s *Swarm) addConn(tc transport.Conn, dir inet.Direction) (*Conn, error) {
 	s.notifyAll(func(f inet.Notifiee) {
 		f.Connected(s, c)
 	})
-	c.notifyLk.Unlock()
 
 	c.start()
 
@@ -438,18 +434,10 @@ func (s *Swarm) Backoff() *DialBackoff {
 
 // notifyAll sends a signal to all Notifiees
 func (s *Swarm) notifyAll(notify func(inet.Notifiee)) {
-	var wg sync.WaitGroup
-
 	s.notifs.RLock()
-	wg.Add(len(s.notifs.m))
 	for f := range s.notifs.m {
-		go func(f inet.Notifiee) {
-			defer wg.Done()
-			notify(f)
-		}(f)
+		notify(f)
 	}
-
-	wg.Wait()
 	s.notifs.RUnlock()
 }
 
