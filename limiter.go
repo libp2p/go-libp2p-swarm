@@ -27,12 +27,7 @@ type dialJob struct {
 }
 
 func (dj *dialJob) cancelled() bool {
-	select {
-	case <-dj.ctx.Done():
-		return true
-	default:
-		return false
-	}
+	return dj.ctx.Err() != nil
 }
 
 func (dj *dialJob) dialTimeout() time.Duration {
