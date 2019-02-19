@@ -349,63 +349,46 @@ func (s *Swarm) filterKnownUndialables(addrs []ma.Multiaddr) []ma.Multiaddr {
 func (s *Swarm) dialAddrs(ctx context.Context, p peer.ID, remoteAddrs <-chan ma.Multiaddr) (transport.Conn, error) {
 	log.Debugf("%s swarm dialing %s", s.local, p)
 
-	subCtx, cancel := context.WithCancel(ctx)
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel() // cancel work when we exit func
 
-	var (
-		mu          sync.Mutex
-		active      int
-		noMoreDials bool
+	dialResults := make(chan dialResult)
 
-		dialResults = make(chan dialResult)
-	)
-	go func() {
-		defer func() {
-			s.limiter.clearAllPeerDials(p)
-			mu.Lock()
-			noMoreDials = true
-			mu.Unlock()
-		}()
-		for {
-			if subCtx.Err() != nil {
-				return
-			}
-			select {
-			case addr, ok := <-remoteAddrs:
-				if !ok {
-					return
-				}
-				mu.Lock()
-				active++
-				s.limitedDial(subCtx, p, addr, dialResults)
-				mu.Unlock()
-			case <-subCtx.Done():
-			}
-		}
-	}()
-	for {
-		mu.Lock()
-		if active == 0 && noMoreDials {
-			mu.Unlock()
-			return nil, ctx.Err()
-		}
-		mu.Unlock()
+	var lastDialErr error
+
+	defer s.limiter.clearAllPeerDials(p)
+
+	var active int
+	for remoteAddrs != nil || active > 0 {
 		select {
-		case dr := <-dialResults:
-			if dr.Err == nil {
-				return dr.Conn, nil
+		case addr, ok := <-remoteAddrs:
+			if !ok {
+				remoteAddrs = nil
+				continue
 			}
-			log.Infof("error dialing %v: %v", dr.Addr, dr.Err)
-			mu.Lock()
-			active--
-			if active == 0 && noMoreDials {
-				mu.Unlock()
-				return nil, dr.Err
-			}
-			mu.Unlock()
+			s.limitedDial(ctx, p, addr, dialResults)
+			active++
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			if lastDialErr != nil {
+				return nil, lastDialErr
+			} else {
+				return nil, ctx.Err()
+			}
+		case resp := <-dialResults:
+			active--
+			if resp.Err != nil {
+				log.Infof("got error on dial to %s: %s", resp.Addr, resp.Err)
+				// Errors are normal, lots of dials will fail
+				lastDialErr = resp.Err
+			} else {
+				return resp.Conn, nil
+			}
 		}
+	}
+	if lastDialErr != nil {
+		return nil, lastDialErr
+	} else {
+		return nil, errors.New("no remote addresses")
 	}
 }
 
