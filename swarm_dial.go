@@ -275,7 +275,7 @@ func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 	logdial["dial"] = "failure" // start off with failure. set to "success" at the end.
 
 	sk := s.peers.PrivKey(s.local)
-	logdial["encrypted"] = (sk != nil) // log wether this will be an encrypted dial or not.
+	logdial["encrypted"] = sk != nil // log whether this will be an encrypted dial or not.
 	if sk == nil {
 		// fine for sk to be nil, just log.
 		log.Debug("Dial not given PrivateKey, so WILL NOT SECURE conn.")
