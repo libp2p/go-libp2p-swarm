@@ -348,18 +348,47 @@ func (s *Swarm) filterKnownUndialables(addrs []ma.Multiaddr) []ma.Multiaddr {
 
 func (s *Swarm) dialAddrs(ctx context.Context, p peer.ID, remoteAddrs <-chan ma.Multiaddr) (transport.Conn, error) {
 	log.Debugf("%s swarm dialing %s", s.local, p)
-
 	ctx, cancel := context.WithCancel(ctx)
-	defer cancel() // cancel work when we exit func
-
-	dialResults := make(chan dialResult)
-
-	var lastDialErr error
-
+	defer cancel()
 	defer s.limiter.clearAllPeerDials(p)
-
-	var active int
-	for remoteAddrs != nil || active > 0 {
+	var (
+		dialResults = make(chan dialResult)
+		lastDialErr error
+		activeDials int
+	)
+	onDialResult := func(dr dialResult) (retConn bool) {
+		activeDials--
+		if dr.Err != nil {
+			log.Infof("got error on dial to %s: %s", dr.Addr, dr.Err)
+			// Errors are normal, lots of dials will fail. Keep one to return if
+			// no dials succeed.
+			lastDialErr = dr.Err
+			return false
+		} else {
+			return true
+		}
+	}
+	ctxDoneRetErr := func() error {
+		if lastDialErr != nil {
+			return lastDialErr
+		} else {
+			return ctx.Err()
+		}
+	}
+	for remoteAddrs != nil || activeDials > 0 {
+		// Try to proceed on context completion or a dial result before dialing
+		// more addresses.
+		select {
+		case <-ctx.Done():
+			return nil, ctxDoneRetErr()
+		case dr := <-dialResults:
+			if onDialResult(dr) {
+				return dr.Conn, nil
+			} else {
+				continue
+			}
+		default:
+		}
 		select {
 		case addr, ok := <-remoteAddrs:
 			if !ok {
@@ -367,27 +396,20 @@ func (s *Swarm) dialAddrs(ctx context.Context, p peer.ID, remoteAddrs <-chan ma.
 				continue
 			}
 			s.limitedDial(ctx, p, addr, dialResults)
-			active++
+			activeDials++
 		case <-ctx.Done():
-			if lastDialErr != nil {
-				return nil, lastDialErr
-			} else {
-				return nil, ctx.Err()
-			}
-		case resp := <-dialResults:
-			active--
-			if resp.Err != nil {
-				log.Infof("got error on dial to %s: %s", resp.Addr, resp.Err)
-				// Errors are normal, lots of dials will fail
-				lastDialErr = resp.Err
-			} else {
-				return resp.Conn, nil
+			return nil, ctxDoneRetErr()
+		case dr := <-dialResults:
+			if onDialResult(dr) {
+				return dr.Conn, nil
 			}
 		}
 	}
 	if lastDialErr != nil {
 		return nil, lastDialErr
 	} else {
+		// If there were no dial errors and we didn't return due to context
+		// completion than we had no addresses to begin with.
 		return nil, errors.New("no remote addresses")
 	}
 }
