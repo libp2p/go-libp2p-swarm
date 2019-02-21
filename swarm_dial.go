@@ -364,16 +364,14 @@ func (s *Swarm) dialAddrs(ctx context.Context, p peer.ID, remoteAddrs <-chan ma.
 			// no dials succeed.
 			lastDialErr = dr.Err
 			return false
-		} else {
-			return true
 		}
+		return true
 	}
 	ctxDoneRetErr := func() error {
 		if lastDialErr != nil {
 			return lastDialErr
-		} else {
-			return ctx.Err()
 		}
+		return ctx.Err()
 	}
 	for remoteAddrs != nil || activeDials > 0 {
 		// Try to proceed on context completion or a dial result before dialing
@@ -384,9 +382,8 @@ func (s *Swarm) dialAddrs(ctx context.Context, p peer.ID, remoteAddrs <-chan ma.
 		case dr := <-dialResults:
 			if onDialResult(dr) {
 				return dr.Conn, nil
-			} else {
-				continue
 			}
+			continue
 		default:
 		}
 		select {
@@ -407,11 +404,10 @@ func (s *Swarm) dialAddrs(ctx context.Context, p peer.ID, remoteAddrs <-chan ma.
 	}
 	if lastDialErr != nil {
 		return nil, lastDialErr
-	} else {
-		// If there were no dial errors and we didn't return due to context
-		// completion than we had no addresses to begin with.
-		return nil, errors.New("no remote addresses")
 	}
+	// If there were no dial errors and we didn't return due to context
+	// completion than we had no addresses to begin with.
+	return nil, inet.ErrNoRemoteAddrs
 }
 
 // limitedDial will start a dial to the given peer when
