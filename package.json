@@ -63,9 +63,9 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmUv23eH7fcpNNugwYy6MgoU4p3JoTxXtRLiZqQCdMbxeE",
+      "hash": "QmTGiDkw4eeKq31wwpQRk5GwWiReaxrcTQLuCCLWgfKo5M",
       "name": "go-tcp-transport",
-      "version": "2.0.27"
+      "version": "2.0.28"
     },
     {
       "author": "whyrusleeping",
@@ -140,9 +140,9 @@
     },
     {
       "author": "steb",
-      "hash": "QmNjhxwzKp9uB1T2p4PBW3xi7pboJ7iXKvAHQW92ayqAm2",
+      "hash": "QmeqC5shQjEBRG9B8roZqQCJ9xb7Pq6AbWxJFMyLgqBBWh",
       "name": "go-libp2p-transport-upgrader",
-      "version": "0.1.27"
+      "version": "0.1.28"
     },
     {
       "author": "whyrusleeping",
@@ -156,6 +156,6 @@
   "license": "MIT",
   "name": "go-libp2p-swarm",
   "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
-  "version": "3.0.33"
+  "version": "3.0.34"
 }
 
