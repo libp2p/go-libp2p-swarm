@@ -289,7 +289,11 @@ func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 		the improved rate limiter, while maintaining the outward behaviour
 		that we previously had (halting a dial when we run out of addrs)
 	*/
-	goodAddrs := s.filterKnownUndialables(s.peers.Addrs(p))
+	peerAddrs := s.peers.Addrs(p)
+	if len(peerAddrs) == 0 {
+		return nil, errors.New("no addresses")
+	}
+	goodAddrs := s.filterKnownUndialables(peerAddrs)
 	if len(goodAddrs) == 0 {
 		return nil, errors.New("no good addresses")
 	}
