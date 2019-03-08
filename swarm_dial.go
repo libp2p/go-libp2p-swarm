@@ -84,7 +84,7 @@ const DefaultPerPeerRateLimit = 8
 
 // DialBackoff is a type for tracking peer dial backoffs.
 //
-// * It's safe to use it's zero value.
+// * It's safe to use its zero value.
 // * It's thread-safe.
 // * It's *not* safe to move this type after using.
 type DialBackoff struct {
@@ -248,7 +248,7 @@ func (s *Swarm) doDial(ctx context.Context, p peer.ID) (*Conn, error) {
 			log.Debugf("ignoring dial error because we have a connection: %s", err)
 			return conn, nil
 		}
-		if err != context.Canceled {
+		if ctx.Err() == nil {
 			log.Event(ctx, "swarmDialBackoffAdd", logdial)
 			s.backf.AddBackoff(p) // let others know to backoff
 		}
