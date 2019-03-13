@@ -248,7 +248,7 @@ func (s *Swarm) doDial(ctx context.Context, p peer.ID) (*Conn, error) {
 			log.Debugf("ignoring dial error because we have a connection: %s", err)
 			return conn, nil
 		}
-		if ctx.Err() == nil {
+		if err != context.Canceled {
 			log.Event(ctx, "swarmDialBackoffAdd", logdial)
 			s.backf.AddBackoff(p) // let others know to backoff
 		}
