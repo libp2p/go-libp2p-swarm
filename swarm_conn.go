@@ -48,6 +48,10 @@ func (c *Conn) Close() error {
 	return c.err
 }
 
+func (c *Conn) IsClosed() bool {
+	return c.conn.IsClosed()
+}
+
 func (c *Conn) doClose() {
 	c.swarm.removeConn(c)
 
