@@ -2,7 +2,9 @@ package swarm_test
 
 import (
 	"context"
+	"fmt"
 	"net"
+	"regexp"
 	"sync"
 	"testing"
 	"time"
@@ -478,5 +480,51 @@ func TestDialBackoffClears(t *testing.T) {
 		t.Error("s2 should no longer be on backoff")
 	} else {
 		t.Log("correctly cleared backoff")
+	}
+}
+
+func TestDialPeerFailed(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	swarms := makeSwarms(ctx, t, 2)
+	defer closeSwarms(swarms)
+	testedSwarm, targetSwarm := swarms[0], swarms[1]
+
+	exceptedErrorsCount := 5
+	for i := 0; i < exceptedErrorsCount; i++ {
+		_, silentPeerAddress, silentPeerListener := newSilentPeer(t)
+		go acceptAndHang(silentPeerListener)
+		defer silentPeerListener.Close()
+
+		testedSwarm.Peerstore().AddAddr(
+			targetSwarm.LocalPeer(),
+			silentPeerAddress,
+			pstore.PermanentAddrTTL)
+	}
+
+	_, err := testedSwarm.DialPeer(ctx, targetSwarm.LocalPeer())
+	if err == nil {
+		t.Fatal(err)
+	}
+
+	// dial_test.go:508: correctly get a combined error: dial attempt failed: 10 errors occurred:
+	//     * <peer.ID Qm*Wpwtvc> --> <peer.ID Qm*cc2FQR> (/ip4/127.0.0.1/tcp/46485) dial attempt failed: failed to negotiate security protocol: context deadline exceeded
+	//     * <peer.ID Qm*Wpwtvc> --> <peer.ID Qm*cc2FQR> (/ip4/127.0.0.1/tcp/34881) dial attempt failed: failed to negotiate security protocol: context deadline exceeded
+	// ...
+
+	errorCountRegexpString := fmt.Sprintf("%d errors occurred", exceptedErrorsCount)
+	errorCountRegexp := regexp.MustCompile(errorCountRegexpString)
+	if !errorCountRegexp.MatchString(err.Error()) {
+		t.Fatalf("can't find total err count: `%s' in `%s'", errorCountRegexpString, err.Error())
+	}
+
+	connectErrorsRegexpString := `\* <peer\.ID .+?> --> <peer\.ID .+?> \(.+?\) dial attempt failed:.+`
+	connectErrorsRegexp := regexp.MustCompile(connectErrorsRegexpString)
+	connectErrors := connectErrorsRegexp.FindAll([]byte(err.Error()), -1)
+	if len(connectErrors) != exceptedErrorsCount {
+		t.Fatalf("connectErrors must contain %d errros; "+
+			"but `%s' was found in `%s' %d times",
+			exceptedErrorsCount, connectErrorsRegexpString, err.Error(), len(connectErrors))
 	}
 }

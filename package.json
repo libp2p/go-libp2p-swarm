@@ -149,6 +149,12 @@
       "hash": "QmSVaJe1aRjc78cZARTtf4pqvXERYwihyYhZWoVWceHnsK",
       "name": "go-libp2p-secio",
       "version": "2.0.30"
+    },
+    {
+      "author": "hashicorp",
+      "hash": "QmfGQp6VVqdPCDyzEM6EGwMY74YPabTSEoQWHUxZuCSWj3",
+      "name": "go-multierror",
+      "version": "0.1.0"
     }
   ],
   "gxVersion": "0.9.1",
@@ -158,3 +164,4 @@
   "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
   "version": "3.0.35"
 }
+
