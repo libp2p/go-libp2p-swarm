@@ -50,7 +50,6 @@ func EchoStreamHandler(stream inet.Stream) {
 				return
 			}
 		}
-
 	}()
 }
 
