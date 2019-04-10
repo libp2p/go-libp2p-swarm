@@ -341,8 +341,8 @@ func TestNoDial(t *testing.T) {
 	ctx := context.Background()
 	swarms := makeSwarms(ctx, t, 2)
 
-	_, err := swarms[0].NewStream(context.WithValue(ctx, NoDial, "swarm.test"), swarms[1].LocalPeer())
-	if err != ErrNoConn {
+	_, err := swarms[0].NewStream(inet.WithNoDial(ctx, "swarm test"), swarms[1].LocalPeer())
+	if err != inet.ErrNoConn {
 		t.Fatal("should have failed with ErrNoConn")
 	}
 }
