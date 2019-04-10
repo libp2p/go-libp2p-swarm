@@ -335,3 +335,13 @@ func TestFilterBounds(t *testing.T) {
 		t.Log("got connect")
 	}
 }
+
+func TestNoDial(t *testing.T) {
+	ctx := context.Background()
+	swarms := makeSwarms(ctx, t, 2)
+
+	_, err := swarms[0].NewStream(inet.WithNoDial(ctx, "swarm test"), swarms[1].LocalPeer())
+	if err != inet.ErrNoConn {
+		t.Fatal("should have failed with ErrNoConn")
+	}
+}
