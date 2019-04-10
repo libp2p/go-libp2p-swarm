@@ -50,6 +50,7 @@ func EchoStreamHandler(stream inet.Stream) {
 				return
 			}
 		}
+
 	}()
 }
 
@@ -333,5 +334,15 @@ func TestFilterBounds(t *testing.T) {
 		t.Fatal("should have gotten connection")
 	case <-conns:
 		t.Log("got connect")
+	}
+}
+
+func TestNoDial(t *testing.T) {
+	ctx := context.Background()
+	swarms := makeSwarms(ctx, t, 2)
+
+	_, err := swarms[0].NewStream(context.WithValue(ctx, NoDial, "swarm.test"), swarms[1].LocalPeer())
+	if err != ErrNoConn {
+		t.Fatal("should have failed with ErrNoConn")
 	}
 }

@@ -37,6 +37,18 @@ var ErrSwarmClosed = errors.New("swarm closed")
 // transport is misbehaving.
 var ErrAddrFiltered = errors.New("address filtered")
 
+// ErrNoConn is returned when attempting to open a stream to a peer with the NoDial
+// option and no usable connection is available.
+var ErrNoConn = errors.New("no usable connection to peer")
+
+// ContextOption is the type of context options understood by the swarm
+type ContextOption string
+
+// NoDial is a context option that instructs the swarm to not attempt a new
+// dial when opening a stream. The value of the key should be a string indicating
+// the source of the option.
+var NoDial = ContextOption("swarm.NoDial")
+
 // Swarm is a connection muxer, allowing connections to other peers to
 // be opened and closed, while still using the same Chan for all
 // communication. The Chan sends/receives Messages, which note the
@@ -295,6 +307,10 @@ func (s *Swarm) NewStream(ctx context.Context, p peer.ID) (inet.Stream, error) {
 	for {
 		c := s.bestConnToPeer(p)
 		if c == nil {
+			if nodial := ctx.Value(NoDial); nodial != nil {
+				return nil, ErrNoConn
+			}
+
 			if dials >= DialAttempts {
 				return nil, errors.New("max dial attempts exceeded")
 			}
