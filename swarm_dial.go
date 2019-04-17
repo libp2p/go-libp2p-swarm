@@ -423,9 +423,9 @@ func (s *Swarm) emitDialAddrs(ctx context.Context, ch chan ma.Multiaddr, immedia
 	var delay time.Duration
 	if len(immediate) > 0 {
 		if isPublic {
-			delay = 500 * time.Millisecond
+			delay = 1000 * time.Millisecond
 		} else {
-			delay = 50 * time.Millisecond
+			delay = 250 * time.Millisecond
 		}
 	}
 
@@ -452,7 +452,7 @@ func (s *Swarm) emitDialAddrs(ctx context.Context, ch chan ma.Multiaddr, immedia
 		}
 
 		if len(unknown) > 0 || i < len(connected)-1 {
-			delay = 500 * time.Millisecond
+			delay = 1500 * time.Millisecond
 		} else {
 			delay = 0
 		}
@@ -478,7 +478,7 @@ func (s *Swarm) emitDialAddrs(ctx context.Context, ch chan ma.Multiaddr, immedia
 		}
 
 		if i < len(unknown)-1 {
-			delay = 750 * time.Millisecond
+			delay = 2000 * time.Millisecond
 		} else {
 			delay = 0
 		}
