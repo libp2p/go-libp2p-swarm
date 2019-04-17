@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	peer "github.com/libp2p/go-libp2p-peer"
 	transport "github.com/libp2p/go-libp2p-transport"
 	ma "github.com/multiformats/go-multiaddr"
+	manet "github.com/multiformats/go-multiaddr-net"
 )
 
 // Diagram of dial sync:
@@ -57,6 +59,10 @@ const ConcurrentFdDials = 160
 // DefaultPerPeerRateLimit is the number of concurrent outbound dials to make
 // per peer
 const DefaultPerPeerRateLimit = 8
+
+// this is the protocol code for relay. we can't import go-libp2p-circuit b/c
+// of circular dependency.
+const P_CIRCUIT = 290
 
 // dialbackoff is a struct used to avoid over-dialing the same, dead peers.
 // Whenever we totally time out on a peer (all three attempts), we add them
@@ -283,14 +289,6 @@ func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 		log.Debug("Dial not given PrivateKey, so WILL NOT SECURE conn.")
 	}
 
-	//////
-	/*
-		This slice-to-chan code is temporary, the peerstore can currently provide
-		a channel as an interface for receiving addresses, but more thought
-		needs to be put into the execution. For now, this allows us to use
-		the improved rate limiter, while maintaining the outward behaviour
-		that we previously had (halting a dial when we run out of addrs)
-	*/
 	peerAddrs := s.peers.Addrs(p)
 	if len(peerAddrs) == 0 {
 		return nil, errors.New("no addresses")
@@ -299,12 +297,11 @@ func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 	if len(goodAddrs) == 0 {
 		return nil, errors.New("no good addresses")
 	}
-	goodAddrsChan := make(chan ma.Multiaddr, len(goodAddrs))
-	for _, a := range goodAddrs {
-		goodAddrsChan <- a
-	}
-	close(goodAddrsChan)
-	/////////
+
+	// schedule the dial
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	goodAddrsChan := s.scheduleDialAddrs(ctx, goodAddrs)
 
 	// try to get a connection to any addr
 	connC, err := s.dialAddrs(ctx, p, goodAddrsChan)
@@ -350,6 +347,157 @@ func (s *Swarm) filterKnownUndialables(addrs []ma.Multiaddr) []ma.Multiaddr {
 		addrutil.AddrOverNonLocalIP,
 		addrutil.FilterNeg(s.Filters.AddrBlocked),
 	)
+}
+
+func (s *Swarm) scheduleDialAddrs(ctx context.Context, addrs []ma.Multiaddr) <-chan ma.Multiaddr {
+	var immediateAddrs []ma.Multiaddr
+	relayAddrs := make(map[peer.ID][]ma.Multiaddr)
+
+	for _, a := range addrs {
+		_, err := a.ValueForProtocol(P_CIRCUIT)
+		if err != nil {
+			immediateAddrs = append(immediateAddrs, a)
+			continue
+		}
+
+		relayS, err := a.ValueForProtocol(ma.P_P2P)
+		if err != nil {
+			// uspecfic relay addr; push it to immediate -- note that these addrs should not be
+			// advertised any more, but we don't want to break older nodes or tests
+			immediateAddrs = append(immediateAddrs, a)
+			continue
+		}
+
+		relay, err := peer.IDB58Decode(relayS)
+		if err != nil {
+			log.Debugf("malformed relay peer ID %s: %s", relayS, err.Error())
+			continue
+		}
+
+		relayAddrs[relay] = append(relayAddrs[relay], a)
+	}
+
+	ch := make(chan ma.Multiaddr)
+	go s.emitDialAddrs(ctx, ch, immediateAddrs, relayAddrs)
+
+	return ch
+}
+
+func (s *Swarm) emitDialAddrs(ctx context.Context, ch chan ma.Multiaddr, immediate []ma.Multiaddr, relays map[peer.ID][]ma.Multiaddr) {
+	defer close(ch)
+
+	// first issue the immediate addrs without delay; track public addrs to determine the delay
+	// before dialing relays
+	isPublic := false
+	for _, a := range immediate {
+		select {
+		case ch <- a:
+		case <-ctx.Done():
+			return
+		}
+
+		if manet.IsPublicAddr(a) {
+			isPublic = true
+		}
+	}
+
+	if len(relays) == 0 {
+		return
+	}
+
+	// split relays into connected and unknown
+	var connected, unknown []peer.ID
+
+	for relay := range relays {
+		if s.Connectedness(relay) == inet.Connected {
+			connected = append(connected, relay)
+		} else {
+			unknown = append(unknown, relay)
+		}
+	}
+
+	shufflePeers(connected)
+	shufflePeers(unknown)
+
+	// wait for delay before emitting relay addrs
+	var delay time.Duration
+	if len(immediate) > 0 {
+		if isPublic {
+			delay = 1000 * time.Millisecond
+		} else {
+			delay = 250 * time.Millisecond
+		}
+	}
+
+	if delay > 0 {
+		select {
+		case <-time.After(delay):
+		case <-ctx.Done():
+			return
+		}
+	}
+
+	// issue connected relay addrs first, aggregated by relay
+	for i, relay := range connected {
+		relayAddr, err := ma.NewMultiaddr(fmt.Sprintf("/p2p/%s/p2p-circuit", relay.Pretty()))
+		if err != nil {
+			log.Errorf("Error constructing relay addr: %s", err.Error())
+			continue
+		}
+
+		select {
+		case ch <- relayAddr:
+		case <-ctx.Done():
+			return
+		}
+
+		if len(unknown) > 0 || i < len(connected)-1 {
+			delay = 1500 * time.Millisecond
+		} else {
+			delay = 0
+		}
+
+		if delay > 0 {
+			select {
+			case <-time.After(delay):
+			case <-ctx.Done():
+				return
+			}
+		}
+	}
+
+	// now issue the addrs for non-connected relays; we use the whole address set
+	for i, relay := range unknown {
+		addrs := relays[relay]
+		for _, a := range addrs {
+			select {
+			case ch <- a:
+			case <-ctx.Done():
+				return
+			}
+		}
+
+		if i < len(unknown)-1 {
+			delay = 2000 * time.Millisecond
+		} else {
+			delay = 0
+		}
+
+		if delay > 0 {
+			select {
+			case <-time.After(delay):
+			case <-ctx.Done():
+				return
+			}
+		}
+	}
+}
+
+func shufflePeers(ps []peer.ID) {
+	for i := range ps {
+		j := rand.Intn(i + 1)
+		ps[i], ps[j] = ps[j], ps[i]
+	}
 }
 
 func (s *Swarm) dialAddrs(ctx context.Context, p peer.ID, remoteAddrs <-chan ma.Multiaddr) (transport.Conn, error) {
