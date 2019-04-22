@@ -1,118 +1,125 @@
 package dial
 
 import (
-	"context"
-	"sync"
-
 	addrutil "github.com/libp2p/go-addr-util"
 	peer "github.com/libp2p/go-libp2p-peer"
 )
 
-// ConcurrentFdDials is the number of concurrent outbound dials over transports
-// that consume file descriptors
+// ConcurrentFdDials is the number of concurrent outbound dials over transports that consume file descriptors
 const ConcurrentFdDials = 160
 
-// DefaultPerPeerRateLimit is the number of concurrent outbound dials to make
-// per peer
+// DefaultPerPeerRateLimit is the number of concurrent outbound dials to make per peer
 const DefaultPerPeerRateLimit = 8
 
 type throttler struct {
-	lk sync.Mutex
-
+	/* file descriptor throttling */
 	fdConsuming int
 	fdLimit     int
-	waitingOnFd []*Job
+	fdWaiters   []*Job
 
-	activePerPeer      map[peer.ID]int
-	perPeerLimit       int
-	waitingOnPeerLimit map[peer.ID][]*Job
+	/* dials-per-peer throttling */
+	peerConsuming map[peer.ID]int
+	peerLimit     int
+	peerWaiters   map[peer.ID][]*Job
 
-	finishedCh chan *Job
-
+	/* signalling channels */
+	finished       chan *Job
 	peerTokenFreed chan peer.ID
 	fdTokenFreed   chan struct{}
-
-	inCh         <-chan *Job
-	dialCh       chan<- *Job
-	localCloseCh chan struct{}
+	closeCh        chan struct{}
 }
 
 var _ Throttler = (*throttler)(nil)
 
-func (t *throttler) Start(ctx context.Context, inCh <-chan *Job, dialCh chan<- *Job) {
-	t.inCh = inCh
-	t.dialCh = dialCh
+func NewThrottlerWithParams(fdLimit, perPeerLimit int) Throttler {
+	return &throttler{
+		fdLimit:   fdLimit,
+		peerLimit: perPeerLimit,
 
-ThrottleLoop:
+		peerWaiters:    make(map[peer.ID][]*Job),
+		peerConsuming:  make(map[peer.ID]int),
+		closeCh:        make(chan struct{}),
+		finished:       make(chan *Job, 128),
+		fdTokenFreed:   make(chan struct{}, 1),
+		peerTokenFreed: make(chan peer.ID, 1),
+	}
+}
+
+func NewDefaultThrottler() Throttler {
+	return NewThrottlerWithParams(ConcurrentFdDials, DefaultPerPeerRateLimit)
+}
+
+func (t *throttler) Run(incoming <-chan *Job, released chan<- *Job) {
+	jobFinishedCb := func(job *Job) {
+		t.finished <- job
+	}
+
 	for {
 		// Process any token releases to avoid those channels getting backed up.
 		select {
 		case id := <-t.peerTokenFreed:
-			waitlist := t.waitingOnPeerLimit[id]
-			if len(waitlist) > 0 {
-				next := waitlist[0]
-				if len(waitlist) == 1 {
-					delete(t.waitingOnPeerLimit, id)
-				} else {
-					waitlist[0] = nil // clear out memory
-					t.waitingOnPeerLimit[id] = waitlist[1:]
-				}
-
-				t.activePerPeer[id]++
-				if !t.throttleFd(next) {
-					t.executeDial(next)
-				}
+			waitlist := t.peerWaiters[id]
+			if len(waitlist) == 0 {
+				continue
 			}
-			continue ThrottleLoop
+			next := waitlist[0]
+			if len(waitlist) == 1 {
+				delete(t.peerWaiters, id)
+			} else {
+				waitlist[0] = nil
+				t.peerWaiters[id] = waitlist[1:]
+			}
+
+			t.peerConsuming[id]++
+			if !t.throttleFd(next) {
+
+				released <- next
+			}
+			continue
 
 		case <-t.fdTokenFreed:
-			if len(t.waitingOnFd) == 0 {
-				continue ThrottleLoop
+			if len(t.fdWaiters) == 0 {
+				continue
 			}
-			next := t.waitingOnFd[0]
-			t.waitingOnFd[0] = nil // clear out memory
-			t.waitingOnFd = t.waitingOnFd[1:]
-			if len(t.waitingOnFd) == 0 {
-				t.waitingOnFd = nil // clear out memory
+			next := t.fdWaiters[0]
+			t.fdWaiters[0] = nil
+			t.fdWaiters = t.fdWaiters[1:]
+			if len(t.fdWaiters) == 0 {
+				t.fdWaiters = nil
 			}
 			t.fdConsuming++
-			t.executeDial(next)
-			continue ThrottleLoop
+
+			next.AddCallback("throttler", jobFinishedCb)
+			released <- next
+			continue
 
 		default:
 		}
 
 		select {
-		case j := <-t.inCh:
-			if !t.throttlePeerLimit(j) && !t.throttleFd(j) {
-				t.executeDial(j)
+		case job := <-incoming:
+			if !t.throttlePeerLimit(job) && !t.throttleFd(job) {
+				job.AddCallback("throttler", jobFinishedCb)
+				released <- job
 			}
 
-		case j := <-t.finishedCh:
-			id := j.req.id
-			if addrutil.IsFDCostlyTransport(j.addr) {
+		case job := <-t.finished:
+			id := job.Request().PeerID()
+			if addrutil.IsFDCostlyTransport(job.addr) {
 				t.fdConsuming--
 				t.fdTokenFreed <- struct{}{}
 			}
 
-			t.activePerPeer[id]--
-			if t.activePerPeer[id] == 0 {
-				delete(t.activePerPeer, id)
+			t.peerConsuming[id]--
+			if t.peerConsuming[id] == 0 {
+				delete(t.peerConsuming, id)
 			}
 			t.peerTokenFreed <- id
 
-		case <-ctx.Done():
-			return
-
-		case <-t.localCloseCh:
+		case <-t.closeCh:
 			return
 		}
 	}
-}
-
-func (t *throttler) Close() error {
-	close(t.localCloseCh)
-	return nil
 }
 
 func (t *throttler) throttleFd(j *Job) (throttle bool) {
@@ -120,7 +127,7 @@ func (t *throttler) throttleFd(j *Job) (throttle bool) {
 		return false
 	}
 	if t.fdConsuming >= t.fdLimit {
-		t.waitingOnFd = append(t.waitingOnFd, j)
+		t.fdWaiters = append(t.fdWaiters, j)
 		return true
 	}
 	t.fdConsuming++
@@ -128,51 +135,17 @@ func (t *throttler) throttleFd(j *Job) (throttle bool) {
 }
 
 func (t *throttler) throttlePeerLimit(j *Job) (throttle bool) {
-	id := j.req.id
-	if t.activePerPeer[id] >= t.perPeerLimit {
-		wlist := t.waitingOnPeerLimit[id]
-		t.waitingOnPeerLimit[id] = append(wlist, j)
+	id := j.Request().PeerID()
+	if t.peerConsuming[id] >= t.peerLimit {
+		wlist := t.peerWaiters[id]
+		t.peerWaiters[id] = append(wlist, j)
 		return true
 	}
-	t.activePerPeer[id]++
+	t.peerConsuming[id]++
 	return false
 }
 
-func NewDefaultThrottler() *throttler {
-	return NewThrottlerWithParams(ConcurrentFdDials, DefaultPerPeerRateLimit)
-}
-
-func NewThrottlerWithParams(fdLimit, perPeerLimit int) *throttler {
-	return &throttler{
-		fdLimit:      fdLimit,
-		perPeerLimit: perPeerLimit,
-
-		waitingOnPeerLimit: make(map[peer.ID][]*Job),
-		activePerPeer:      make(map[peer.ID]int),
-		localCloseCh:       make(chan struct{}),
-		finishedCh:         make(chan *Job, 100),
-		fdTokenFreed:       make(chan struct{}, 1),
-		peerTokenFreed:     make(chan peer.ID, 1),
-	}
-}
-
-func (t *throttler) executeDial(j *Job) {
-	if j.Cancelled() {
-		t.finishedCh <- j
-		return
-	}
-
-	j.req.AddCallback(func() {
-		// clear peer dials
-		// todo: this may be called as many times as dials have been issued per peer
-		t.lk.Lock()
-		defer t.lk.Unlock()
-		delete(t.waitingOnPeerLimit, j.req.id)
-	})
-
-	j.AddCallback(func() {
-		t.finishedCh <- j
-	})
-
-	t.dialCh <- j
+func (t *throttler) Close() error {
+	close(t.closeCh)
+	return nil
 }

@@ -1,85 +1,101 @@
 package dial
 
 import (
-	"context"
 	"io"
 
-	tpt "github.com/libp2p/go-libp2p-transport"
 	ma "github.com/multiformats/go-multiaddr"
 )
 
-// A preparer can perform operations on a dial Request before it is sent to the Planner.
-// Examples include validation, de-duplication, back-off, etc.
-//
-// A Preparer may cancel the dial preemptively in error or in success, by calling Complete() on the Request.
+// A Preparer performs operations on a dial Request before it is sent forward. It prepares the dial by performing
+// sanity checks, validation, de-duplication, back-off, etc.
 type Preparer interface {
-	Prepare(req *Request)
+
+	// Prepare processes this dial Request. The implementation may complete a dial early, either in error or
+	// in success, by calling the Complete() method on the Request.
+	//
+	// Returning an error indicates something was wrong with the Preparer itself, and results in failure of the
+	// dial Request.
+	Prepare(req *Request) error
 }
 
-// An address resolver takes a Request to dial a peer ID and synchronously enriches it with all known addresses for
-// that peer (normally from the Peerstore). Optionally the address resolver can initiate a discovery process for
-// additional addresses, in which case it must return the channel where it'll send new Multiaddrs.
-// This need not be a buffered channel: the pipeline won't block.
+// An AddressResolver takes a peer ID and synchronously returns:
 //
-// Either party can close the channel at any time:
-// - If closed by the pipeline, the address resolver should terminate the discovery process.
-// - If closed by the address resolver, the pipeline should not expect any more addresses for the peer.
+//   1. the known addresses for that peer (normally sourced from a Peerstore), if any.
+//   2. an optional channel where additional addresses will be sent asynchronously.
 //
-// If an error occurs, no multiaddrs will be returned synchronously or asynchronously (the first two return values
-// will be nil).
+// To discover fresh addresses, the address resolver can leverage a mechanism such as a DHT, mDNS, rendezvous
+// points, etc. The AddressResolver must never block, so asynchronous discovery work must take place in
+// a separate goroutine.
+//
+// The channel returned need not be a buffered channel: the pipeline won't block.
+//
+// The address resolver must close the channel once the discovery process is complete and there are no more
+// addresses to return.
+//
+// Likewise, the background discovery process must stop when the provided context is closed.
 type AddressResolver interface {
-	Resolve(req *Request) (more <-chan []ma.Multiaddr, err error)
+	Resolve(req *Request) (known []ma.Multiaddr, more <-chan []ma.Multiaddr, err error)
 }
 
-// Dial planners take a Request (populated with multiaddrs) and emit dial jobs on dialCh for the addresses
-// they want dialed. The pipeline will call the planner once, as well as every time a dial job completes.
+// Planners are components that are responsible for prioritising, grouping and scheduling dial jobs for particular
+// addresses belonging to a peer.
 //
-// For more information on the choreography, read the docs on Next().
+// The simplest form of a Planner is the "immediate planner", which blindly dials all addresses in the order they
+// are received/discovered. Examples of more sophisticated planner behaviour includes prioritising direct dials over
+// relay dials, delaying costly transports, or triggering dials via public addresses when private subnets fail.
+//
+// The interface is reactive, and deliberately makes no assumptions about the underlying processes.
 type Planner interface {
-
-	// Next requests the planner to send a new dialJobs on dialCh, if appropriate.
+	// NewPlan creates a new dialing plan for a peer. The pipeline supplies the Request and any initial addresses
+	// we already know of. It also supplies the channel where new dials must be queued.
 	//
-	// When planning starts, Next is invoked with a nil last parameter.
+	// NewPlan must return a struct conforming to the Plan interface. The implementation can track inflight dials,
+	// cancel them via Job.Cancel(), and it can spawn goroutines to stagger dials in time. It may close the out
+	// channel to signal it has finished planning.
 	//
-	// Next is then subsequently invoked on every completed dial, providing a slice of dialed jobs and the
-	// last job to complete. With these two elements, in conjunction with any state that may be tracked, the Planner
-	// can take decisions about what to dial next, or to finish planning altogether.
-	//
-	// When the planner is satisfied and has no more dials to request, it must signal so by closing
-	// the dialCh channel.
-	Next(req *Request, dialed dialJobs, last *Job, dialCh chan dialJobs) error
-
-	// Select picks the optimal successful connection to return to the consumer.
-	//
-	// It is called by the Pipeline once all inflight dial jobs complete, no more dials are to be performed, and
-	// multiple dial jobs have succeeded.
-	//
-	// The Pipeline takes care of closing unselected successful connections.
-	Select(successful dialJobs) (tpt.Conn, error)
+	// The lifetime of asynchronous processes should obey the request context.
+	NewPlan(req *Request, initial []ma.Multiaddr, out chan<- []*Job) (Plan, error)
 }
 
-// A throttler is a goroutine that applies a throttling process to dial jobs requested by the Planner.
+type Plan interface {
+	// NewAddresses is called by the pipeline to notify the Plan that there are new addresses to consider
+	// for dialing.
+	NewAddresses(found []ma.Multiaddr)
+
+	// JobComplete is called by the pipeline to notify the Plan that a previously requested dial has completed,
+	// either in success or in error.
+	JobComplete(completed *Job)
+
+	// ResolutionDone is called when the AddressResolver has finished.
+	ResolutionDone()
+
+	// Select allows the planner to choose which successful connection to keep.
+	Select(successful []*Job) (selected *Job, err error)
+
+	// Error returns any error the planner wants to report back to the pipeline after closing the out channel.
+	Error() error
+}
+
+// A Throttler is a global, singleton component (one per pipeline) that oversees all dial jobs that are emitted
+// by Plan instances. It acts like a sentinel, guarding for fair/judicious usage of resources.
+//
+// To fulfill its role, it can throttle jobs based on file descriptors, number of inflight dials per peer, network
+// conditions, bandwidth, fail rate, etc.
 type Throttler interface {
 	io.Closer
 
-	// Start spawns the goroutine that is in charge of throttling. It receives planned jobs via inCh and emits
-	// jobs to execute on dialCh. The throttler can apply any logic in-between: it may throttle jobs based on
-	// system resources, time, inflight dials, network conditions, fail rate, etc.
-	Start(ctx context.Context, inCh <-chan *Job, dialCh chan<- *Job)
+	// Run starts the throttling process. It receives planned jobs via the incoming channel, and emits jobs to dial via
+	// the released channel. Both channels are provided by the caller, who should abstain from closing either during
+	// normal operation to avoid panics. To safely shut down a throttler, first call Close() and await return.
+	Run(incoming <-chan *Job, released chan<- *Job)
 }
 
-// An executor is a goroutine responsible for ultimately carrying out the network dial to an addr.
+// An Executor dispatches network dials. Jobs sent to an Executor have already been subjected to the
+// throttler, so the Executor must make progress immediately. Completed dials (either in success or failure) are
+// sent back to the pipeline via the response channel.
 type Executor interface {
 	io.Closer
 
-	// Start spawns the gorutine responsible for executing network dials. Jobs sent to dialCh have already
-	// been subjected to the throttler. Once a dial finishes, the Executor must send the completed job to
-	// completeCh, where it'll be received by the pipeline.
-	//
-	// In terms of concurrency, the Executor should behave like a dispatcher, in turn spawning individual
-	// goroutines, or maintaining a finite set of child workers, to carry out the dials.
-	// The Executor must never block.
-	Start(ctx context.Context, dialCh <-chan *Job)
+	// Run starts the dispatching process, feeding its input via the incoming channel.
+	Run(incoming <-chan *Job)
 }
-
-type TransportResolverFn func(a ma.Multiaddr) tpt.Transport

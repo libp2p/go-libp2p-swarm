@@ -1,49 +1,68 @@
 package dial
 
 import (
-	"errors"
-
-	"github.com/libp2p/go-libp2p-transport"
+	ma "github.com/multiformats/go-multiaddr"
+	"github.com/pkg/errors"
 )
 
-// ErrNoSuccessfulDials is returned by Select() when all dials failed.
-var ErrNoSuccessfulDials = errors.New("no successful dials")
+var _ Planner = (*immediatePlanner)(nil)
+var _ Plan = (*immediatePlan)(nil)
 
-type singleBurstPlanner struct{}
+type immediatePlanner struct{}
 
-var _ Planner = (*singleBurstPlanner)(nil)
+var ip = &immediatePlanner{}
 
-func NewSingleBurstPlanner() Planner {
-	return &singleBurstPlanner{}
+func NewImmediatePlanner() Planner {
+	return ip
 }
 
-func (*singleBurstPlanner) Next(req *Request, dialled dialJobs, last *Job, dialCh chan dialJobs) error {
-	if last != nil {
-		return errors.New("unexpected call to planner")
-	}
-
-	var jobs dialJobs
-	for _, maddr := range req.addrs {
-		jobs = append(jobs, NewDialJob(req.ctx, req, maddr))
-	}
-
-	dialCh <- jobs
-	close(dialCh)
-
-	return nil
+func (*immediatePlanner) NewPlan(req *Request, initial []ma.Multiaddr, out chan<- []*Job) (Plan, error) {
+	plan := &immediatePlan{req, out, nil}
+	plan.NewAddresses(initial)
+	return plan, nil
 }
 
-func (*singleBurstPlanner) Select(successful dialJobs) (tpt.Conn, error) {
+type immediatePlan struct {
+	req *Request
+	out chan<- []*Job
+	err error
+}
+
+func (ip *immediatePlan) NewAddresses(found []ma.Multiaddr) {
+	jobs := make([]*Job, 0, len(found))
+	for _, addr := range found {
+		jobs = append(jobs, ip.req.CreateJob(addr))
+	}
+
+	select {
+	case ip.out <- jobs:
+		// all ok, we were able to send the jobs.
+	default:
+		// channel is backlogged, so let's schedule a goroutine to do the send.
+		go func() {
+			select {
+			case ip.out <- jobs:
+			case <-ip.req.ctx.Done():
+			}
+		}()
+	}
+}
+
+func (ip *immediatePlan) JobComplete(job *Job) {
+	// noop.
+}
+
+func (ip *immediatePlan) ResolutionDone() {
+	close(ip.out)
+}
+
+func (ip *immediatePlan) Select(successful []*Job) (selected *Job, err error) {
 	if len(successful) == 0 {
-		return nil, ErrNoSuccessfulDials
+		return nil, errors.New("no successful connections")
 	}
+	return successful[0], nil
+}
 
-	// return the first successful dial.
-	for _, j := range successful {
-		if j.err == nil && j.tconn != nil {
-			return j.tconn, nil
-		}
-	}
-
-	return nil, ErrNoSuccessfulDials
+func (ip *immediatePlan) Error() error {
+	return ip.err
 }

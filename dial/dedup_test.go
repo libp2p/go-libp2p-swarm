@@ -2,11 +2,11 @@ package dial_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
-	"github.com/iris-contrib/errors"
-	"github.com/libp2p/go-libp2p-net"
+	inet "github.com/libp2p/go-libp2p-net"
 	"github.com/libp2p/go-libp2p-peer/test"
 	"github.com/libp2p/go-libp2p-swarm/dial"
 	testing2 "github.com/libp2p/go-libp2p-swarm/testing"
@@ -20,13 +20,13 @@ func TestDedup(t *testing.T) {
 	id1, _ := testutil.RandPeerID()
 	id2, _ := testutil.RandPeerID()
 
-	req1 := dial.NewDialRequest(context.Background(), sw, id1)
-	req2 := dial.NewDialRequest(context.Background(), sw, id2)
+	req1 := dial.NewDialRequest(context.Background(), id1)
+	req2 := dial.NewDialRequest(context.Background(), id2)
 
 	// req3 is a duplicate of req1.
-	req3 := dial.NewDialRequest(context.Background(), sw, id1)
+	req3 := dial.NewDialRequest(context.Background(), id1)
 
-	if dedup.Prepare(req1); req1.IsComplete() {
+	if dedup.Prepare(req1); req2.IsComplete() {
 		t.Error("dedup should've allowed req1 to proceed")
 	}
 
@@ -45,7 +45,7 @@ func TestDedup(t *testing.T) {
 			t.Errorf("req3 should've completed with req1's completion, req1 complete: %v, req3 complete: %v", req1.IsComplete(), req3.IsComplete())
 		}
 
-		conn3, err3 := req3.Values()
+		conn3, err3 := req3.Result()
 		if conn1 != conn3 || err1 != err3 {
 			t.Error("values of req3 should equal values of req1")
 		}

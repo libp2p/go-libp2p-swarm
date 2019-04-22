@@ -66,19 +66,22 @@ func NewBackoff() Preparer {
 	}
 }
 
-func (db *Backoff) Prepare(req *Request) {
-	req.AddCallback(func() {
-		if req.err != nil {
-			db.AddBackoff(req.id)
-			return
-		}
-		db.ClearBackoff(req.id)
-	})
-
+func (b *Backoff) Prepare(req *Request) error {
 	// if this peer has been backed off, complete the dial immediately
-	if db.Backoff(req.id) {
+	if b.Backoff(req.id) {
 		log.Event(req.ctx, "swarmDialBackoff", req.id)
-		req.Complete(nil, ErrDialBackoff)
+		return ErrDialBackoff
+	}
+
+	req.AddCallback("backoff_cb", b.requestCallback)
+	return nil
+}
+
+func (b *Backoff) requestCallback(req *Request) {
+	if _, err := req.Result(); err != nil {
+		b.AddBackoff(req.PeerID())
+	} else {
+		b.ClearBackoff(req.PeerID())
 	}
 }
 
@@ -91,11 +94,11 @@ var _ Preparer = (*Backoff)(nil)
 
 // Backoff returns whether the client should backoff from dialing
 // peer p
-func (db *Backoff) Backoff(p peer.ID) (backoff bool) {
-	db.lock.Lock()
-	defer db.lock.Unlock()
+func (b *Backoff) Backoff(p peer.ID) (backoff bool) {
+	b.lock.Lock()
+	defer b.lock.Unlock()
 
-	bp, found := db.entries[p]
+	bp, found := b.entries[p]
 	if found && time.Now().Before(bp.until) {
 		return true
 	}
@@ -112,13 +115,13 @@ func (db *Backoff) Backoff(p peer.ID) (backoff bool) {
 //     BackoffBase + BakoffCoef * PriorBackoffs^2
 //
 // Where PriorBackoffs is the number of previous backoffs.
-func (db *Backoff) AddBackoff(p peer.ID) {
-	db.lock.Lock()
-	defer db.lock.Unlock()
+func (b *Backoff) AddBackoff(p peer.ID) {
+	b.lock.Lock()
+	defer b.lock.Unlock()
 
-	bp, ok := db.entries[p]
+	bp, ok := b.entries[p]
 	if !ok {
-		db.entries[p] = &backoffPeer{
+		b.entries[p] = &backoffPeer{
 			tries: 1,
 			until: time.Now().Add(BackoffBase),
 		}
@@ -135,9 +138,9 @@ func (db *Backoff) AddBackoff(p peer.ID) {
 
 // Clear removes a backoff record. Clients should call this after a
 // successful Dial.
-func (db *Backoff) ClearBackoff(p peer.ID) {
-	db.lock.Lock()
-	defer db.lock.Unlock()
+func (b *Backoff) ClearBackoff(p peer.ID) {
+	b.lock.Lock()
+	defer b.lock.Unlock()
 
-	delete(db.entries, p)
+	delete(b.entries, p)
 }

@@ -1,81 +1,82 @@
 package dial
 
 import (
-	"context"
 	"errors"
 	"fmt"
+
+	tpt "github.com/libp2p/go-libp2p-transport"
+	ma "github.com/multiformats/go-multiaddr"
+	"golang.org/x/xerrors"
 )
 
-// ErrNoTransport is returned when we don't know a transport for the
-// given multiaddr.
+// ErrNoTransport is returned when we don't know a transport for the given multiaddr.
 var ErrNoTransport = errors.New("no transport for protocol")
+
+type TransportResolverFn = func(a ma.Multiaddr) tpt.Transport
 
 type executor struct {
 	resolver TransportResolverFn
 	predial  []func(*Job)
 
-	localCloseCh chan struct{}
+	closeCh chan struct{}
 }
 
 var _ Executor = (*executor)(nil)
 
 func NewExecutor(resolver TransportResolverFn, predial ...func(*Job)) Executor {
 	return &executor{
-		resolver:     resolver,
-		predial:      predial,
-		localCloseCh: make(chan struct{}),
+		resolver: resolver,
+		predial:  predial,
+		closeCh:  make(chan struct{}),
 	}
 }
 
-func (e *executor) Start(ctx context.Context, dialCh <-chan *Job) {
+func (e *executor) Run(dialCh <-chan *Job) {
 	for {
 		select {
-		case j := <-dialCh:
+		case j, more := <-dialCh:
+			if !more {
+				return
+			}
 			go e.processDial(j)
-		case <-ctx.Done():
-			return
-		case <-e.localCloseCh:
+		case <-e.closeCh:
 			return
 		}
 	}
 }
 
 func (e *executor) Close() error {
-	close(e.localCloseCh)
+	close(e.closeCh)
 	return nil
 }
 
 func (e *executor) processDial(job *Job) {
-	defer func() {
-		job.completeCh <- job
-	}()
-
 	for _, pd := range e.predial {
 		pd(job)
 	}
 
-	// TODO: check if cancelled
-
 	addr, id := job.addr, job.req.id
-	log.Debugf("%s swarm dialing %s %s", job.req.net.LocalPeer(), id, addr)
+	log.Debugf("swarm dialing peer %s at addr %s", id, addr)
 
 	tpt := e.resolver(addr)
 	if tpt == nil {
-		job.err = ErrNoTransport
+		_ = job.Complete(nil, ErrNoTransport)
 		return
 	}
 
-	tconn, err := tpt.Dial(job.ctx, addr, id)
+	tconn, err := tpt.Dial(job.Context(), addr, id)
 	if err != nil {
-		err = fmt.Errorf("%s --> %s dial attempt failed: %s", job.req.net.LocalPeer(), id, job.err)
-		job.Complete(tconn, err)
+		err = xerrors.Errorf("dial attempt to %s failed: %w", id, err)
+		if err := job.Complete(nil, err); err != nil {
+			log.Errorf("error while completing dial job for peer %s: %s", err)
+		}
 		return
 	}
 
 	// Trust the transport? Yeah... right.
 	if tconn.RemotePeer() != id {
 		tconn.Close()
-		err = fmt.Errorf("BUG in transport %T: tried to dial %s, dialed %s", id, job.tconn.RemotePeer(), tpt)
+		err = fmt.Errorf("BUG in transport %T: tried to dial %s, dialed %s", id, tconn.RemotePeer(), tpt)
 		log.Error(err)
 		job.Complete(nil, err)
 		return

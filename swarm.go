@@ -119,43 +119,42 @@ func NewSwarm(ctx context.Context, local peer.ID, peers pstore.Peerstore, bwc me
 		s.pipeline = s.defaultPipeline()
 	}
 
-	s.pipeline.Start(ctx)
+	s.pipeline.Start()
 	return s
 }
 
 func (s *Swarm) defaultPipeline() *dial.Pipeline {
-	p := dial.NewPipeline(s.ctx, s, s.addConn)
-
-	canDial := func(_ inet.Network) dial.AddrFilterFn {
-		return func(addr ma.Multiaddr) bool {
-			t := s.TransportForDialing(addr)
-			return t != nil && t.CanDial(addr)
-		}
-	}
-
-	excludeBlockedAddr := func(_ inet.Network) dial.AddrFilterFn {
-		return addrutil.FilterNeg(s.Filters.AddrBlocked)
-	}
+	p := dial.NewPipeline(s.ctx, s, func(tc transport.Conn) (conn inet.Conn, e error) {
+		return s.addConn(tc, inet.DirOutbound)
+	})
 
 	// preparers
 	seq := new(dial.PreparerSeq)
-	seq.AddLast("validator", dial.NewValidator())
-	seq.AddLast("request_timeout", dial.NewRequestTimeout())
-	seq.AddLast("syncer", dial.NewDialDedup())
-	seq.AddLast("backoff", dial.NewBackoff())
+	_ = seq.AddLast("validator", dial.NewValidator(s.LocalPeer()))
+	_ = seq.AddLast("request_timeout", dial.NewRequestTimeout())
+	_ = seq.AddLast("syncer", dial.NewDialDedup())
+	_ = seq.AddLast("backoff", dial.NewBackoff())
 	p.SetPreparer(seq)
 
 	// address resolver
-	p.SetAddressResolver(dial.NewAddrResolver(true, canDial, excludeBlockedAddr))
+	var filters []dial.AddrFilterFn
+	filters = append(filters, func(addr ma.Multiaddr) bool {
+		t := s.TransportForDialing(addr)
+		return t != nil && t.CanDial(addr)
+	}) // do we have a transport for dialing this address?
+
+	// is the address blocked?
+	filters = append(filters, (dial.AddrFilterFn)(addrutil.FilterNeg(s.Filters.AddrBlocked)))
+	p.SetAddressResolver(dial.NewPeerstoreAddressResolver(s, true, filters...))
 
 	// throttler
 	p.SetThrottler(dial.NewDefaultThrottler())
 
 	// planner
-	p.SetPlanner(dial.NewSingleBurstPlanner())
+	p.SetPlanner(dial.NewImmediatePlanner())
 
 	// executor
-	p.SetExecutor(dial.NewExecutor(s.TransportForDialing, dial.SetDialTimeout))
+	p.SetExecutor(dial.NewExecutor(s.TransportForDialing, dial.SetJobTimeout))
 
 	return p
 }
@@ -216,7 +215,7 @@ func (s *Swarm) teardown() error {
 		}
 	}
 
-	// Wait for everything to finish.
+	// Await for everything to finish.
 	s.refs.Wait()
 
 	return nil

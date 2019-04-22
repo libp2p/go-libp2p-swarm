@@ -5,7 +5,7 @@ import (
 	"time"
 
 	inet "github.com/libp2p/go-libp2p-net"
-	"github.com/libp2p/go-libp2p-transport"
+	tpt "github.com/libp2p/go-libp2p-transport"
 	mafilter "github.com/libp2p/go-maddr-filter"
 	mamask "github.com/whyrusleeping/multiaddr-filter"
 )
@@ -41,14 +41,14 @@ func init() {
 	}
 }
 
-func SetDialTimeout(job *Job) {
+func SetJobTimeout(job *Job) {
 	timeout := tpt.DialTimeout
 	if lowTimeoutFilters.AddrBlocked(job.addr) {
 		timeout = TimeoutLocal
 	}
-	ctx, cancelFn := context.WithTimeout(job.ctx, timeout)
-	job.ctx = ctx
-	job.AddCallback(cancelFn)
+	job.MutateContext(func(orig context.Context) (context.Context, context.CancelFunc) {
+		return context.WithTimeout(orig, timeout)
+	})
 }
 
 type reqTimeout struct{}
@@ -59,9 +59,10 @@ func NewRequestTimeout() Preparer {
 	return &reqTimeout{}
 }
 
-func (t *reqTimeout) Prepare(req *Request) {
-	// apply the DialPeer timeout
-	ctx, cancel := context.WithTimeout(req.ctx, inet.GetDialPeerTimeout(req.ctx))
-	req.ctx = ctx
-	req.AddCallback(cancel)
+func (t *reqTimeout) Prepare(req *Request) error {
+	req.MutateContext(func(orig context.Context) (context.Context, context.CancelFunc) {
+		// apply the DialPeer timeout
+		return context.WithTimeout(orig, inet.GetDialPeerTimeout(orig))
+	})
+	return nil
 }

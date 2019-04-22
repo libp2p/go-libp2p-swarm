@@ -6,25 +6,32 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/hashicorp/go-multierror"
 	inet "github.com/libp2p/go-libp2p-net"
 	peer "github.com/libp2p/go-libp2p-peer"
 	tpt "github.com/libp2p/go-libp2p-transport"
-	errors2 "github.com/pkg/errors"
+	"golang.org/x/xerrors"
 )
 
-type AddConnFn func(tc tpt.Conn, dir inet.Direction) (inet.Conn, error)
+type AddConnFn func(tc tpt.Conn) (inet.Conn, error)
 
-// The Pipeline is the central structure of the dialer. One could think of it as the controller or coordinator.
+// Pipeline is the heart of the dialer. It represents a series of atomical components wired together, each with a
+// clearly-delimited responsibility. The pipeline orchestrates these components to implement the dialing functionality.
 //
-// It is comprised by a chain of components that are wired together, following the _pipeline_ design pattern
-// in traditional software architecture.
+// The Pipeline has five components. We provide brief descriptions below. For additional info, refer to the godoc
+// of the appropriate interfaces:
 //
-// TODO: more docs.
+// - Preparer: runs preparatory actions prior to the dial execution. Actions include: deduplicating, populating
+//	 		   timeouts, validating the peer ID, etc.
+// - AddressResolver: populates the set of addresses for a peer.
+// - Planner
+// - Throttler
+// - Executor
 type Pipeline struct {
 	lk  sync.RWMutex
 	ctx context.Context
 
-	net inet.Network
+	network inet.Network
 
 	preparer  Preparer
 	resolver  AddressResolver
@@ -33,9 +40,155 @@ type Pipeline struct {
 	executor  Executor
 
 	throttleCh chan *Job
-	dialCh     chan *Job
+	executeCh  chan *Job
 
 	addConnFn AddConnFn
+}
+
+func NewPipeline(ctx context.Context, net inet.Network, addConnFn AddConnFn) *Pipeline {
+	pipeline := &Pipeline{
+		ctx:        ctx,
+		network:    net,
+		addConnFn:  addConnFn,
+		throttleCh: make(chan *Job, 128),
+		executeCh:  make(chan *Job, 128),
+	}
+	return pipeline
+}
+
+func (p *Pipeline) Start() {
+	go p.executor.Run(p.executeCh)
+	go p.throttler.Run(p.throttleCh, p.executeCh)
+}
+
+func (p *Pipeline) Close() error {
+	var err *multierror.Error
+	err = multierror.Append(p.throttler.Close())
+	err = multierror.Append(p.executor.Close())
+	return err
+}
+
+func (p *Pipeline) Dial(ctx context.Context, id peer.ID) (inet.Conn, error) {
+	req := NewDialRequest(ctx, id)
+
+	// Step 1: invoke the preparers. Abort if any of them fails.
+	if err := p.preparer.Prepare(req); err != nil {
+		return req.Complete(nil, err)
+	}
+
+	// Preparers may complete the request.
+	if req.IsComplete() {
+		return req.Result()
+	}
+
+	// Step 2: resolve addresses for the peer.
+	known, discovered, err := p.resolver.Resolve(req)
+	if err != nil {
+		err = xerrors.Errorf("error while resolving addresses for peer %s: %w", id.Pretty(), err)
+		return req.Complete(nil, err)
+	}
+
+	if len(known) == 0 && discovered == nil {
+		return req.Complete(nil, fmt.Errorf("no addresses to dial for peer %s", id.Pretty()))
+	}
+
+	// At this point we have a set of dialable addrs, and/or a channel where we'll receive new ones.
+	var (
+		success, errored []*Job
+
+		inflight = make(map[*Job]struct{})
+		planned  = make(chan []*Job, 16)
+		resp     = make(chan *Job, 16)
+	)
+
+	plan, err := p.planner.NewPlan(req, known, planned)
+	if err != nil {
+		err = xerrors.Errorf("error while starting to plan the dial for peer %s: %w", id.Pretty(), err)
+		return req.Complete(nil, err)
+	}
+
+	if discovered == nil {
+		// There is no asynchronous address resolution occurring, so notify the plan immediately that we're done.
+		plan.ResolutionDone()
+	}
+
+	// closure that tells us if we're done: when we have no inflight requests, and the planner has finished.
+	// the addressresolver may still be working, but if the planner is satisfied with the result, so are we.
+	done := func() bool { return len(inflight) == 0 && planned == nil }
+
+	for {
+		if done() {
+			break
+		}
+
+		select {
+		case job := <-resp:
+			// Handle new responses coming in.
+			if _, err := job.Result(); err == nil {
+				success = append(success, job)
+			} else {
+				errored = append(errored, job)
+			}
+			delete(inflight, job)
+			plan.JobComplete(job)
+
+		case jobs, more := <-planned:
+			// Push new planned jobs onto the throttler.
+			if !more {
+				log.Infof("finished planning dial jobs for peer: %s", id)
+				if err := plan.Error(); err != nil {
+					log.Errorf("planner failed for peer %s, failing request: %s", id, err)
+					return req.Complete(nil, err)
+				}
+				planned = nil // stop receiving from this channel
+				continue
+			}
+			for _, j := range jobs {
+				j.SetResponseChan(resp)
+				inflight[j] = struct{}{}
+				p.throttleCh <- j
+			}
+
+		case addrs, more := <-discovered:
+			if !more {
+				log.Infof("finished discovering addresses for peer %s", id)
+				plan.ResolutionDone()
+				discovered = nil // stop receiving from this channel
+				continue
+			}
+			plan.NewAddresses(addrs)
+
+		case <-ctx.Done():
+			return req.Complete(nil, ctx.Err())
+		}
+	}
+
+	if len(success) == 0 && len(errored) == 0 {
+		// if we performed no dials; this could happen if we had no addresses in the peerstore, and the discovery
+		// process gave up before the context deadline fired.
+		return req.Complete(nil, errors.New("no dials performed"))
+	}
+
+	if len(success) == 0 {
+		var err *multierror.Error
+		for _, j := range errored {
+			_, e := j.Result()
+			err = multierror.Append(err, e)
+		}
+		return req.Complete(nil, xerrors.Errorf("no successful dials: %w", err))
+	}
+
+	selected, err := plan.Select(success)
+	if err != nil {
+		err = xerrors.Errorf("planner failed to select a connection (amongst %v): %w", success, err)
+		return req.Complete(nil, err)
+	}
+	conn, err := selected.Result()
+	if err != nil {
+		err = xerrors.Errorf("connection selected by planner was errored (multiaddr: %s): %w", selected.addr, err)
+		return req.Complete(nil, err)
+	}
+	return req.Complete(p.addConnFn(conn))
 }
 
 func (p *Pipeline) SetPreparer(pr Preparer) {
@@ -72,237 +225,4 @@ func (p *Pipeline) Throttler() Throttler {
 
 func (p *Pipeline) Executor() Executor {
 	return p.executor
-}
-
-func NewPipeline(ctx context.Context, net inet.Network, addConnFn AddConnFn) *Pipeline {
-	pipeline := &Pipeline{
-		ctx:       ctx,
-		net:       net,
-		addConnFn: addConnFn,
-	}
-	return pipeline
-}
-
-func (p *Pipeline) Start(ctx context.Context) {
-	p.dialCh = make(chan *Job, 100)
-	p.throttleCh = make(chan *Job, 100)
-
-	go p.executor.Start(ctx, p.dialCh)
-	go p.throttler.Start(ctx, p.throttleCh, p.dialCh)
-}
-
-func (p *Pipeline) Dial(ctx context.Context, id peer.ID) (inet.Conn, error) {
-	req := NewDialRequest(ctx, p.net, id)
-
-	// Prepare the dial.
-	if p.preparer.Prepare(req); req.IsComplete() {
-		return req.Values()
-	}
-
-	more, err := p.resolver.Resolve(req)
-	if err != nil {
-		return nil, errors2.Wrapf(err, "error while resolving addresses for peer %s", id.Pretty())
-	}
-
-	if len(req.addrs) == 0 && more == nil {
-		return nil, fmt.Errorf("no addresses to dial for peer %s", id.Pretty())
-	}
-
-	// At this point we have a set of dialable maddrs.
-	var (
-		conn   tpt.Conn
-		dialed dialJobs
-		planCh = make(chan dialJobs, 1)
-		respCh = make(chan *Job)
-	)
-
-	if err := p.planner.Next(req, dialed, nil, planCh); err != nil {
-		req.Complete(nil, err)
-		return req.Values()
-	}
-
-	// no need to synchronize access to inflight, as it's locally bound and single-threaded.
-	inflight := 0
-
-PlanExecute:
-	for {
-		select {
-		case jobs, more := <-planCh:
-			inflight = inflight + len(jobs)
-			for _, j := range jobs {
-				j.completeCh = respCh
-				dialed = append(dialed, j)
-				p.throttleCh <- j
-			}
-			if !more {
-				// stop reading from this channel
-				planCh = nil
-			}
-
-		case res := <-respCh:
-			inflight--
-			if planCh != nil {
-				err := p.planner.Next(req, dialed, res, planCh)
-				if err != nil {
-					req.Complete(nil, err)
-					break PlanExecute
-				}
-			} else if inflight == 0 {
-				break PlanExecute
-			}
-
-		case <-ctx.Done():
-			req.Complete(nil, ctx.Err())
-			return req.Values()
-		}
-	}
-
-	success, _ := dialed.sift()
-	switch len(success) {
-	case 0:
-		req.Complete(nil, errors.New("no successful dials"))
-	case 1:
-		sconn, err := p.addConnFn(success[0].tconn, inet.DirOutbound)
-		req.Complete(sconn, err)
-	default:
-		conn, err = p.planner.Select(success)
-		if err != nil {
-			req.Complete(nil, errors.New("failed while selecting a connection"))
-			break
-		}
-		sconn, err := p.addConnFn(conn, inet.DirOutbound)
-		req.Complete(sconn, err)
-
-		// close connections that were not selected
-		for _, s := range success {
-			if s.tconn != conn {
-				if err := s.tconn.Close(); err != nil {
-					// TODO log error while closing unselected connection
-				}
-			}
-		}
-	}
-
-	// Callbacks could modify the result, so return the values from the context, instead of local vars.
-	return req.Values()
-}
-
-type preparerBinding struct {
-	name string
-	p    Preparer
-}
-
-// PreparerSeq is a Preparer that daisy-chains the Request through an ordered list of preparers. It short-circuits
-// the process if a Preparer completes the Request. Preparers are bound by unique names.
-type PreparerSeq struct {
-	lk  sync.Mutex
-	seq []preparerBinding
-}
-
-var _ Preparer = (*PreparerSeq)(nil)
-
-func (ps *PreparerSeq) Prepare(req *Request) {
-	for _, p := range ps.seq {
-		if p.p.Prepare(req); req.IsComplete() {
-			break
-		}
-	}
-}
-
-func (ps *PreparerSeq) find(name string) (i int, res *preparerBinding) {
-	for i, pb := range ps.seq {
-		if pb.name == name {
-			return i, &pb
-		}
-	}
-	return -1, nil
-}
-
-func (ps *PreparerSeq) AddFirst(name string, preparer Preparer) error {
-	ps.lk.Lock()
-	defer ps.lk.Unlock()
-
-	if _, prev := ps.find(name); prev != nil {
-		return fmt.Errorf("a preparer with name %s already exists", name)
-	}
-	pb := preparerBinding{name, preparer}
-	ps.seq = append([]preparerBinding{pb}, ps.seq...)
-	return nil
-}
-
-func (ps *PreparerSeq) AddLast(name string, preparer Preparer) error {
-	ps.lk.Lock()
-	defer ps.lk.Unlock()
-
-	if _, prev := ps.find(name); prev != nil {
-		return fmt.Errorf("a preparer with name %s already exists", name)
-	}
-	pb := preparerBinding{name, preparer}
-	ps.seq = append(ps.seq, pb)
-	return nil
-}
-
-func (ps *PreparerSeq) InsertBefore(before, name string, preparer Preparer) error {
-	ps.lk.Lock()
-	defer ps.lk.Unlock()
-
-	i, prev := ps.find(before)
-	if prev == nil {
-		return fmt.Errorf("no preparers found with name %s", name)
-	}
-
-	pb := preparerBinding{name, preparer}
-	ps.seq = append(ps.seq, pb)
-	copy(ps.seq[i+1:], ps.seq[i:])
-	ps.seq[i] = pb
-
-	return nil
-}
-
-func (ps *PreparerSeq) InsertAfter(after, name string, preparer Preparer) error {
-	ps.lk.Lock()
-	defer ps.lk.Unlock()
-
-	i, prev := ps.find(after)
-	if prev == nil {
-		return fmt.Errorf("no preparers found with name %s", name)
-	}
-
-	pb := preparerBinding{name, preparer}
-	ps.seq = append(ps.seq, pb)
-	copy(ps.seq[i+2:], ps.seq[i+1:])
-	ps.seq[i+1] = pb
-
-	return nil
-}
-
-func (ps *PreparerSeq) Replace(old, name string, preparer Preparer) error {
-	ps.lk.Lock()
-	defer ps.lk.Unlock()
-
-	i, prev := ps.find(old)
-	if prev == nil {
-		return fmt.Errorf("no preparers found with name %s", name)
-	}
-	ps.seq[i] = preparerBinding{name, preparer}
-	return nil
-}
-
-func (ps *PreparerSeq) Remove(name string) {
-	ps.lk.Lock()
-	defer ps.lk.Unlock()
-
-	if i, prev := ps.find(name); prev != nil {
-		ps.seq = append(ps.seq[:i], ps.seq[i+1:]...)
-	}
-}
-
-func (ps *PreparerSeq) Get(name string) Preparer {
-	ps.lk.Lock()
-	defer ps.lk.Unlock()
-
-	if _, pb := ps.find(name); pb != nil {
-		return pb.p
-	}
-	return nil
 }
