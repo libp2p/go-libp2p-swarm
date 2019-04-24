@@ -43,6 +43,9 @@ var (
 	// ErrNoTransport is returned when we don't know a transport for the
 	// given multiaddr.
 	ErrNoTransport = errors.New("no transport for protocol")
+
+	// ErrTooManyErrors is returned as the final error when we encounter too many errors when dialing a peer.
+	ErrTooManyErrors = errors.New("too many errors")
 )
 
 // DialAttempts governs how many times a goroutine will try to dial a given peer.
@@ -57,6 +60,9 @@ const ConcurrentFdDials = 160
 // DefaultPerPeerRateLimit is the number of concurrent outbound dials to make
 // per peer
 const DefaultPerPeerRateLimit = 8
+
+// maxDialErrors is the maximum number of dial errors we record
+const maxDialErrors = 32
 
 // dialbackoff is a struct used to avoid over-dialing the same, dead peers.
 // Whenever we totally time out on a peer (all three attempts), we add them
@@ -362,6 +368,22 @@ func (s *Swarm) dialAddrs(ctx context.Context, p peer.ID, remoteAddrs <-chan ma.
 	respch := make(chan dialResult)
 	var dialErrors *multierror.Error
 
+	// aggregateErr aggregates returned errors into a single multi-error but
+	// limits the number of errors we record.
+	aggregateErr := func(err error) {
+		if dialErrors == nil || dialErrors.Len() < maxDialErrors {
+			// keep the error
+		} else if dialErrors.Len() == maxDialErrors {
+			// Make the last error "too many errors".
+			err = ErrTooManyErrors
+		} else {
+			// Already have too many errors.
+			return
+		}
+
+		dialErrors = multierror.Append(dialErrors, err)
+	}
+
 	defer s.limiter.clearAllPeerDials(p)
 
 	var active int
@@ -379,7 +401,7 @@ func (s *Swarm) dialAddrs(ctx context.Context, p peer.ID, remoteAddrs <-chan ma.
 			if resp.Err != nil {
 				// Errors are normal, lots of dials will fail
 				log.Infof("got error on dial: %s", resp.Err)
-				dialErrors = multierror.Append(dialErrors, resp.Err)
+				aggregateErr(resp.Err)
 			} else if resp.Conn != nil {
 				return resp.Conn, nil
 			}
@@ -410,7 +432,7 @@ func (s *Swarm) dialAddrs(ctx context.Context, p peer.ID, remoteAddrs <-chan ma.
 			if resp.Err != nil {
 				// Errors are normal, lots of dials will fail
 				log.Infof("got error on dial: %s", resp.Err)
-				dialErrors = multierror.Append(dialErrors, resp.Err)
+				aggregateErr(resp.Err)
 			} else if resp.Conn != nil {
 				return resp.Conn, nil
 			}
