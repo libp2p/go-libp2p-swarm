@@ -43,9 +43,6 @@ var (
 	// ErrNoTransport is returned when we don't know a transport for the
 	// given multiaddr.
 	ErrNoTransport = errors.New("no transport for protocol")
-
-	// ErrTooManyErrors is returned as the final error when we encounter too many errors when dialing a peer.
-	ErrTooManyErrors = errors.New("too many errors")
 )
 
 // DialAttempts governs how many times a goroutine will try to dial a given peer.
@@ -366,36 +363,28 @@ func (s *Swarm) dialAddrs(ctx context.Context, p peer.ID, remoteAddrs <-chan ma.
 
 	// use a single response type instead of errs and conns, reduces complexity *a ton*
 	respch := make(chan dialResult)
-	var dialErrors *multierror.Error
+	dialErrors := new(multierror.Error)
+	excessErrors := 0
 
 	// aggregateErr aggregates returned errors into a single multi-error but
 	// limits the number of errors we record.
 	aggregateErr := func(err error) {
-		if dialErrors == nil || dialErrors.Len() < maxDialErrors {
-			// keep the error
-		} else if dialErrors.Len() == maxDialErrors {
-			// Make the last error "too many errors".
-			err = ErrTooManyErrors
-		} else {
+		if dialErrors.Len() > maxDialErrors {
 			// Already have too many errors.
-			return
+			excessErrors++
 		}
-
 		dialErrors = multierror.Append(dialErrors, err)
 	}
 
 	defer s.limiter.clearAllPeerDials(p)
 
 	var active int
+dialLoop:
 	for remoteAddrs != nil || active > 0 {
 		// Check for context cancellations and/or responses first.
 		select {
 		case <-ctx.Done():
-			if dialError := dialErrors.ErrorOrNil(); dialError != nil {
-				return nil, dialError
-			}
-
-			return nil, ctx.Err()
+			break dialLoop
 		case resp := <-respch:
 			active--
 			if resp.Err != nil {
@@ -422,11 +411,7 @@ func (s *Swarm) dialAddrs(ctx context.Context, p peer.ID, remoteAddrs <-chan ma.
 			s.limitedDial(ctx, p, addr, respch)
 			active++
 		case <-ctx.Done():
-			if dialError := dialErrors.ErrorOrNil(); dialError != nil {
-				return nil, dialError
-			}
-
-			return nil, ctx.Err()
+			break dialLoop
 		case resp := <-respch:
 			active--
 			if resp.Err != nil {
@@ -439,11 +424,23 @@ func (s *Swarm) dialAddrs(ctx context.Context, p peer.ID, remoteAddrs <-chan ma.
 		}
 	}
 
-	if dialError := dialErrors.ErrorOrNil(); dialError != nil {
-		return nil, dialError
+	// include the context error if non-nil
+	dialErrors = multierror.Append(dialErrors, ctx.Err())
+	if excessErrors > 0 {
+		dialErrors = multierror.Append(
+			dialErrors,
+			fmt.Errorf("too many errors when dialing: skipping %d errors", excessErrors),
+		)
 	}
 
-	return nil, inet.ErrNoRemoteAddrs
+	switch dialErrors.Len() {
+	case 0:
+		return nil, inet.ErrNoRemoteAddrs
+	case 1:
+		return nil, dialErrors.Errors[0]
+	default:
+		return nil, dialErrors
+	}
 }
 
 // limitedDial will start a dial to the given peer when
