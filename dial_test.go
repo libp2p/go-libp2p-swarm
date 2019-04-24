@@ -2,9 +2,7 @@ package swarm_test
 
 import (
 	"context"
-	"fmt"
 	"net"
-	"regexp"
 	"sync"
 	"testing"
 	"time"
@@ -491,8 +489,8 @@ func TestDialPeerFailed(t *testing.T) {
 	defer closeSwarms(swarms)
 	testedSwarm, targetSwarm := swarms[0], swarms[1]
 
-	exceptedErrorsCount := 5
-	for i := 0; i < exceptedErrorsCount; i++ {
+	expectedErrorsCount := 5
+	for i := 0; i < expectedErrorsCount; i++ {
 		_, silentPeerAddress, silentPeerListener := newSilentPeer(t)
 		go acceptAndHang(silentPeerListener)
 		defer silentPeerListener.Close()
@@ -508,23 +506,17 @@ func TestDialPeerFailed(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// dial_test.go:508: correctly get a combined error: dial attempt failed: 10 errors occurred:
-	//     * <peer.ID Qm*Wpwtvc> --> <peer.ID Qm*cc2FQR> (/ip4/127.0.0.1/tcp/46485) dial attempt failed: failed to negotiate security protocol: context deadline exceeded
-	//     * <peer.ID Qm*Wpwtvc> --> <peer.ID Qm*cc2FQR> (/ip4/127.0.0.1/tcp/34881) dial attempt failed: failed to negotiate security protocol: context deadline exceeded
+	// dial_test.go:508: correctly get a combined error: failed to dial PEER: all dials failed
+	//   * [/ip4/127.0.0.1/tcp/46485] failed to negotiate security protocol: context deadline exceeded
+	//   * [/ip4/127.0.0.1/tcp/34881] failed to negotiate security protocol: context deadline exceeded
 	// ...
 
-	errorCountRegexpString := fmt.Sprintf("%d errors occurred", exceptedErrorsCount)
-	errorCountRegexp := regexp.MustCompile(errorCountRegexpString)
-	if !errorCountRegexp.MatchString(err.Error()) {
-		t.Fatalf("can't find total err count: `%s' in `%s'", errorCountRegexpString, err.Error())
+	dialErr, ok := err.(*DialError)
+	if !ok {
+		t.Fatalf("expected *DialError, got %T", err)
 	}
 
-	connectErrorsRegexpString := `\* <peer\.ID .+?> --> <peer\.ID .+?> \(.+?\) dial attempt failed:.+`
-	connectErrorsRegexp := regexp.MustCompile(connectErrorsRegexpString)
-	connectErrors := connectErrorsRegexp.FindAll([]byte(err.Error()), -1)
-	if len(connectErrors) != exceptedErrorsCount {
-		t.Fatalf("connectErrors must contain %d errros; "+
-			"but `%s' was found in `%s' %d times",
-			exceptedErrorsCount, connectErrorsRegexpString, err.Error(), len(connectErrors))
+	if len(dialErr.DialErrors) != expectedErrorsCount {
+		t.Errorf("expected %d errors, got %d", expectedErrorsCount, len(dialErr.DialErrors))
 	}
 }
