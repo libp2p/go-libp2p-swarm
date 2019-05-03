@@ -1,5 +1,7 @@
 module github.com/libp2p/go-libp2p-swarm
 
+go 1.12
+
 require (
 	github.com/ipfs/go-log v0.0.1
 	github.com/jbenet/goprocess v0.1.3
@@ -17,6 +19,6 @@ require (
 	github.com/libp2p/go-tcp-transport v0.1.0
 	github.com/multiformats/go-multiaddr v0.0.4
 	github.com/multiformats/go-multiaddr-net v0.0.1
-	github.com/whyrusleeping/mafmt v1.2.8
 	github.com/whyrusleeping/multiaddr-filter v0.0.0-20160516205228-e903e4adabd7
+	golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7
 )

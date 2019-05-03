@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/libp2p/go-libp2p-core/network"
-
+	"github.com/libp2p/go-libp2p-swarm/dial"
 	ma "github.com/multiformats/go-multiaddr"
 )
 
@@ -40,7 +40,7 @@ func (s *Swarm) Listen(addrs ...ma.Multiaddr) error {
 func (s *Swarm) AddListenAddr(a ma.Multiaddr) error {
 	tpt := s.TransportForListening(a)
 	if tpt == nil {
-		return ErrNoTransport
+		return dial.ErrNoTransport
 	}
 
 	list, err := tpt.Listen(a)

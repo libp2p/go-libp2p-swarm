@@ -1,9 +1,16 @@
-package swarm
+package dial
 
 import (
+	"context"
+	"time"
+
+	"github.com/libp2p/go-libp2p-core/network"
+	"github.com/libp2p/go-libp2p-core/transport"
 	mafilter "github.com/libp2p/go-maddr-filter"
 	mamask "github.com/whyrusleeping/multiaddr-filter"
 )
+
+var TimeoutLocal = 5 * time.Second
 
 // http://www.iana.org/assignments/iana-ipv4-special-registry/iana-ipv4-special-registry.xhtml
 var lowTimeoutFilters = mafilter.NewFilters()
@@ -32,4 +39,30 @@ func init() {
 		}
 		lowTimeoutFilters.AddDialFilter(f)
 	}
+}
+
+func SetJobTimeout(job *Job) {
+	timeout := transport.DialTimeout
+	if lowTimeoutFilters.AddrBlocked(job.Address()) {
+		timeout = TimeoutLocal
+	}
+	job.MutateContext(func(orig context.Context) (context.Context, context.CancelFunc) {
+		return context.WithTimeout(orig, timeout)
+	})
+}
+
+type reqTimeout struct{}
+
+var _ Preparer = (*reqTimeout)(nil)
+
+func NewRequestTimeout() Preparer {
+	return &reqTimeout{}
+}
+
+func (t *reqTimeout) Prepare(req *Request) error {
+	req.MutateContext(func(orig context.Context) (context.Context, context.CancelFunc) {
+		// apply the DialPeer timeout
+		return context.WithTimeout(orig, network.GetDialPeerTimeout(orig))
+	})
+	return nil
 }

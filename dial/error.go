@@ -1,11 +1,10 @@
-package swarm
+package dial
 
 import (
 	"fmt"
 	"strings"
 
 	"github.com/libp2p/go-libp2p-core/peer"
-
 	ma "github.com/multiformats/go-multiaddr"
 )
 
@@ -13,14 +12,14 @@ import (
 const maxDialDialErrors = 16
 
 // DialError is the error type returned when dialing.
-type DialError struct {
+type Error struct {
 	Peer       peer.ID
 	DialErrors []TransportError
 	Cause      error
 	Skipped    int
 }
 
-func (e *DialError) recordErr(addr ma.Multiaddr, err error) {
+func (e *Error) recordErr(addr ma.Multiaddr, err error) {
 	if len(e.DialErrors) >= maxDialDialErrors {
 		e.Skipped++
 		return
@@ -31,23 +30,23 @@ func (e *DialError) recordErr(addr ma.Multiaddr, err error) {
 	})
 }
 
-func (e *DialError) Error() string {
+func (e *Error) Error() string {
 	var builder strings.Builder
-	fmt.Fprintf(&builder, "failed to dial %s:", e.Peer)
+	_, _ = fmt.Fprintf(&builder, "failed to dial %s:", e.Peer)
 	if e.Cause != nil {
-		fmt.Fprintf(&builder, " %s", e.Cause)
+		_, _ = fmt.Fprintf(&builder, " %s", e.Cause)
 	}
 	for _, te := range e.DialErrors {
-		fmt.Fprintf(&builder, "\n  * [%s] %s", te.Address, te.Cause)
+		_, _ = fmt.Fprintf(&builder, "\n  * [%s] %s", te.Address, te.Cause)
 	}
 	if e.Skipped > 0 {
-		fmt.Fprintf(&builder, "\n    ... skipping %d errors ...", e.Skipped)
+		_, _ = fmt.Fprintf(&builder, "\n    ... skipping %d errors ...", e.Skipped)
 	}
 	return builder.String()
 }
 
 // Unwrap implements https://godoc.org/golang.org/x/xerrors#Wrapper.
-func (e *DialError) Unwrap() error {
+func (e *Error) Unwrap() error {
 	// If we have a context error, that's the "ultimate" error.
 	if e.Cause != nil {
 		return e.Cause
@@ -55,7 +54,7 @@ func (e *DialError) Unwrap() error {
 	return nil
 }
 
-var _ error = (*DialError)(nil)
+var _ error = (*Error)(nil)
 
 // TransportError is the error returned when dialing a specific address.
 type TransportError struct {
