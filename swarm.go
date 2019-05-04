@@ -25,6 +25,15 @@ import (
 	mafilter "github.com/whyrusleeping/multiaddr-filter"
 )
 
+var (
+	// error aliases for backwards compatibility.
+	ErrDialBackoff    = dial.ErrDialBackoff
+	ErrDialToSelf     = dial.ErrDialToSelf
+	ErrNoTransport    = dial.ErrNoTransport
+	ErrAllDialsFailed = dial.ErrAllDialsFailed
+	ErrNoAddresses    = dial.ErrNoAddresses
+)
+
 // DialTimeoutLocal is the maximum duration a Dial to local network address
 // is allowed to take.
 // This includes the time between dialing the raw network connection,
