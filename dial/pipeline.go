@@ -146,6 +146,7 @@ func (p *Pipeline) Dial(ctx context.Context, id peer.ID) (network.Conn, error) {
 
 	for {
 		if done() {
+			close(resp)
 			break
 		}
 

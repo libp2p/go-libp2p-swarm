@@ -338,13 +338,21 @@ func (j *Job) Complete(conn transport.CapableConn, err error) {
 	j.status = StatusComplete
 	j.lk.Unlock()
 
+	j.FireCancels()
+
 	select {
 	case j.respCh <- j:
+	case <-j.req.Context().Done():
 	default:
 		// response channel is backlogged; trigger an ephemeral goroutine to avoid blocking
 		// this should not happen often, but when it does, we assume the cost.
 		log.Warningf("response chan for dial jobs for peer %s is backlogged; "+
 			"spawning goroutine to avoid blocking", j.req.id)
-		go func() { j.respCh <- j }()
+		go func(req *Request) {
+			select {
+			case j.respCh <- j:
+			case <-req.Context().Done():
+			}
+		}(j.req)
 	}
 }
