@@ -27,8 +27,8 @@ type throttler struct {
 
 	/* signalling channels */
 	finished       chan *Job
-	peerTokenFreed chan peer.ID
-	fdTokenFreed   chan struct{}
+	peerTokenFreed chan *Job
+	fdTokenFreed   chan *Job
 	closeCh        chan struct{}
 }
 
@@ -45,8 +45,8 @@ func NewThrottlerWithParams(fdLimit, perPeerLimit int) Throttler {
 
 		// we are capped by file descriptor limits, so it's safe to use as our chan lengths.
 		finished:       make(chan *Job, fdLimit),
-		fdTokenFreed:   make(chan struct{}, fdLimit),
-		peerTokenFreed: make(chan peer.ID, fdLimit),
+		fdTokenFreed:   make(chan *Job, fdLimit),
+		peerTokenFreed: make(chan *Job, fdLimit),
 	}
 }
 
@@ -64,13 +64,13 @@ func (t *throttler) Run(incoming <-chan *Job, released chan<- *Job) {
 	for {
 		// process token releases first.
 		select {
-		case id := <-t.peerTokenFreed:
+		case job := <-t.peerTokenFreed:
+			id := job.Request().PeerID()
 			t.peerConsuming[id]--
 			if t.peerConsuming[id] == 0 {
 				delete(t.peerConsuming, id)
 			}
-			log.Debugf("[throttler] freeing peer token; peer %s; active for peer: %d; waiting on peer limit: %d",
-				id, t.peerConsuming[id], len(t.peerWaiters[id]))
+			job.Debugf("throttler: freeing peer token; waiting on peer limit: %d", len(t.peerWaiters[id]))
 			waitlist := t.peerWaiters[id]
 			if len(waitlist) == 0 {
 				continue
@@ -91,9 +91,9 @@ func (t *throttler) Run(incoming <-chan *Job, released chan<- *Job) {
 			}
 			continue
 
-		case <-t.fdTokenFreed:
+		case job := <-t.fdTokenFreed:
 			t.fdConsuming--
-			log.Debugf("[throttler] freeing FD token; waiting: %d; consuming: %d", len(t.fdWaiters), t.fdConsuming)
+			job.Debugf("throttler: freeing FD token; waiting: %d; consuming: %d", len(t.fdWaiters), t.fdConsuming)
 			for len(t.fdWaiters) > 0 {
 				next := t.fdWaiters[0]
 				t.fdWaiters[0] = nil
@@ -102,7 +102,7 @@ func (t *throttler) Run(incoming <-chan *Job, released chan<- *Job) {
 					t.fdWaiters = nil
 				}
 				if next.Cancelled() {
-					t.peerTokenFreed <- next.Request().PeerID()
+					t.peerTokenFreed <- next
 					continue
 				}
 				t.fdConsuming++
@@ -115,12 +115,11 @@ func (t *throttler) Run(incoming <-chan *Job, released chan<- *Job) {
 
 		select {
 		case job := <-t.finished:
-			id := job.Request().PeerID()
-			log.Debugf("[throttler] clearing state for completed job; peer: %s; addr: %s", id, job.Address())
+			job.Debugf("throttler: clearing state for completed job")
 			if addrutil.IsFDCostlyTransport(job.Address()) {
-				t.fdTokenFreed <- struct{}{}
+				t.fdTokenFreed <- job
 			}
-			t.peerTokenFreed <- id
+			t.peerTokenFreed <- job
 
 		case job := <-incoming:
 			if !t.throttlePeerLimit(job) && !t.throttleFd(job) {
@@ -138,7 +137,7 @@ func (t *throttler) releaseJob(job *Job, released chan<- *Job) {
 	job.AddCallback("throttler", func(j *Job) {
 		t.finished <- j
 	})
-	log.Debugf("[throttler] releasing dial job to executor: %v", job.Address())
+	job.Debugf("throttler: releasing dial job to executor")
 	released <- job
 }
 
@@ -147,14 +146,13 @@ func (t *throttler) throttleFd(job *Job) (throttle bool) {
 		return false
 	}
 	if t.fdConsuming >= t.fdLimit {
-		log.Debugf("[throttler] blocked dial waiting on FD token; peer: %s; addr: %s; consuming: %d; "+
-			"limit: %d; waiting: %d", job.Request().PeerID(), job.Address(), t.fdConsuming, t.fdLimit, len(t.fdWaiters))
+		job.Debugf("throttler: blocked dial waiting on FD token; consuming: %d; limit: %d; waiting: %d",
+			t.fdConsuming, t.fdLimit, len(t.fdWaiters))
 		t.fdWaiters = append(t.fdWaiters, job)
 		job.MarkBlocked()
 		return true
 	}
-	log.Debugf("[throttler] taking FD token: peer: %s; addr: %s; prev consuming: %d",
-		job.Request().PeerID(), job.Address(), t.fdConsuming)
+	job.Debugf("[throttler] taking FD token; prev consuming: %d", t.fdConsuming)
 	t.fdConsuming++
 	return false
 }
@@ -162,8 +160,8 @@ func (t *throttler) throttleFd(job *Job) (throttle bool) {
 func (t *throttler) throttlePeerLimit(job *Job) (throttle bool) {
 	id := job.Request().PeerID()
 	if t.peerConsuming[id] >= t.peerLimit {
-		log.Debugf("[throttler] blocked dial waiting on peer limit; peer: %s; addr: %s; active: %d; "+
-			"peer limit: %d; waiting: %d", id, job.Address(), t.peerConsuming[id], t.peerLimit, len(t.peerWaiters[id]))
+		job.Debugf("throttler: blocked dial waiting on peer limit; active: %d; peer limit: %d; waiting: %d",
+			t.peerConsuming[id], t.peerLimit, len(t.peerWaiters[id]))
 		wlist := t.peerWaiters[id]
 		t.peerWaiters[id] = append(wlist, job)
 		job.MarkBlocked()

@@ -35,19 +35,23 @@ func (d *dialDedup) Prepare(req *Request) error {
 	active, ok := d.inflight[id]
 	if !ok {
 		// if no other dials to this peer are underway, add ourselves, along with a callback to delete us.
-		req.AddCallback("dedup_callback", d.requestCallback)
+		req.AddCallback("dedup", d.requestCallback)
 		d.inflight[id] = req
 		d.lk.Unlock()
 		return nil
 	}
 
+	req.Debugf("deduplicating dial; another one is in progress")
+
 	// If there's an active dial in progress, let's wait until it completes.
 	d.lk.Unlock()
 	select {
 	case <-active.Await():
+		req.Debugf("deduplicated dial fulfilled from another dial")
 		// the other dial completed, copy over the result.
 		_, _ = req.CompleteFrom(active)
 	case <-req.Context().Done():
+		req.Debugf("deduplicated dial was cancelled")
 		// our timeout elapsed or the dial was cancelled; abort.
 		_, _ = req.Complete(nil, req.Context().Err())
 	}

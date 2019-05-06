@@ -52,9 +52,11 @@ func NewPeerstoreAddressResolver(network network.Network, useDefaultFilters bool
 func (par *pstoreAddrResolver) Resolve(req *Request) (known []ma.Multiaddr, more <-chan []ma.Multiaddr, err error) {
 	known = par.network.Peerstore().Addrs(req.PeerID())
 	if len(known) == 0 {
+		req.Debugf("no addresses in peerstore")
 		return nil, nil, nil
 	}
 
 	known = addrutil.FilterAddrs(known, par.filters...)
+	req.Debugf("addresses after filtering: %v", known)
 	return known, nil, nil
 }

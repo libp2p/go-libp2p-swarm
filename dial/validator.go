@@ -21,7 +21,6 @@ func NewValidator(local peer.ID) Preparer {
 
 func (v *validator) Prepare(req *Request) error {
 	id := req.PeerID()
-	log.Debugf("[%s] swarm dialing peer [%s]", v.local, id)
 
 	var logdial = lgbl.Dial("swarm", v.local, id, nil, nil)
 	if err := id.Validate(); err != nil {

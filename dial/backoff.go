@@ -62,6 +62,7 @@ func NewBackoff() Preparer {
 func (b *Backoff) Prepare(req *Request) error {
 	// if this peer has been backed off, complete the dial immediately
 	if b.Backoff(req.PeerID()) {
+		req.Debugf("peer is backed off")
 		log.Event(req.ctx, "swarmDialBackoff", req.PeerID())
 		return ErrDialBackoff
 	}
@@ -72,8 +73,10 @@ func (b *Backoff) Prepare(req *Request) error {
 
 func (b *Backoff) requestCallback(req *Request) {
 	if _, err := req.Result(); err != nil && err != context.Canceled {
+		req.Debugf("backing off")
 		b.AddBackoff(req.PeerID())
 	} else if err == nil {
+		req.Debugf("clearing backoffs")
 		b.ClearBackoff(req.PeerID())
 	}
 }

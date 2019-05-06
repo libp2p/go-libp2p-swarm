@@ -97,25 +97,30 @@ func (p *Pipeline) Close() error {
 
 func (p *Pipeline) Dial(ctx context.Context, id peer.ID) (network.Conn, error) {
 	req := NewDialRequest(ctx, id)
+	req.Debugf("starting to dial peer")
 
 	// Step 1: invoke the preparers. Abort if any of them fails.
 	if err := p.preparer.Prepare(req); err != nil {
+		req.Debugf("dial completed in error by a preparer: %s", err)
 		return req.Complete(nil, err)
 	}
 
 	// Preparers may complete the request.
 	if req.IsComplete() {
+		req.Debugf("dial completed early by a preparer")
 		return req.Result()
 	}
 
 	// Step 2: resolve addresses for the peer.
 	known, discovered, err := p.resolver.Resolve(req)
 	if err != nil {
-		err = xerrors.Errorf("error while resolving addresses for peer %s: %w", id.Pretty(), err)
+		req.Warningf("error while resolving addresses: %s", err)
+		err = xerrors.Errorf("error while resolving addresses: %w", err)
 		return req.Complete(nil, err)
 	}
 
 	if len(known) == 0 && discovered == nil {
+		req.Debugf("no known addresses nor discovery process; aborting dial")
 		return req.Complete(nil, ErrNoAddresses)
 	}
 
@@ -130,7 +135,8 @@ func (p *Pipeline) Dial(ctx context.Context, id peer.ID) (network.Conn, error) {
 
 	plan, err := p.planner.NewPlan(req, known, planned)
 	if err != nil {
-		err = xerrors.Errorf("error while starting to plan the dial for peer %s: %w", id.Pretty(), err)
+		req.Warningf("error while starting to plan the dial; aborting dial")
+		err = xerrors.Errorf("error while starting to plan the dial: %w", err)
 		return req.Complete(nil, err)
 	}
 
@@ -152,6 +158,7 @@ func (p *Pipeline) Dial(ctx context.Context, id peer.ID) (network.Conn, error) {
 
 		select {
 		case job := <-resp:
+			req.Debugf("job completed")
 			// Handle new responses coming in.
 			if _, err := job.Result(); err == nil {
 				success = append(success, job)
@@ -164,15 +171,16 @@ func (p *Pipeline) Dial(ctx context.Context, id peer.ID) (network.Conn, error) {
 		case jobs, more := <-planned:
 			// Push new planned jobs onto the throttler.
 			if !more {
-				log.Infof("finished planning dial jobs for peer: %s", id)
+				req.Debugf("finished planning dial jobs")
 				if err := plan.Error(); err != nil {
-					log.Errorf("planner failed for peer %s, failing request: %s", id, err)
+					req.Errorf("planner failed with error: %s", err)
 					return req.Complete(nil, err)
 				}
 				planned = nil // stop receiving from this channel
 				continue
 			}
 			for _, j := range jobs {
+				j.Debugf("job planned")
 				j.SetResponseChan(resp)
 				inflight[j] = struct{}{}
 				attempted++
@@ -181,14 +189,16 @@ func (p *Pipeline) Dial(ctx context.Context, id peer.ID) (network.Conn, error) {
 
 		case addrs, more := <-discovered:
 			if !more {
-				log.Infof("finished discovering addresses for peer %s", id)
+				req.Debugf("finished discovering addresses")
 				plan.ResolutionDone()
 				discovered = nil // stop receiving from this channel
 				continue
 			}
+			req.Debugf("discovered addresses: %v", addrs)
 			plan.NewAddresses(addrs)
 
 		case <-ctx.Done():
+			req.Debugf("context completed")
 			return req.Complete(nil, ctx.Err())
 		}
 	}
@@ -197,8 +207,10 @@ func (p *Pipeline) Dial(ctx context.Context, id peer.ID) (network.Conn, error) {
 		if attempted == 0 {
 			// we performed no dials; this could happen if we had no addresses in the peerstore,
 			// and the discovery process gave up before the context deadline fired.
+			req.Debugf("failed with no remote addresses")
 			dialErr.Cause = network.ErrNoRemoteAddrs
 		} else {
+			req.Debugf("failed because all attempted dials failed")
 			dialErr.Cause = ErrAllDialsFailed
 		}
 		return req.Complete(nil, dialErr)
@@ -224,6 +236,7 @@ func (p *Pipeline) Dial(ctx context.Context, id peer.ID) (network.Conn, error) {
 		}
 	}
 
+	req.Debugf("dial completed successfully")
 	return req.Complete(p.addConnFn(conn))
 }
 

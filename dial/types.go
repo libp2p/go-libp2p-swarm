@@ -77,6 +77,8 @@ func (ch *contextHolder) MutateContext(mutator func(orig context.Context) (conte
 	ch.clk.Lock()
 	defer ch.clk.Unlock()
 
+	log.Error()
+
 	ctx, cancel := mutator(ch.ctx)
 	ch.ctx = ctx
 	ch.cancels = append(ch.cancels, cancel)

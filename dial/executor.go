@@ -52,7 +52,7 @@ func (e *executor) processDial(job *Job) {
 	}
 
 	addr, id := job.Address(), job.Request().PeerID()
-	log.Debugf("swarm dialing peer %s at addr %s", id, addr)
+	job.Debugf("executing dial")
 
 	tpt := e.resolver(addr)
 	if tpt == nil {
@@ -71,10 +71,11 @@ func (e *executor) processDial(job *Job) {
 	if tconn.RemotePeer() != id {
 		tconn.Close()
 		err = fmt.Errorf("BUG in transport %T: tried to dial %s, dialed %s", id, tconn.RemotePeer(), tpt)
-		log.Error(err)
+		job.Errorf("%s", err)
 		job.Complete(nil, err)
 		return
 	}
 
-	job.Complete(tconn, err)
+	job.Debugf("dial completed successfully")
+	job.Complete(tconn, nil)
 }
