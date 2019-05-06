@@ -12,7 +12,6 @@ import (
 	logging "github.com/ipfs/go-log"
 	"github.com/jbenet/goprocess"
 	goprocessctx "github.com/jbenet/goprocess/context"
-	addrutil "github.com/libp2p/go-addr-util"
 	"github.com/libp2p/go-libp2p-core/metrics"
 	network "github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -23,6 +22,7 @@ import (
 	filter "github.com/libp2p/go-maddr-filter"
 	ma "github.com/multiformats/go-multiaddr"
 	mafilter "github.com/whyrusleeping/multiaddr-filter"
+	"golang.org/x/xerrors"
 )
 
 var (
@@ -105,10 +105,8 @@ type Swarm struct {
 	pipeline *dial.Pipeline
 }
 
-type SwarmOption func(*Swarm) error
-
 // NewSwarm constructs a Swarm
-func NewSwarm(ctx context.Context, local peer.ID, peers pstore.Peerstore, bwc metrics.Reporter, opts ...SwarmOption) *Swarm {
+func NewSwarm(ctx context.Context, local peer.ID, peers pstore.Peerstore, bwc metrics.Reporter, opts ...Option) *Swarm {
 	s := &Swarm{
 		local:   local,
 		peers:   peers,
@@ -124,57 +122,19 @@ func NewSwarm(ctx context.Context, local peer.ID, peers pstore.Peerstore, bwc me
 	s.proc = goprocessctx.WithContextAndTeardown(ctx, s.teardown)
 	s.ctx = goprocessctx.OnClosingContext(s.proc)
 
-	// TODO: provide Options to customize the pipeline
 	for _, opt := range opts {
-		opt(s)
+		if err := opt(s); err != nil {
+			panic(xerrors.Errorf("error while applying swarm options: %w", err))
+		}
 	}
 
 	if s.pipeline == nil {
-		s.pipeline = s.defaultPipeline()
+		// apply the default pipeline if a custom one was not provided.
+		s.pipeline = s.NewDefaultPipeline()
 	}
 
 	s.pipeline.Start()
 	return s
-}
-
-func (s *Swarm) defaultPipeline() *dial.Pipeline {
-	p := dial.NewPipeline(s.ctx, s, func(tc transport.CapableConn) (conn network.Conn, e error) {
-		return s.addConn(tc, network.DirOutbound)
-	})
-
-	// preparers.
-	seq := new(dial.PreparerSeq)
-	seq.AddLast("validator", dial.NewValidator(s.LocalPeer()))
-	seq.AddLast("request_timeout", dial.NewRequestTimeout())
-	seq.AddLast("dedup", dial.NewDedup())
-	seq.AddLast("backoff", dial.NewBackoff())
-	p.SetPreparer(seq)
-
-	// dial address filters.
-	var filters []dial.AddrFilterFn
-
-	// do we have a transport for dialing this address?
-	filters = append(filters, func(addr ma.Multiaddr) bool {
-		t := s.TransportForDialing(addr)
-		return t != nil && t.CanDial(addr)
-	})
-
-	// is the address blocked?
-	filters = append(filters, (dial.AddrFilterFn)(addrutil.FilterNeg(s.Filters.AddrBlocked)))
-
-	// address resolver.
-	p.SetAddressResolver(dial.NewPeerstoreAddressResolver(s, true, filters...))
-
-	// throttler.
-	p.SetThrottler(dial.NewDefaultThrottler())
-
-	// planner.
-	p.SetPlanner(dial.NewImmediatePlanner())
-
-	// executor.
-	p.SetExecutor(dial.NewExecutor(s.TransportForDialing, dial.SetJobTimeout))
-
-	return p
 }
 
 // DialPeer connects to a peer.
@@ -190,13 +150,6 @@ func (s *Swarm) DialPeer(ctx context.Context, p peer.ID) (network.Conn, error) {
 	}
 
 	return s.pipeline.Dial(ctx, p)
-}
-
-func WithPipeline(pipeline *dial.Pipeline) SwarmOption {
-	return func(s *Swarm) error {
-		s.pipeline = pipeline
-		return nil
-	}
 }
 
 func (s *Swarm) teardown() error {

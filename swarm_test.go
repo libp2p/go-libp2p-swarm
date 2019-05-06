@@ -18,7 +18,7 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 
 	. "github.com/libp2p/go-libp2p-swarm"
-	. "github.com/libp2p/go-libp2p-swarm/testing"
+	stesting "github.com/libp2p/go-libp2p-swarm/testing"
 )
 
 var log = logging.Logger("swarm_test")
@@ -55,17 +55,17 @@ func EchoStreamHandler(stream network.Stream) {
 }
 
 func makeDialOnlySwarm(ctx context.Context, t *testing.T) *Swarm {
-	swarm := GenSwarm(t, ctx, OptDialOnly)
+	swarm := stesting.GenSwarm(t, ctx, stesting.OptDialOnly)
 	swarm.SetStreamHandler(EchoStreamHandler)
 
 	return swarm
 }
 
-func makeSwarms(ctx context.Context, t *testing.T, num int, opts ...Option) []*Swarm {
+func makeSwarms(ctx context.Context, t *testing.T, num int, opts ...stesting.Option) []*Swarm {
 	swarms := make([]*Swarm, 0, num)
 
 	for i := 0; i < num; i++ {
-		swarm := GenSwarm(t, ctx, opts...)
+		swarm := stesting.GenSwarm(t, ctx, opts...)
 		swarm.SetStreamHandler(EchoStreamHandler)
 		swarms = append(swarms, swarm)
 	}
@@ -103,7 +103,7 @@ func SubtestSwarm(t *testing.T, SwarmNum int, MsgNum int) {
 	// t.Skip("skipping for another test")
 
 	ctx := context.Background()
-	swarms := makeSwarms(ctx, t, SwarmNum, OptDisableReuseport)
+	swarms := makeSwarms(ctx, t, SwarmNum, stesting.OptDisableReuseport)
 
 	// connect everyone
 	connectSwarms(t, ctx, swarms)
