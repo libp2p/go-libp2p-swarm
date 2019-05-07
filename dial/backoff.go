@@ -8,53 +8,59 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 )
 
-// BackoffBase is the base amount of time to backoff (default: 5s).
-var BackoffBase = time.Second * 5
+var (
+	DefaultBackoffBase = time.Second * 5
+	DefaultBackoffCoef = time.Second
+	DefaultBackoffMax  = time.Minute * 5
+)
 
-// BackoffCoef is the backoff coefficient (default: 1s).
-var BackoffCoef = time.Second
-
-// BackoffMax is the maximum backoff time (default: 5m).
-var BackoffMax = time.Minute * 5
-
-// Backoff is a struct used to avoid over-dialing the same, dead peers.
-// Whenever we totally time out on a peer (all three attempts), we add them
-// to dialbackoff. Then, whenevers goroutines would _wait_ (dialsync), they
-// check dialbackoff. If it's there, they don't wait and exit promptly with
-// an error. (the single goroutine that is actually dialing continues to
-// dial). If a dial is successful, the peer is removed from backoff.
-// Example:
-//
-//  for {
-//  	if ok, wait := dialsync.Lock(p); !ok {
-//  		if backoff.Backoff(p) {
-//  			return errDialFailed
-//  		}
-//  		<-wait
-//  		continue
-//  	}
-//  	defer dialsync.Unlock(p)
-//  	c, err := actuallyDial(p)
-//  	if err != nil {
-//  		dialbackoff.AddBackoff(p)
-//  		continue
-//  	}
-//  	dialbackoff.Clear(p)
-//  }
-//
-
-// DialBackoff is a type for tracking peer dial backoffs.
-//
-// * It's safe to use its zero value.
-// * It's thread-safe.
-// * It's *not* safe to move this type after using.
-type Backoff struct {
-	entries map[peer.ID]*backoffPeer
-	lock    sync.RWMutex
+type BackoffConfig struct {
+	// BackoffBase is the base amount of time to backoff.
+	BackoffBase time.Duration
+	// BackoffCoef is the backoff coefficient.
+	BackoffCoef time.Duration
+	// BackoffMax is the maximum backoff time.
+	BackoffMax time.Duration
 }
 
-func NewBackoff() Preparer {
+func DefaultBackoffConfig() *BackoffConfig {
+	return &BackoffConfig{
+		BackoffBase: DefaultBackoffBase,
+		BackoffCoef: DefaultBackoffCoef,
+		BackoffMax:  DefaultBackoffMax,
+	}
+}
+
+type backoffPeer struct {
+	tries int
+	until time.Time
+}
+
+type Backoff struct {
+	config *BackoffConfig
+
+	lock    sync.RWMutex
+	entries map[peer.ID]*backoffPeer
+}
+
+var _ Preparer = (*Backoff)(nil)
+
+// NewBackoff creates a Preparer used to avoid over-dialing the same, dead peers.
+//
+// It acts like a circuit-breaker, tracking failed dial requests and denying subsequent
+// attempts if they occur during the backoff period.
+//
+// The backoff period starts with config.BackoffBase. When the next dial attempt is made
+// after the backoff expires, we use that dial as a probe. If it succeeds, we clear the
+// backoff entry. If it fails, we boost the duration of the existing entry according to
+// the following quadratic formula:
+//
+//     BackoffBase + (BakoffCoef * PriorBackoffCount^2)
+//
+// Where PriorBackoffCount is the number of previous backoffs.
+func NewBackoff(config *BackoffConfig) Preparer {
 	return &Backoff{
+		config:  config,
 		entries: make(map[peer.ID]*backoffPeer),
 	}
 }
@@ -71,23 +77,6 @@ func (b *Backoff) Prepare(req *Request) error {
 	return nil
 }
 
-func (b *Backoff) requestCallback(req *Request) {
-	if _, err := req.Result(); err != nil && err != context.Canceled {
-		req.Debugf("backing off")
-		b.AddBackoff(req.PeerID())
-	} else if err == nil {
-		req.Debugf("clearing backoffs")
-		b.ClearBackoff(req.PeerID())
-	}
-}
-
-type backoffPeer struct {
-	tries int
-	until time.Time
-}
-
-var _ Preparer = (*Backoff)(nil)
-
 // Backoff returns whether the client should backoff from dialing peer p
 func (b *Backoff) Backoff(p peer.ID) (backoff bool) {
 	b.lock.Lock()
@@ -102,13 +91,6 @@ func (b *Backoff) Backoff(p peer.ID) (backoff bool) {
 
 // AddBackoff adds a new backoff entry for this peer, or boosts the backoff
 // period if an entry already exists.
-//
-// Backoff is not exponential, it's quadratic and computed according to the
-// following formula:
-//
-//     BackoffBase + BakoffCoef * PriorBackoffs^2
-//
-// Where PriorBackoffs is the number of previous backoffs.
 func (b *Backoff) AddBackoff(p peer.ID) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
@@ -117,23 +99,33 @@ func (b *Backoff) AddBackoff(p peer.ID) {
 	if !ok {
 		b.entries[p] = &backoffPeer{
 			tries: 1,
-			until: time.Now().Add(BackoffBase),
+			until: time.Now().Add(b.config.BackoffBase),
 		}
 		return
 	}
 
-	backoffTime := BackoffBase + BackoffCoef*time.Duration(bp.tries*bp.tries)
-	if backoffTime > BackoffMax {
-		backoffTime = BackoffMax
+	backoffTime := b.config.BackoffBase + b.config.BackoffCoef*time.Duration(bp.tries*bp.tries)
+	if backoffTime > b.config.BackoffMax {
+		backoffTime = b.config.BackoffMax
 	}
 	bp.until = time.Now().Add(backoffTime)
 	bp.tries++
 }
 
-// Clear removes a backoff record. Clients should call this after a successful dial.
+// Clear removes a backoff record.
 func (b *Backoff) ClearBackoff(p peer.ID) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
 	delete(b.entries, p)
+}
+
+func (b *Backoff) requestCallback(req *Request) {
+	if _, err := req.Result(); err != nil && err != context.Canceled {
+		req.Debugf("backing off")
+		b.AddBackoff(req.PeerID())
+	} else if err == nil {
+		req.Debugf("clearing backoffs")
+		b.ClearBackoff(req.PeerID())
+	}
 }

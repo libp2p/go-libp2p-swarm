@@ -8,10 +8,10 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 )
 
-// ConcurrentFdDials is the number of concurrent outbound dials over transports that consume file descriptors
-const ConcurrentFdDials = 160
+// DefaultConcurrentFdDials is the number of concurrent outbound dials over transports that consume file descriptors.
+const DefaultConcurrentFdDials = 160
 
-// DefaultPerPeerRateLimit is the number of concurrent outbound dials to make per peer
+// DefaultPerPeerRateLimit is the number of concurrent outbound dials to make per peer.
 const DefaultPerPeerRateLimit = 8
 
 type throttler struct {
@@ -34,6 +34,12 @@ type throttler struct {
 
 var _ Throttler = (*throttler)(nil)
 
+// NewThrottlerWithParams returns a throttler that limits concurrency based on two factors:
+// 	(1) number of inflight dials per peer, and
+// 	(2) total inflight dials with transports that consume file descriptors.
+//
+// The limits are enforced on a peer level first, then on the file descriptor level, using the
+// the arguments as the maximum limits.
 func NewThrottlerWithParams(fdLimit, perPeerLimit int) Throttler {
 	return &throttler{
 		fdLimit:   fdLimit,
@@ -50,8 +56,13 @@ func NewThrottlerWithParams(fdLimit, perPeerLimit int) Throttler {
 	}
 }
 
-func NewDefaultThrottler() Throttler {
-	fd := ConcurrentFdDials
+// NewThrottler returns a Throttler just like NewThrottlerWithParams, using default limits, governed by constants:
+//   * active peers per dial: 8
+//   * file descriptors: 160
+//
+// The LIBP2P_SWARM_FD_LIMIT can be used to override the file descriptors limit.
+func NewThrottler() Throttler {
+	fd := DefaultConcurrentFdDials
 	if env := os.Getenv("LIBP2P_SWARM_FD_LIMIT"); env != "" {
 		if n, err := strconv.ParseInt(env, 10, 32); err == nil {
 			fd = int(n)
@@ -62,7 +73,7 @@ func NewDefaultThrottler() Throttler {
 
 func (t *throttler) Run(incoming <-chan *Job, released chan<- *Job) {
 	for {
-		// process token releases first.
+		// First, process token releases.
 		select {
 		case job := <-t.peerTokenFreed:
 			id := job.Request().PeerID()
@@ -113,6 +124,7 @@ func (t *throttler) Run(incoming <-chan *Job, released chan<- *Job) {
 		default:
 		}
 
+		// Next, make forward progress.
 		select {
 		case job := <-t.finished:
 			job.Debugf("throttler: clearing state for completed job")

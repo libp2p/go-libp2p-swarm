@@ -1,6 +1,11 @@
 package dial
 
-import "github.com/whyrusleeping/go-logging"
+import (
+	lg "github.com/ipfs/go-log"
+	"github.com/whyrusleeping/go-logging"
+)
+
+var log = lg.Logger("swarm/dialer")
 
 var (
 	_innerlog = logging.MustGetLogger("swarm/dial")

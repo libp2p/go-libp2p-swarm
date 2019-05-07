@@ -11,10 +11,9 @@ var _ Plan = (*immediatePlan)(nil)
 
 type immediatePlanner struct{}
 
-var ip = &immediatePlanner{}
-
+// NewImmediatePlanner returns a planner that plans both initial and discovered addresses immediately.
 func NewImmediatePlanner() Planner {
-	return ip
+	return &immediatePlanner{}
 }
 
 func (*immediatePlanner) NewPlan(req *Request, initial []ma.Multiaddr, out chan<- []*Job) (Plan, error) {
@@ -54,6 +53,7 @@ func (ip *immediatePlan) JobComplete(job *Job) {
 }
 
 func (ip *immediatePlan) ResolutionDone() {
+	// close the out channel to signal we have no more jobs to plan.
 	close(ip.out)
 }
 

@@ -22,7 +22,7 @@ func TestSimultOpen(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	swarms := makeSwarms(ctx, t, 2, swarmt.OptDisableReuseport)
+	swarms := swarmt.MakeSwarms(ctx, t, 2, swarmt.OptDisableReuseport)
 
 	// connect everyone
 	{

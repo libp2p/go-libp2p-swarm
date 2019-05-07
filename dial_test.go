@@ -2,41 +2,30 @@ package swarm_test
 
 import (
 	"context"
-	"net"
 	"sync"
 	"testing"
 	"time"
 
-	addrutil "github.com/libp2p/go-addr-util"
-
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/peerstore"
 	"github.com/libp2p/go-libp2p-core/transport"
-	testutil "github.com/libp2p/go-libp2p-core/test"
-	dial "github.com/libp2p/go-libp2p-swarm/dial"
+	. "github.com/libp2p/go-libp2p-swarm"
+	"github.com/libp2p/go-libp2p-swarm/dial"
 	swarmt "github.com/libp2p/go-libp2p-swarm/testing"
 	"github.com/libp2p/go-libp2p-testing/ci"
 	ma "github.com/multiformats/go-multiaddr"
-	manet "github.com/multiformats/go-multiaddr-net"
-	. "github.com/libp2p/go-libp2p-swarm"
 )
 
 func init() {
 	transport.DialTimeout = time.Second
 }
 
-func closeSwarms(swarms []*Swarm) {
-	for _, s := range swarms {
-		s.Close()
-	}
-}
-
 func TestBasicDialPeer(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
-	swarms := makeSwarms(ctx, t, 2)
-	defer closeSwarms(swarms)
+	swarms := swarmt.MakeSwarms(ctx, t, 2)
+	defer swarmt.CloseSwarms(swarms)
 	s1 := swarms[0]
 	s2 := swarms[1]
 
@@ -59,10 +48,10 @@ func TestDialWithNoListeners(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
-	s1 := makeDialOnlySwarm(ctx, t)
+	s1 := swarmt.MakeDialOnlySwarm(ctx, t)
 
-	swarms := makeSwarms(ctx, t, 1)
-	defer closeSwarms(swarms)
+	swarms := swarmt.MakeSwarms(ctx, t, 1)
+	defer swarmt.CloseSwarms(swarms)
 	s2 := swarms[0]
 
 	s1.Peerstore().AddAddrs(s2.LocalPeer(), s2.ListenAddresses(), peerstore.PermanentAddrTTL)
@@ -80,28 +69,12 @@ func TestDialWithNoListeners(t *testing.T) {
 	s.Close()
 }
 
-func acceptAndHang(l net.Listener) {
-	conns := make([]net.Conn, 0, 10)
-	for {
-		c, err := l.Accept()
-		if err != nil {
-			break
-		}
-		if c != nil {
-			conns = append(conns, c)
-		}
-	}
-	for _, c := range conns {
-		c.Close()
-	}
-}
-
 func TestSimultDials(t *testing.T) {
 	// t.Skip("skipping for another test")
 	t.Parallel()
 
 	ctx := context.Background()
-	swarms := makeSwarms(ctx, t, 2, swarmt.OptDisableReuseport)
+	swarms := swarmt.MakeSwarms(ctx, t, 2, swarmt.OptDisableReuseport)
 
 	// connect everyone
 	{
@@ -149,36 +122,17 @@ func TestSimultDials(t *testing.T) {
 	}
 }
 
-func newSilentPeer(t *testing.T) (peer.ID, ma.Multiaddr, net.Listener) {
-	dst := testutil.RandPeerIDFatal(t)
-	lst, err := net.Listen("tcp4", ":0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	addr, err := manet.FromNetAddr(lst.Addr())
-	if err != nil {
-		t.Fatal(err)
-	}
-	addrs := []ma.Multiaddr{addr}
-	addrs, err = addrutil.ResolveUnspecifiedAddresses(addrs, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Log("new silent peer:", dst, addrs[0])
-	return dst, addrs[0], lst
-}
-
 func TestDialWait(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	swarms := makeSwarms(ctx, t, 1)
+	swarms := swarmt.MakeSwarms(ctx, t, 1)
 	s1 := swarms[0]
 	defer s1.Close()
 
 	// dial to a non-existent peer.
-	s2p, s2addr, s2l := newSilentPeer(t)
-	go acceptAndHang(s2l)
+	s2p, s2addr, s2l := swarmt.NewSilentPeer(t)
+	go swarmt.AcceptAndHang(s2l)
 	defer s2l.Close()
 	s1.Peerstore().AddAddr(s2p, s2addr, peerstore.PermanentAddrTTL)
 
@@ -198,7 +152,8 @@ func TestDialWait(t *testing.T) {
 		t.Error("> 2*transport.DialTimeout * DialAttempts not being respected", duration, 2*transport.DialTimeout*DialAttempts)
 	}
 
-	backoff := s1.Pipeline().Preparer().(*dial.PreparerSeq).Get("backoff").(*dial.Backoff)
+	bo, _ := s1.Pipeline().Preparer().(*dial.PreparerSeq).Get("backoff")
+	backoff := bo.(*dial.Backoff)
 	if !backoff.Backoff(s2p) {
 		t.Error("s2 should now be on backoff")
 	}
@@ -213,13 +168,14 @@ func TestDialBackoff(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	swarms := makeSwarms(ctx, t, 2)
+	swarms := swarmt.MakeSwarms(ctx, t, 2)
 	s1 := swarms[0]
 	s2 := swarms[1]
 	defer s1.Close()
 	defer s2.Close()
 
-	backoff := s1.Pipeline().Preparer().(*dial.PreparerSeq).Get("backoff").(*dial.Backoff)
+	bo, _ := s1.Pipeline().Preparer().(*dial.PreparerSeq).Get("backoff")
+	backoff := bo.(*dial.Backoff)
 
 	s2addrs, err := s2.InterfaceListenAddresses()
 	if err != nil {
@@ -228,8 +184,8 @@ func TestDialBackoff(t *testing.T) {
 	s1.Peerstore().AddAddrs(s2.LocalPeer(), s2addrs, peerstore.PermanentAddrTTL)
 
 	// dial to a non-existent peer.
-	s3p, s3addr, s3l := newSilentPeer(t)
-	go acceptAndHang(s3l)
+	s3p, s3addr, s3l := swarmt.NewSilentPeer(t)
+	go swarmt.AcceptAndHang(s3l)
 	defer s3l.Close()
 	s1.Peerstore().AddAddr(s3p, s3addr, peerstore.PermanentAddrTTL)
 
@@ -422,17 +378,18 @@ func TestDialBackoffClears(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	swarms := makeSwarms(ctx, t, 2)
+	swarms := swarmt.MakeSwarms(ctx, t, 2)
 	s1 := swarms[0]
 	s2 := swarms[1]
 	defer s1.Close()
 	defer s2.Close()
 
-	backoff := s1.Pipeline().Preparer().(*dial.PreparerSeq).Get("backoff").(*dial.Backoff)
+	bo, _ := s1.Pipeline().Preparer().(*dial.PreparerSeq).Get("backoff")
+	backoff := bo.(*dial.Backoff)
 
 	// use another address first, that accept and hang on conns
-	_, s2bad, s2l := newSilentPeer(t)
-	go acceptAndHang(s2l)
+	_, s2bad, s2l := swarmt.NewSilentPeer(t)
+	go swarmt.AcceptAndHang(s2l)
 	defer s2l.Close()
 
 	// phase 1 -- dial to non-operational addresses
@@ -471,7 +428,7 @@ func TestDialBackoffClears(t *testing.T) {
 		t.Fatal("should have failed to dial backed off peer")
 	}
 
-	time.Sleep(dial.BackoffBase)
+	time.Sleep(dial.DefaultBackoffBase)
 
 	if c, err := s1.DialPeer(ctx, s2.LocalPeer()); err != nil {
 		t.Fatal(err)
@@ -491,14 +448,14 @@ func TestDialPeerFailed(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
-	swarms := makeSwarms(ctx, t, 2)
-	defer closeSwarms(swarms)
+	swarms := swarmt.MakeSwarms(ctx, t, 2)
+	defer swarmt.CloseSwarms(swarms)
 	testedSwarm, targetSwarm := swarms[0], swarms[1]
 
 	expectedErrorsCount := 5
 	for i := 0; i < expectedErrorsCount; i++ {
-		_, silentPeerAddress, silentPeerListener := newSilentPeer(t)
-		go acceptAndHang(silentPeerListener)
+		_, silentPeerAddress, silentPeerListener := swarmt.NewSilentPeer(t)
+		go swarmt.AcceptAndHang(silentPeerListener)
 		defer silentPeerListener.Close()
 
 		testedSwarm.Peerstore().AddAddr(

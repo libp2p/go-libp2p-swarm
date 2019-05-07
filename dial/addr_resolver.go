@@ -6,8 +6,10 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 )
 
+// AddrFilterFn is a predicate that validates if a multiaddr should be attempted or not.
 type AddrFilterFn = func(addr ma.Multiaddr) bool
 
+// defaultFilters contains factory methods to generate default filters based on a Network.
 var defaultFilters = struct {
 	preventSelfDial          func(network network.Network) AddrFilterFn
 	preventIPv6LinkLocalDial func(network network.Network) AddrFilterFn
@@ -30,6 +32,17 @@ var defaultFilters = struct {
 	},
 }
 
+// DefaultAddrFilters returns the following address filters, recommended defaults:
+//
+//   1. preventSelfDial: aborts dial requests to ourselves.
+//   2. preventIPv6LinkLocalDials: aborts dial requests to link local addresses.
+func DefaultAddrFilters(network network.Network) (res []AddrFilterFn) {
+	res = append(res,
+		defaultFilters.preventSelfDial(network),
+		defaultFilters.preventIPv6LinkLocalDial(network))
+	return res
+}
+
 type pstoreAddrResolver struct {
 	network network.Network
 	filters []AddrFilterFn
@@ -37,16 +50,10 @@ type pstoreAddrResolver struct {
 
 var _ AddressResolver = (*pstoreAddrResolver)(nil)
 
-func NewPeerstoreAddressResolver(network network.Network, useDefaultFilters bool, filters ...AddrFilterFn) AddressResolver {
-	var fs []AddrFilterFn
-	if useDefaultFilters {
-		fs = append(fs,
-			defaultFilters.preventSelfDial(network),
-			defaultFilters.preventIPv6LinkLocalDial(network),
-		)
-	}
-	fs = append(fs, filters...)
-	return &pstoreAddrResolver{network: network, filters: fs}
+// NewPeerstoreAddressResolver returns an AddressResolver that fetches known addresses from the peerstore,
+// running no external discovery process.
+func NewPeerstoreAddressResolver(network network.Network, filters ...AddrFilterFn) AddressResolver {
+	return &pstoreAddrResolver{network: network, filters: filters}
 }
 
 func (par *pstoreAddrResolver) Resolve(req *Request) (known []ma.Multiaddr, more <-chan []ma.Multiaddr, err error) {

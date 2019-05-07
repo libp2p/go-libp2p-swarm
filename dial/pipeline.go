@@ -32,6 +32,14 @@ var (
 	// ErrNoAddresses is returned when we fail to find any addresses for a
 	// peer we're trying to dial, or all addresses are unworkable.
 	ErrNoAddresses = errors.New("no (good) addresses")
+
+	// ErrPipelineStopped is returned when an action that requires a running pipeline is executed
+	// on a stopped pipeline.
+	ErrPipelineStopped = errors.New("the pipeline is stopped")
+
+	// ErrPipelineRunning is returned when an action that requires a stopped pipeline is executed
+	// on a running pipeline.
+	ErrPipelineRunning = errors.New("the pipeline is running")
 )
 
 // Pipeline is the heart of the dialer. It represents a sequence of atomical components wired together, each with a
@@ -40,16 +48,17 @@ var (
 // The Pipeline has five components. We provide brief descriptions below. For additional info, refer to the godoc
 // of the appropriate interfaces:
 //
-// - Preparer: runs preparatory actions prior to the dial execution. Actions may include: deduplicating, populating
-//     timeouts, validating the peer ID, etc.
-// - AddressResolver: populates the set of addresses for a peer, either from the peerstore and/or from other sources.
-// - Planner: schedules dials in time, responding to events from the environment, such as new addresses discovered,
+//   - Preparer: runs preparatory actions prior to the dial execution. Actions may include: deduplicating, populating
+//     timeouts, circuit breaking, validating the peer ID, etc.
+//   - AddressResolver: populates the set of addresses for a peer, either from the peerstore and/or from other sources.
+//   - Planner: schedules dials in time, responding to events from the environment, such as new addresses discovered,
 //     or dial jobs completing.
-// - Throttler: throttles dials based on resource usage or other factors.
-// - Executor: actually carries out the network dials.
+//   - Throttler: throttles dials based on resource usage or other factors.
+//   - Executor: actually carries out the network dials.
 type Pipeline struct {
-	lk  sync.RWMutex
-	ctx context.Context
+	lk      sync.RWMutex
+	ctx     context.Context
+	running bool
 
 	network network.Network
 
@@ -77,11 +86,26 @@ func NewPipeline(ctx context.Context, net network.Network, addConnFn AddConnFn) 
 }
 
 func (p *Pipeline) Start() {
+	p.lk.Lock()
+	defer p.lk.Unlock()
+
+	if p.running {
+		return
+	}
+
 	go p.executor.Run(p.executeCh)
 	go p.throttler.Run(p.throttleCh, p.executeCh)
+	p.running = true
 }
 
 func (p *Pipeline) Close() error {
+	p.lk.Lock()
+	defer p.lk.Unlock()
+
+	if !p.running {
+		return nil
+	}
+
 	var errs []error
 	if err := p.throttler.Close(); err != nil {
 		errs = append(errs, err)
@@ -92,14 +116,21 @@ func (p *Pipeline) Close() error {
 	if len(errs) > 0 {
 		return fmt.Errorf("errors occurred while closing the dial pipeline: %v", errs)
 	}
+	p.running = false
 	return nil
 }
 
 func (p *Pipeline) Dial(ctx context.Context, id peer.ID) (network.Conn, error) {
+	p.lk.RLock()
+	if !p.running {
+		return nil, ErrPipelineStopped
+	}
+	p.lk.RUnlock()
+
 	req := NewDialRequest(ctx, id)
 	req.Debugf("starting to dial peer")
 
-	// Step 1: invoke the preparers. Abort if any of them fails.
+	// Invoke the preparers. Abort if any of them fails.
 	if err := p.preparer.Prepare(req); err != nil {
 		req.Debugf("dial completed in error by a preparer: %s", err)
 		return req.Complete(nil, err)
@@ -111,7 +142,7 @@ func (p *Pipeline) Dial(ctx context.Context, id peer.ID) (network.Conn, error) {
 		return req.Result()
 	}
 
-	// Step 2: resolve addresses for the peer.
+	// Resolve addresses for the peer.
 	known, discovered, err := p.resolver.Resolve(req)
 	if err != nil {
 		req.Warningf("error while resolving addresses: %s", err)
@@ -240,28 +271,72 @@ func (p *Pipeline) Dial(ctx context.Context, id peer.ID) (network.Conn, error) {
 	return req.Complete(p.addConnFn(conn))
 }
 
-func (p *Pipeline) SetPreparer(pr Preparer) {
+func (p *Pipeline) SetPreparer(pr Preparer) error {
+	p.lk.RLock()
+	defer p.lk.RUnlock()
+
+	if p.running {
+		return ErrPipelineRunning
+	}
+
 	p.preparer = pr
+	return nil
 }
 
-func (p *Pipeline) SetAddressResolver(ar AddressResolver) {
+func (p *Pipeline) SetAddressResolver(ar AddressResolver) error {
+	p.lk.RLock()
+	defer p.lk.RUnlock()
+
+	if p.running {
+		return ErrPipelineRunning
+	}
+
 	p.resolver = ar
+	return nil
 }
 
-func (p *Pipeline) SetPlanner(pl Planner) {
+func (p *Pipeline) SetPlanner(pl Planner) error {
+	p.lk.RLock()
+	defer p.lk.RUnlock()
+
+	if p.running {
+		return ErrPipelineRunning
+	}
+
 	p.planner = pl
+	return nil
 }
 
-func (p *Pipeline) SetThrottler(t Throttler) {
+func (p *Pipeline) SetThrottler(t Throttler) error {
+	p.lk.RLock()
+	defer p.lk.RUnlock()
+
+	if p.running {
+		return ErrPipelineRunning
+	}
+
 	p.throttler = t
+	return nil
 }
 
-func (p *Pipeline) SetExecutor(ex Executor) {
+func (p *Pipeline) SetExecutor(ex Executor) error {
+	p.lk.RLock()
+	defer p.lk.RUnlock()
+
+	if p.running {
+		return ErrPipelineRunning
+	}
+
 	p.executor = ex
+	return nil
 }
 
 func (p *Pipeline) Preparer() Preparer {
 	return p.preparer
+}
+
+func (p *Pipeline) AddressResolver() AddressResolver {
+	return p.resolver
 }
 
 func (p *Pipeline) Planner() Planner {

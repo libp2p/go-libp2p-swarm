@@ -2,9 +2,8 @@ package dial
 
 import (
 	"github.com/libp2p/go-libp2p-core/peer"
+	lgbl "github.com/libp2p/go-libp2p-loggables"
 )
-
-import lgbl "github.com/libp2p/go-libp2p-loggables"
 
 type validator struct {
 	local peer.ID
@@ -12,9 +11,10 @@ type validator struct {
 
 var _ Preparer = (*validator)(nil)
 
-// NewValidator returns a Preparer that performs a sanity check on the dial request, by erroring if:
-// * the peer ID is badly-formed.
-// * we are dialing to ourselves.
+// NewValidator returns a Preparer that performs a sanity check on the dial request,
+// erroring if any of these are true:
+// 	- the peer ID is badly-formed.
+// 	- we are dialing to ourselves.
 func NewValidator(local peer.ID) Preparer {
 	return &validator{local}
 }

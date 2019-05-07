@@ -1,10 +1,8 @@
 package swarm_test
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"net"
 	"sync"
 	"testing"
@@ -14,99 +12,19 @@ import (
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/peerstore"
-
-	ma "github.com/multiformats/go-multiaddr"
-
-	. "github.com/libp2p/go-libp2p-swarm"
 	stesting "github.com/libp2p/go-libp2p-swarm/testing"
 )
 
 var log = logging.Logger("swarm_test")
 
-func EchoStreamHandler(stream network.Stream) {
-	go func() {
-		defer stream.Close()
-
-		// pull out the ipfs conn
-		c := stream.Conn()
-		log.Infof("%s ponging to %s", c.LocalPeer(), c.RemotePeer())
-
-		buf := make([]byte, 4)
-
-		for {
-			if _, err := stream.Read(buf); err != nil {
-				if err != io.EOF {
-					log.Error("ping receive error:", err)
-				}
-				return
-			}
-
-			if !bytes.Equal(buf, []byte("ping")) {
-				log.Errorf("ping receive error: ping != %s %v", buf, buf)
-				return
-			}
-
-			if _, err := stream.Write([]byte("pong")); err != nil {
-				log.Error("pond send error:", err)
-				return
-			}
-		}
-	}()
-}
-
-func makeDialOnlySwarm(ctx context.Context, t *testing.T) *Swarm {
-	swarm := stesting.GenSwarm(t, ctx, stesting.OptDialOnly)
-	swarm.SetStreamHandler(EchoStreamHandler)
-
-	return swarm
-}
-
-func makeSwarms(ctx context.Context, t *testing.T, num int, opts ...stesting.Option) []*Swarm {
-	swarms := make([]*Swarm, 0, num)
-
-	for i := 0; i < num; i++ {
-		swarm := stesting.GenSwarm(t, ctx, opts...)
-		swarm.SetStreamHandler(EchoStreamHandler)
-		swarms = append(swarms, swarm)
-	}
-
-	return swarms
-}
-
-func connectSwarms(t *testing.T, ctx context.Context, swarms []*Swarm) {
-
-	var wg sync.WaitGroup
-	connect := func(s *Swarm, dst peer.ID, addr ma.Multiaddr) {
-		// TODO: make a DialAddr func.
-		s.Peerstore().AddAddr(dst, addr, peerstore.PermanentAddrTTL)
-		if _, err := s.DialPeer(ctx, dst); err != nil {
-			t.Fatal("error swarm dialing to peer", err)
-		}
-		wg.Done()
-	}
-
-	log.Info("Connecting swarms simultaneously.")
-	for i, s1 := range swarms {
-		for _, s2 := range swarms[i+1:] {
-			wg.Add(1)
-			connect(s1, s2.LocalPeer(), s2.ListenAddresses()[0]) // try the first.
-		}
-	}
-	wg.Wait()
-
-	for _, s := range swarms {
-		log.Infof("%s swarm routing table: %s", s.LocalPeer(), s.Peers())
-	}
-}
-
 func SubtestSwarm(t *testing.T, SwarmNum int, MsgNum int) {
 	// t.Skip("skipping for another test")
 
 	ctx := context.Background()
-	swarms := makeSwarms(ctx, t, SwarmNum, stesting.OptDisableReuseport)
+	swarms := stesting.MakeSwarms(ctx, t, SwarmNum, stesting.OptDisableReuseport)
 
 	// connect everyone
-	connectSwarms(t, ctx, swarms)
+	stesting.ConnectSwarms(t, ctx, swarms)
 
 	// ping/pong
 	for _, s1 := range swarms {
@@ -250,14 +168,14 @@ func TestConnHandler(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	swarms := makeSwarms(ctx, t, 5)
+	swarms := stesting.MakeSwarms(ctx, t, 5)
 
 	gotconn := make(chan struct{}, 10)
 	swarms[0].SetConnHandler(func(conn network.Conn) {
 		gotconn <- struct{}{}
 	})
 
-	connectSwarms(t, ctx, swarms)
+	stesting.ConnectSwarms(t, ctx, swarms)
 
 	<-time.After(time.Millisecond)
 	// should've gotten 5 by now.
@@ -282,7 +200,7 @@ func TestConnHandler(t *testing.T) {
 
 func TestAddrBlocking(t *testing.T) {
 	ctx := context.Background()
-	swarms := makeSwarms(ctx, t, 2)
+	swarms := stesting.MakeSwarms(ctx, t, 2)
 
 	swarms[0].SetConnHandler(func(conn network.Conn) {
 		t.Errorf("no connections should happen! -- %s", conn)
@@ -310,7 +228,7 @@ func TestAddrBlocking(t *testing.T) {
 
 func TestFilterBounds(t *testing.T) {
 	ctx := context.Background()
-	swarms := makeSwarms(ctx, t, 2)
+	swarms := stesting.MakeSwarms(ctx, t, 2)
 
 	conns := make(chan struct{}, 8)
 	swarms[0].SetConnHandler(func(conn network.Conn) {
@@ -327,7 +245,7 @@ func TestFilterBounds(t *testing.T) {
 	swarms[1].Filters.AddDialFilter(block)
 	swarms[0].Filters.AddDialFilter(block)
 
-	connectSwarms(t, ctx, swarms)
+	stesting.ConnectSwarms(t, ctx, swarms)
 
 	select {
 	case <-time.After(time.Second):
@@ -339,7 +257,7 @@ func TestFilterBounds(t *testing.T) {
 
 func TestNoDial(t *testing.T) {
 	ctx := context.Background()
-	swarms := makeSwarms(ctx, t, 2)
+	swarms := stesting.MakeSwarms(ctx, t, 2)
 
 	_, err := swarms[0].NewStream(network.WithNoDial(ctx, "swarm test"), swarms[1].LocalPeer())
 	if err != network.ErrNoConn {

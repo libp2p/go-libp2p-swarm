@@ -9,6 +9,19 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 )
 
+// NewDefaultPipeline returns a Pipeline suitable for simple host constructions. It is composed of:
+//
+//  - Preparer: a preparer sequence (PreparerSeq), made of:
+//      1. validator: verifies that the peer ID is well formed, and that we're not dialing to ourselves.
+//      2. timeout: sets the request timeout.
+//      3. dedup: checks if there's an dial to the peer already in progress, and awaits its completion,
+//         copying the result from it as a return value.
+//      3. backoff: circuit-breaker that prevents faulty peers from being dialed again within a time window.
+//  - AddressResolver: a simple address resolver that fetches addresses from the peerstore, performing no
+//    dynamic discovery.
+//  - Planner: an immediate planner that emits dial jobs for all addresses as they appear.
+//  - Throttler: a throttler that limits concurrent dials per peer, as well as by file descriptor usage.
+//  - Executor: a simple executor that launches a goroutine per dial job.
 func (s *Swarm) NewDefaultPipeline() *dial.Pipeline {
 	p := dial.NewPipeline(s.ctx, s, func(tc transport.Conn) (conn inet.Conn, e error) {
 		return s.addConn(tc, inet.DirOutbound)
@@ -19,11 +32,11 @@ func (s *Swarm) NewDefaultPipeline() *dial.Pipeline {
 	seq.AddLast("validator", dial.NewValidator(s.LocalPeer()))
 	seq.AddLast("timeout", dial.NewRequestTimeout())
 	seq.AddLast("dedup", dial.NewDedup())
-	seq.AddLast("backoff", dial.NewBackoff())
-	p.SetPreparer(seq)
+	seq.AddLast("backoff", dial.NewBackoff(dial.DefaultBackoffConfig()))
+	_ = p.SetPreparer(seq)
 
 	// dial address filters.
-	var filters []dial.AddrFilterFn
+	var filters = dial.DefaultAddrFilters(s)
 
 	// do we have a transport for dialing this address?
 	filters = append(filters, func(addr ma.Multiaddr) bool {
@@ -35,16 +48,16 @@ func (s *Swarm) NewDefaultPipeline() *dial.Pipeline {
 	filters = append(filters, (dial.AddrFilterFn)(addrutil.FilterNeg(s.Filters.AddrBlocked)))
 
 	// address resolver.
-	p.SetAddressResolver(dial.NewPeerstoreAddressResolver(s, true, filters...))
+	_ = p.SetAddressResolver(dial.NewPeerstoreAddressResolver(s, filters...))
 
 	// throttler.
-	p.SetThrottler(dial.NewDefaultThrottler())
+	_ = p.SetThrottler(dial.NewThrottler())
 
 	// planner.
-	p.SetPlanner(dial.NewImmediatePlanner())
+	_ = p.SetPlanner(dial.NewImmediatePlanner())
 
 	// executor.
-	p.SetExecutor(dial.NewExecutor(s.TransportForDialing, dial.SetJobTimeout))
+	_ = p.SetExecutor(dial.NewExecutor(s.TransportForDialing, dial.SetJobTimeout))
 
 	return p
 }

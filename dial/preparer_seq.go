@@ -10,8 +10,9 @@ type preparerBinding struct {
 	p    Preparer
 }
 
-// PreparerSeq is a Preparer that daisy-chains the Request through an ordered list of preparers. It short-circuits
-// the process if a Preparer completes the Request. Preparers are bound by unique names.
+// PreparerSeq is a Preparer that pipes the Request through an daisy-chained list of preparers.
+//
+// It short-circuits a Preparer fails or completes the Request. Preparers are bound by unique names, to aid debugging.
 type PreparerSeq struct {
 	lk  sync.Mutex
 	seq []preparerBinding
@@ -39,6 +40,7 @@ func (ps *PreparerSeq) find(name string) (i int, res *preparerBinding) {
 	return -1, nil
 }
 
+// AddFirst prepends a Preparer at the starting position of this sequence.
 func (ps *PreparerSeq) AddFirst(name string, preparer Preparer) error {
 	ps.lk.Lock()
 	defer ps.lk.Unlock()
@@ -51,6 +53,7 @@ func (ps *PreparerSeq) AddFirst(name string, preparer Preparer) error {
 	return nil
 }
 
+// AddFirst appends a Preparer at the starting position of this sequence.
 func (ps *PreparerSeq) AddLast(name string, preparer Preparer) error {
 	ps.lk.Lock()
 	defer ps.lk.Unlock()
@@ -63,6 +66,7 @@ func (ps *PreparerSeq) AddLast(name string, preparer Preparer) error {
 	return nil
 }
 
+// InsertBefore locates the specified Preparer by name, and inserts the new Preparer ahead of it.
 func (ps *PreparerSeq) InsertBefore(before, name string, preparer Preparer) error {
 	ps.lk.Lock()
 	defer ps.lk.Unlock()
@@ -80,6 +84,7 @@ func (ps *PreparerSeq) InsertBefore(before, name string, preparer Preparer) erro
 	return nil
 }
 
+// InsertAfter locates the specified Preparer by name, and inserts the new Preparer after it.
 func (ps *PreparerSeq) InsertAfter(after, name string, preparer Preparer) error {
 	ps.lk.Lock()
 	defer ps.lk.Unlock()
@@ -97,6 +102,7 @@ func (ps *PreparerSeq) InsertAfter(after, name string, preparer Preparer) error 
 	return nil
 }
 
+// Replace locates the specified Preparer by name, and replaces it with the specified one.
 func (ps *PreparerSeq) Replace(old, name string, preparer Preparer) error {
 	ps.lk.Lock()
 	defer ps.lk.Unlock()
@@ -109,21 +115,26 @@ func (ps *PreparerSeq) Replace(old, name string, preparer Preparer) error {
 	return nil
 }
 
-func (ps *PreparerSeq) Remove(name string) {
+// Remove locates the specified Preparer by name, and removes it from the sequence.
+// It returns whether the sequence was modified as a result.
+func (ps *PreparerSeq) Remove(name string) (ok bool) {
 	ps.lk.Lock()
 	defer ps.lk.Unlock()
 
 	if i, prev := ps.find(name); prev != nil {
 		ps.seq = append(ps.seq[:i], ps.seq[i+1:]...)
+		ok = true
 	}
+	return ok
 }
 
-func (ps *PreparerSeq) Get(name string) Preparer {
+// Get returns the specified Preparer, locating it by name.
+func (ps *PreparerSeq) Get(name string) (Preparer, bool) {
 	ps.lk.Lock()
 	defer ps.lk.Unlock()
 
 	if _, pb := ps.find(name); pb != nil {
-		return pb.p
+		return pb.p, true
 	}
-	return nil
+	return nil, false
 }

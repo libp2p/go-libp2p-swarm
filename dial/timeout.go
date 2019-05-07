@@ -46,7 +46,7 @@ func SetJobTimeout(job *Job) {
 	if lowTimeoutFilters.AddrBlocked(job.Address()) {
 		timeout = TimeoutLocal
 	}
-	job.MutateContext(func(orig context.Context) (context.Context, context.CancelFunc) {
+	job.UpdateContext(func(orig context.Context) (context.Context, context.CancelFunc) {
 		return context.WithTimeout(orig, timeout)
 	})
 }
@@ -60,7 +60,7 @@ func NewRequestTimeout() Preparer {
 }
 
 func (t *reqTimeout) Prepare(req *Request) error {
-	req.MutateContext(func(orig context.Context) (context.Context, context.CancelFunc) {
+	req.UpdateContext(func(orig context.Context) (context.Context, context.CancelFunc) {
 		// apply the DialPeer timeout
 		return context.WithTimeout(orig, network.GetDialPeerTimeout(orig))
 	})
