@@ -137,6 +137,8 @@ github.com/multiformats/go-multihash v0.0.5 h1:1wxmCvTXAifAepIMyF39vZinRw5sbqjPs
 github.com/multiformats/go-multihash v0.0.5/go.mod h1:lt/HCbqlQwlPBz7lv0sQCdtfcMtlJvakRUn/0Ual8po=
 github.com/multiformats/go-multistream v0.0.1 h1:JV4VfSdY9n7ECTtY59/TlSyFCzRILvYx4T4Ws8ZgihU=
 github.com/multiformats/go-multistream v0.0.1/go.mod h1:fJTiDfXJVmItycydCnNx4+wSzZ5NwG2FEVAI30fiovg=
+github.com/multiformats/go-multistream v0.0.4 h1:rNgWgFyzRSTI9L+xISrz7kN5MdNXoEcoIeeCH05wLKA=
+github.com/multiformats/go-multistream v0.0.4/go.mod h1:fJTiDfXJVmItycydCnNx4+wSzZ5NwG2FEVAI30fiovg=
 github.com/onsi/ginkgo v1.6.0/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+WWjE=
 github.com/onsi/ginkgo v1.7.0 h1:WSHQ+IS43OoUrWtD1/bbclrwK8TTH5hzp+umCiuxHgs=
 github.com/onsi/ginkgo v1.7.0/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+WWjE=
@@ -163,8 +165,8 @@ github.com/whyrusleeping/go-logging v0.0.0-20170515211332-0457bb6b88fc h1:9lDbC6
 github.com/whyrusleeping/go-logging v0.0.0-20170515211332-0457bb6b88fc/go.mod h1:bopw91TMyo8J3tvftk8xmU2kPmlrt4nScJQZU2hE5EM=
 github.com/whyrusleeping/go-smux-multiplex v0.1.0 h1:23qGy3Z16UeiMh/BTiRe6pRm7MlvF5EM2873uFTQbro=
 github.com/whyrusleeping/go-smux-multiplex v0.1.0/go.mod h1:OXL5hggHNZSsadXDlBJDD4eD3IQYEB3Yu6xpovd6pPw=
-github.com/whyrusleeping/go-smux-multistream v2.0.2+incompatible h1:BdYHctE9HJZLquG9tpTdwWcbG4FaX6tVKPGjCGgiVxo=
-github.com/whyrusleeping/go-smux-multistream v2.0.2+incompatible/go.mod h1:dRWHHvc4HDQSHh9gbKEBbUZ+f2Q8iZTPG3UOGYODxSQ=
+github.com/whyrusleeping/go-smux-multistream v0.1.0 h1:+x8twbOR2IJtc1I5PF+UT6DqTJmbog4NiB/k/hyYW7k=
+github.com/whyrusleeping/go-smux-multistream v0.1.0/go.mod h1:/usW3LIBirW4h9ko1PnoF7tExBnbxPBszG0n4wylJr8=
 github.com/whyrusleeping/go-smux-yamux v0.1.1 h1:g9dfTJbs/StYfi1e3id9+nQO8lYaY4sCIW2zESECcTM=
 github.com/whyrusleeping/go-smux-yamux v0.1.1/go.mod h1:Yw+ayOEKERDHXLJ4GiE5AnBmldJW4QRLDzGFC9do8G0=
 github.com/whyrusleeping/mafmt v1.2.8 h1:TCghSl5kkwEE0j+sU/gudyhVMRlpBin8fMBBHg59EbA=

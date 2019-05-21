@@ -23,7 +23,7 @@ require (
 	github.com/libp2p/go-testutil v0.0.1
 	github.com/multiformats/go-multiaddr v0.0.4
 	github.com/multiformats/go-multiaddr-net v0.0.1
-	github.com/whyrusleeping/go-smux-multistream v2.0.2+incompatible
+	github.com/whyrusleeping/go-smux-multistream v0.1.0
 	github.com/whyrusleeping/go-smux-yamux v0.1.1
 	github.com/whyrusleeping/mafmt v1.2.8
 	github.com/whyrusleeping/multiaddr-filter v0.0.0-20160516205228-e903e4adabd7
