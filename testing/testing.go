@@ -11,10 +11,10 @@ import (
 	pstoremem "github.com/libp2p/go-libp2p-peerstore/pstoremem"
 	secio "github.com/libp2p/go-libp2p-secio"
 	tptu "github.com/libp2p/go-libp2p-transport-upgrader"
+	yamux "github.com/libp2p/go-libp2p-yamux"
+	msmux "github.com/libp2p/go-stream-muxer-multistream"
 	tcp "github.com/libp2p/go-tcp-transport"
 	tu "github.com/libp2p/go-testutil"
-	msmux "github.com/whyrusleeping/go-smux-multistream"
-	yamux "github.com/whyrusleeping/go-smux-yamux"
 
 	swarm "github.com/libp2p/go-libp2p-swarm"
 )
