@@ -9,7 +9,7 @@ import (
 
 	. "github.com/libp2p/go-libp2p-swarm"
 
-	peer "github.com/libp2p/go-libp2p-peer"
+	"github.com/libp2p/go-libp2p-core/peer"
 )
 
 func getMockDialFunc() (DialFunc, func(), context.Context, <-chan struct{}) {

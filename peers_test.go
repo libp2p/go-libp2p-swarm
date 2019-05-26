@@ -1,19 +1,19 @@
 package swarm_test
 
 import (
+	"context"
 	"testing"
 
-	"context"
-	inet "github.com/libp2p/go-libp2p-net"
-	peer "github.com/libp2p/go-libp2p-peer"
-	pstore "github.com/libp2p/go-libp2p-peerstore"
+	"github.com/libp2p/go-libp2p-core/network"
+	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p-core/peerstore"
+
 	ma "github.com/multiformats/go-multiaddr"
 
 	. "github.com/libp2p/go-libp2p-swarm"
 )
 
 func TestPeers(t *testing.T) {
-
 	ctx := context.Background()
 	swarms := makeSwarms(ctx, t, 2)
 	s1 := swarms[0]
@@ -21,7 +21,7 @@ func TestPeers(t *testing.T) {
 
 	connect := func(s *Swarm, dst peer.ID, addr ma.Multiaddr) {
 		// TODO: make a DialAddr func.
-		s.Peerstore().AddAddr(dst, addr, pstore.PermanentAddrTTL)
+		s.Peerstore().AddAddr(dst, addr, peerstore.PermanentAddrTTL)
 		// t.Logf("connections from %s", s.LocalPeer())
 		// for _, c := range s.ConnsToPeer(dst) {
 		// 	t.Logf("connection from %s to %s: %v", s.LocalPeer(), dst, c)
@@ -35,10 +35,10 @@ func TestPeers(t *testing.T) {
 
 	s1GotConn := make(chan struct{}, 0)
 	s2GotConn := make(chan struct{}, 0)
-	s1.SetConnHandler(func(c inet.Conn) {
+	s1.SetConnHandler(func(c network.Conn) {
 		s1GotConn <- struct{}{}
 	})
-	s2.SetConnHandler(func(c inet.Conn) {
+	s2.SetConnHandler(func(c network.Conn) {
 		s2GotConn <- struct{}{}
 	})
 
