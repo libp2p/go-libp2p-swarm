@@ -7,13 +7,14 @@ import (
 	"testing"
 	"time"
 
-	peer "github.com/libp2p/go-libp2p-peer"
-	pstore "github.com/libp2p/go-libp2p-peerstore"
-	ci "github.com/libp2p/go-testutil/ci"
+	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p-core/peerstore"
+
 	ma "github.com/multiformats/go-multiaddr"
 
 	. "github.com/libp2p/go-libp2p-swarm"
 	swarmt "github.com/libp2p/go-libp2p-swarm/testing"
+	"github.com/libp2p/go-libp2p-testing/ci"
 )
 
 func TestSimultOpen(t *testing.T) {
@@ -30,7 +31,7 @@ func TestSimultOpen(t *testing.T) {
 			defer wg.Done()
 			// copy for other peer
 			log.Debugf("TestSimultOpen: connecting: %s --> %s (%s)", s.LocalPeer(), dst, addr)
-			s.Peerstore().AddAddr(dst, addr, pstore.PermanentAddrTTL)
+			s.Peerstore().AddAddr(dst, addr, peerstore.PermanentAddrTTL)
 			if _, err := s.DialPeer(ctx, dst); err != nil {
 				t.Error("error swarm dialing to peer", err)
 			}

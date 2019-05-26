@@ -6,8 +6,8 @@ import (
 
 	swarmt "github.com/libp2p/go-libp2p-swarm/testing"
 
-	peer "github.com/libp2p/go-libp2p-peer"
-	transport "github.com/libp2p/go-libp2p-transport"
+	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p-core/transport"
 	ma "github.com/multiformats/go-multiaddr"
 )
 
@@ -16,7 +16,7 @@ type dummyTransport struct {
 	proxy     bool
 }
 
-func (dt *dummyTransport) Dial(ctx context.Context, raddr ma.Multiaddr, p peer.ID) (transport.Conn, error) {
+func (dt *dummyTransport) Dial(ctx context.Context, raddr ma.Multiaddr, p peer.ID) (transport.CapableConn, error) {
 	panic("unimplemented")
 }
 

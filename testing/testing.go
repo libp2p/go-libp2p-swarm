@@ -4,17 +4,18 @@ import (
 	"context"
 	"testing"
 
+	"github.com/libp2p/go-libp2p-core/metrics"
+	"github.com/libp2p/go-libp2p-core/network"
+	"github.com/libp2p/go-libp2p-core/peerstore"
+	"github.com/libp2p/go-libp2p-testing/net"
+	"github.com/libp2p/go-tcp-transport"
+
 	csms "github.com/libp2p/go-conn-security-multistream"
-	metrics "github.com/libp2p/go-libp2p-metrics"
-	inet "github.com/libp2p/go-libp2p-net"
-	pstore "github.com/libp2p/go-libp2p-peerstore"
 	pstoremem "github.com/libp2p/go-libp2p-peerstore/pstoremem"
 	secio "github.com/libp2p/go-libp2p-secio"
 	tptu "github.com/libp2p/go-libp2p-transport-upgrader"
 	yamux "github.com/libp2p/go-libp2p-yamux"
 	msmux "github.com/libp2p/go-stream-muxer-multistream"
-	tcp "github.com/libp2p/go-tcp-transport"
-	tu "github.com/libp2p/go-testutil"
 
 	swarm "github.com/libp2p/go-libp2p-swarm"
 )
@@ -65,7 +66,7 @@ func GenSwarm(t *testing.T, ctx context.Context, opts ...Option) *swarm.Swarm {
 		o(t, &cfg)
 	}
 
-	p := tu.RandPeerNetParamsOrFatal(t)
+	p := tnet.RandPeerNetParamsOrFatal(t)
 
 	ps := pstoremem.NewPeerstore()
 	ps.AddPubKey(p.ID, p.PubKey)
@@ -84,15 +85,15 @@ func GenSwarm(t *testing.T, ctx context.Context, opts ...Option) *swarm.Swarm {
 			t.Fatal(err)
 		}
 
-		s.Peerstore().AddAddrs(p.ID, s.ListenAddresses(), pstore.PermanentAddrTTL)
+		s.Peerstore().AddAddrs(p.ID, s.ListenAddresses(), peerstore.PermanentAddrTTL)
 	}
 
 	return s
 }
 
 // DivulgeAddresses adds swarm a's addresses to swarm b's peerstore.
-func DivulgeAddresses(a, b inet.Network) {
+func DivulgeAddresses(a, b network.Network) {
 	id := a.LocalPeer()
 	addrs := a.Peerstore().Addrs(id)
-	b.Peerstore().AddAddrs(id, addrs, pstore.PermanentAddrTTL)
+	b.Peerstore().AddAddrs(id, addrs, peerstore.PermanentAddrTTL)
 }

@@ -1,12 +1,13 @@
 package swarm_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
-	"context"
-	inet "github.com/libp2p/go-libp2p-net"
-	peer "github.com/libp2p/go-libp2p-peer"
+	"github.com/libp2p/go-libp2p-core/network"
+	"github.com/libp2p/go-libp2p-core/peer"
+
 	ma "github.com/multiformats/go-multiaddr"
 
 	. "github.com/libp2p/go-libp2p-swarm"
@@ -41,7 +42,7 @@ func TestNotifications(t *testing.T) {
 	// test everyone got the correct connection opened calls
 	for i, s := range swarms {
 		n := notifiees[i]
-		notifs := make(map[peer.ID][]inet.Conn)
+		notifs := make(map[peer.ID][]network.Conn)
 		for j, s2 := range swarms {
 			if i == j {
 				continue
@@ -81,7 +82,7 @@ func TestNotifications(t *testing.T) {
 		}
 	}
 
-	complement := func(c inet.Conn) (*Swarm, *netNotifiee, *Conn) {
+	complement := func(c network.Conn) (*Swarm, *netNotifiee, *Conn) {
 		for i, s := range swarms {
 			for _, c2 := range s.Conns() {
 				if c.LocalMultiaddr().Equal(c2.RemoteMultiaddr()) &&
@@ -94,8 +95,8 @@ func TestNotifications(t *testing.T) {
 		return nil, nil, nil
 	}
 
-	testOCStream := func(n *netNotifiee, s inet.Stream) {
-		var s2 inet.Stream
+	testOCStream := func(n *netNotifiee, s network.Stream) {
+		var s2 network.Stream
 		select {
 		case s2 = <-n.openedStream:
 			t.Log("got notif for opened stream")
@@ -117,9 +118,9 @@ func TestNotifications(t *testing.T) {
 		}
 	}
 
-	streams := make(chan inet.Stream)
+	streams := make(chan network.Stream)
 	for _, s := range swarms {
-		s.SetStreamHandler(func(s inet.Stream) {
+		s.SetStreamHandler(func(s network.Stream) {
 			streams <- s
 			s.Reset()
 		})
@@ -151,7 +152,7 @@ func TestNotifications(t *testing.T) {
 			c.Close()
 			c2.Close()
 
-			var c3, c4 inet.Conn
+			var c3, c4 network.Conn
 			select {
 			case c3 = <-n.disconnected:
 			case <-time.After(timeout):
@@ -176,38 +177,38 @@ func TestNotifications(t *testing.T) {
 type netNotifiee struct {
 	listen       chan ma.Multiaddr
 	listenClose  chan ma.Multiaddr
-	connected    chan inet.Conn
-	disconnected chan inet.Conn
-	openedStream chan inet.Stream
-	closedStream chan inet.Stream
+	connected    chan network.Conn
+	disconnected chan network.Conn
+	openedStream chan network.Stream
+	closedStream chan network.Stream
 }
 
 func newNetNotifiee(buffer int) *netNotifiee {
 	return &netNotifiee{
 		listen:       make(chan ma.Multiaddr, buffer),
 		listenClose:  make(chan ma.Multiaddr, buffer),
-		connected:    make(chan inet.Conn, buffer),
-		disconnected: make(chan inet.Conn, buffer),
-		openedStream: make(chan inet.Stream, buffer),
-		closedStream: make(chan inet.Stream, buffer),
+		connected:    make(chan network.Conn, buffer),
+		disconnected: make(chan network.Conn, buffer),
+		openedStream: make(chan network.Stream, buffer),
+		closedStream: make(chan network.Stream, buffer),
 	}
 }
 
-func (nn *netNotifiee) Listen(n inet.Network, a ma.Multiaddr) {
+func (nn *netNotifiee) Listen(n network.Network, a ma.Multiaddr) {
 	nn.listen <- a
 }
-func (nn *netNotifiee) ListenClose(n inet.Network, a ma.Multiaddr) {
+func (nn *netNotifiee) ListenClose(n network.Network, a ma.Multiaddr) {
 	nn.listenClose <- a
 }
-func (nn *netNotifiee) Connected(n inet.Network, v inet.Conn) {
+func (nn *netNotifiee) Connected(n network.Network, v network.Conn) {
 	nn.connected <- v
 }
-func (nn *netNotifiee) Disconnected(n inet.Network, v inet.Conn) {
+func (nn *netNotifiee) Disconnected(n network.Network, v network.Conn) {
 	nn.disconnected <- v
 }
-func (nn *netNotifiee) OpenedStream(n inet.Network, v inet.Stream) {
+func (nn *netNotifiee) OpenedStream(n network.Network, v network.Stream) {
 	nn.openedStream <- v
 }
-func (nn *netNotifiee) ClosedStream(n inet.Network, v inet.Stream) {
+func (nn *netNotifiee) ClosedStream(n network.Network, v network.Stream) {
 	nn.closedStream <- v
 }

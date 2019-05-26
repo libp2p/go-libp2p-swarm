@@ -4,8 +4,9 @@ import (
 	"context"
 	"testing"
 
-	pstore "github.com/libp2p/go-libp2p-peerstore"
-	testutil "github.com/libp2p/go-testutil"
+	"github.com/libp2p/go-libp2p-core/peerstore"
+	"github.com/libp2p/go-libp2p-core/test"
+
 	ma "github.com/multiformats/go-multiaddr"
 )
 
@@ -23,8 +24,8 @@ func TestDialBadAddrs(t *testing.T) {
 	s := makeSwarms(ctx, t, 1)[0]
 
 	test := func(a ma.Multiaddr) {
-		p := testutil.RandPeerIDFatal(t)
-		s.Peerstore().AddAddr(p, a, pstore.PermanentAddrTTL)
+		p := test.RandPeerIDFatal(t)
+		s.Peerstore().AddAddr(p, a, peerstore.PermanentAddrTTL)
 		if _, err := s.DialPeer(ctx, p); err == nil {
 			t.Errorf("swarm should not dial: %s", p)
 		}

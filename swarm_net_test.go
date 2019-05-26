@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	inet "github.com/libp2p/go-libp2p-net"
+	"github.com/libp2p/go-libp2p-core/network"
 
 	. "github.com/libp2p/go-libp2p-swarm/testing"
 )
@@ -17,14 +17,14 @@ func TestConnectednessCorrect(t *testing.T) {
 
 	ctx := context.Background()
 
-	nets := make([]inet.Network, 4)
+	nets := make([]network.Network, 4)
 	for i := 0; i < 4; i++ {
 		nets[i] = GenSwarm(t, ctx)
 	}
 
 	// connect 0-1, 0-2, 0-3, 1-2, 2-3
 
-	dial := func(a, b inet.Network) {
+	dial := func(a, b network.Network) {
 		DivulgeAddresses(b, a)
 		if _, err := a.DialPeer(ctx, b.LocalPeer()); err != nil {
 			t.Fatalf("Failed to dial: %s", err)
@@ -44,14 +44,14 @@ func TestConnectednessCorrect(t *testing.T) {
 	// test those connected show up correctly
 
 	// test connected
-	expectConnectedness(t, nets[0], nets[1], inet.Connected)
-	expectConnectedness(t, nets[0], nets[3], inet.Connected)
-	expectConnectedness(t, nets[1], nets[2], inet.Connected)
-	expectConnectedness(t, nets[3], nets[2], inet.Connected)
+	expectConnectedness(t, nets[0], nets[1], network.Connected)
+	expectConnectedness(t, nets[0], nets[3], network.Connected)
+	expectConnectedness(t, nets[1], nets[2], network.Connected)
+	expectConnectedness(t, nets[3], nets[2], network.Connected)
 
 	// test not connected
-	expectConnectedness(t, nets[0], nets[2], inet.NotConnected)
-	expectConnectedness(t, nets[1], nets[3], inet.NotConnected)
+	expectConnectedness(t, nets[0], nets[2], network.NotConnected)
+	expectConnectedness(t, nets[1], nets[3], network.NotConnected)
 
 	if len(nets[0].Peers()) != 2 {
 		t.Fatal("expected net 0 to have two peers")
@@ -71,7 +71,7 @@ func TestConnectednessCorrect(t *testing.T) {
 
 	time.Sleep(time.Millisecond * 50)
 
-	expectConnectedness(t, nets[2], nets[1], inet.NotConnected)
+	expectConnectedness(t, nets[2], nets[1], network.NotConnected)
 
 	for _, n := range nets {
 		n.Close()
@@ -82,7 +82,7 @@ func TestConnectednessCorrect(t *testing.T) {
 	}
 }
 
-func expectConnectedness(t *testing.T, a, b inet.Network, expected inet.Connectedness) {
+func expectConnectedness(t *testing.T, a, b network.Network, expected network.Connectedness) {
 	es := "%s is connected to %s, but Connectedness incorrect. %s %s %s"
 	atob := a.Connectedness(b.LocalPeer())
 	btoa := b.Connectedness(a.LocalPeer())
@@ -96,7 +96,7 @@ func expectConnectedness(t *testing.T, a, b inet.Network, expected inet.Connecte
 	}
 }
 
-func printConns(n inet.Network) string {
+func printConns(n network.Network) string {
 	s := fmt.Sprintf("Connections in %s:\n", n)
 	for _, c := range n.Conns() {
 		s = s + fmt.Sprintf("- %s\n", c)
@@ -108,12 +108,12 @@ func TestNetworkOpenStream(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	nets := make([]inet.Network, 4)
+	nets := make([]network.Network, 4)
 	for i := 0; i < 4; i++ {
 		nets[i] = GenSwarm(t, ctx)
 	}
 
-	dial := func(a, b inet.Network) {
+	dial := func(a, b network.Network) {
 		DivulgeAddresses(b, a)
 		if _, err := a.DialPeer(ctx, b.LocalPeer()); err != nil {
 			t.Fatalf("Failed to dial: %s", err)
@@ -125,7 +125,7 @@ func TestNetworkOpenStream(t *testing.T) {
 	dial(nets[1], nets[2])
 
 	done := make(chan bool)
-	nets[1].SetStreamHandler(func(s inet.Stream) {
+	nets[1].SetStreamHandler(func(s network.Stream) {
 		defer close(done)
 		defer s.Close()
 
