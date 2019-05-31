@@ -86,10 +86,12 @@ type Swarm struct {
 	proc goprocess.Process
 	ctx  context.Context
 	bwc  metrics.Reporter
+
+	selfdial bool
 }
 
 // NewSwarm constructs a Swarm
-func NewSwarm(ctx context.Context, local peer.ID, peers peerstore.Peerstore, bwc metrics.Reporter) *Swarm {
+func NewSwarm(ctx context.Context, local peer.ID, peers peerstore.Peerstore, bwc metrics.Reporter, selfdial bool) *Swarm {
 	s := &Swarm{
 		local:   local,
 		peers:   peers,
@@ -106,6 +108,7 @@ func NewSwarm(ctx context.Context, local peer.ID, peers peerstore.Peerstore, bwc
 	s.limiter = newDialLimiter(s.dialAddr)
 	s.proc = goprocessctx.WithContextAndTeardown(ctx, s.teardown)
 	s.ctx = goprocessctx.OnClosingContext(s.proc)
+	s.selfdial = selfdial
 
 	return s
 }

@@ -23,6 +23,7 @@ import (
 type config struct {
 	disableReuseport bool
 	dialOnly         bool
+	selfDial         bool
 }
 
 // Option is an option that can be passed when constructing a test swarm.
@@ -36,6 +37,10 @@ var OptDisableReuseport Option = func(_ *testing.T, c *config) {
 // OptDialOnly prevents the test swarm from listening.
 var OptDialOnly Option = func(_ *testing.T, c *config) {
 	c.dialOnly = true
+}
+
+var OptEnableSelfDial Option = func(_ *testing.T, c *config) {
+	c.selfDial = true
 }
 
 // GenUpgrader creates a new connection upgrader for use with this swarm.
@@ -71,7 +76,7 @@ func GenSwarm(t *testing.T, ctx context.Context, opts ...Option) *swarm.Swarm {
 	ps := pstoremem.NewPeerstore()
 	ps.AddPubKey(p.ID, p.PubKey)
 	ps.AddPrivKey(p.ID, p.PrivKey)
-	s := swarm.NewSwarm(ctx, p.ID, ps, metrics.NewBandwidthCounter())
+	s := swarm.NewSwarm(ctx, p.ID, ps, metrics.NewBandwidthCounter(), cfg.selfDial)
 
 	tcpTransport := tcp.NewTCPTransport(GenUpgrader(s))
 	tcpTransport.DisableReuseport = cfg.disableReuseport
