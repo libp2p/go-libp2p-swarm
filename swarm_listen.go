@@ -2,6 +2,7 @@ package swarm
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/libp2p/go-libp2p-core/network"
 
@@ -55,6 +56,7 @@ func (s *Swarm) AddListenAddr(a ma.Multiaddr) error {
 	}
 	s.refs.Add(1)
 	s.listeners.m[list] = struct{}{}
+	s.listeners.cacheEOL = time.Time{}
 	s.listeners.Unlock()
 
 	maddr := list.Multiaddr()
@@ -69,6 +71,7 @@ func (s *Swarm) AddListenAddr(a ma.Multiaddr) error {
 			list.Close()
 			s.listeners.Lock()
 			delete(s.listeners.m, list)
+			s.listeners.cacheEOL = time.Time{}
 			s.listeners.Unlock()
 			s.refs.Done()
 		}()
