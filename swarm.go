@@ -20,6 +20,7 @@ import (
 	goprocessctx "github.com/jbenet/goprocess/context"
 
 	filter "github.com/libp2p/go-maddr-filter"
+	ma "github.com/multiformats/go-multiaddr"
 	mafilter "github.com/whyrusleeping/multiaddr-filter"
 )
 
@@ -58,6 +59,10 @@ type Swarm struct {
 
 	listeners struct {
 		sync.RWMutex
+
+		ifaceListenAddres []ma.Multiaddr
+		cacheEOL          time.Time
+
 		m map[transport.Listener]struct{}
 	}
 
