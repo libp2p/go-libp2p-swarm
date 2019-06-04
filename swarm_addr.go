@@ -29,15 +29,14 @@ const ifaceAddrsCacheDuration = 1 * time.Minute
 // use the known local interfaces.
 func (s *Swarm) InterfaceListenAddresses() ([]ma.Multiaddr, error) {
 	s.listeners.RLock() // RLock start
-	listenAddrs := s.listenAddressesNoLock()
 
-	ifaceAddrs := s.listeners.ifaceAddresses
+	ifaceListenAddres := s.listeners.ifaceListenAddres
 	isEOL := time.Now().After(s.listeners.cacheEOL)
 	s.listeners.RUnlock() // RLock end
 
-	if listenAddrs != nil && !isEOL {
+	if ifaceListenAddres != nil && !isEOL {
 		// Cache is valid
-		return addrutil.ResolveUnspecifiedAddresses(listenAddrs, ifaceAddrs)
+		return ifaceListenAddres, nil
 	}
 
 	// Cache is not valid
@@ -45,24 +44,25 @@ func (s *Swarm) InterfaceListenAddresses() ([]ma.Multiaddr, error) {
 
 	s.listeners.Lock() // Lock start
 
-	listenAddrs = s.listenAddressesNoLock()
-
-	ifaceAddrs = s.listeners.ifaceAddresses
+	ifaceListenAddres = s.listeners.ifaceListenAddres
 	isEOL = time.Now().After(s.listeners.cacheEOL)
-	if listenAddrs == nil || isEOL {
+	if ifaceListenAddres == nil || isEOL {
 		// Cache is still invalid
+
 		var err error
-		ifaceAddrs, err = addrutil.InterfaceAddresses()
+		ifaceListenAddres, err = addrutil.ResolveUnspecifiedAddresses(
+			s.listenAddressesNoLock(), nil)
+
 		if err != nil {
 			s.listeners.Unlock() // Lock early exit
 			return nil, err
 		}
 
-		s.listeners.ifaceAddresses = ifaceAddrs
+		s.listeners.ifaceListenAddres = ifaceListenAddres
 		s.listeners.cacheEOL = time.Now().Add(ifaceAddrsCacheDuration)
 	}
 
 	s.listeners.Unlock() // Lock end
 
-	return addrutil.ResolveUnspecifiedAddresses(listenAddrs, ifaceAddrs)
+	return ifaceListenAddres, nil
 }

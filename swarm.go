@@ -60,8 +60,8 @@ type Swarm struct {
 	listeners struct {
 		sync.RWMutex
 
-		ifaceAddresses []ma.Multiaddr
-		cacheEOL       time.Time
+		ifaceListenAddres []ma.Multiaddr
+		cacheEOL          time.Time
 
 		m map[transport.Listener]struct{}
 	}
