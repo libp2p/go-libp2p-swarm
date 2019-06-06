@@ -116,6 +116,11 @@ func NewSwarm(ctx context.Context, local peer.ID, peers peerstore.Peerstore, bwc
 }
 
 func (s *Swarm) teardown() error {
+	// Wait for the context to be canceled.
+	// This allows other parts of the swarm to detect that we're shutting
+	// down.
+	<-s.ctx.Done()
+
 	// Prevents new connections and/or listeners from being added to the swarm.
 
 	s.listeners.Lock()
