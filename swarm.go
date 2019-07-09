@@ -236,13 +236,6 @@ func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (*Conn,
 
 	c.start()
 
-	// TODO: Get rid of this. We use it for identify but that happen much
-	// earlier (really, inside the transport and, if not then, during the
-	// notifications).
-	if h := s.ConnHandler(); h != nil {
-		go h(c)
-	}
-
 	return c, nil
 }
 

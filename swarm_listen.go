@@ -88,7 +88,7 @@ func (s *Swarm) AddListenAddr(a ma.Multiaddr) error {
 			s.refs.Add(1)
 			go func() {
 				defer s.refs.Done()
-				_, err := s.addConn(c, network.DirInbound)
+				c, err := s.addConn(c, network.DirInbound)
 				switch err {
 				case nil:
 				case ErrSwarmClosed:
@@ -97,6 +97,14 @@ func (s *Swarm) AddListenAddr(a ma.Multiaddr) error {
 				default:
 					log.Warningf("add conn %s failed: ", err)
 					return
+				}
+
+				// TODO: Get rid of this. We use it for identify
+				// but that should happen much earlier (really,
+				// inside the transport and, if not then, during
+				// the notifications).
+				if h := s.ConnHandler(); h != nil {
+					go h(c)
 				}
 			}()
 		}
