@@ -197,7 +197,7 @@ func (s *Swarm) dialPeer(ctx context.Context, p peer.ID) (*Conn, error) {
 		return nil, err
 	}
 
-	if p == s.local {
+	if !s.selfdial && p == s.local {
 		log.Event(ctx, "swarmDialSelf", logdial)
 		return nil, ErrDialToSelf
 	}
@@ -276,7 +276,7 @@ func (s *Swarm) canDial(addr ma.Multiaddr) bool {
 // dial is the actual swarm's dial logic, gated by Dial.
 func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 	var logdial = lgbl.Dial("swarm", s.LocalPeer(), p, nil, nil)
-	if p == s.local {
+	if !s.selfdial && p == s.local {
 		log.Event(ctx, "swarmDialDoDialSelf", logdial)
 		return nil, ErrDialToSelf
 	}
@@ -449,7 +449,7 @@ func (s *Swarm) limitedDial(ctx context.Context, p peer.ID, a ma.Multiaddr, resp
 
 func (s *Swarm) dialAddr(ctx context.Context, p peer.ID, addr ma.Multiaddr) (transport.CapableConn, error) {
 	// Just to double check. Costs nothing.
-	if s.local == p {
+	if !s.selfdial && s.local == p {
 		return nil, ErrDialToSelf
 	}
 	log.Debugf("%s swarm dialing %s %s", s.local, p, addr)
