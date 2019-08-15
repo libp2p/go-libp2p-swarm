@@ -3,7 +3,7 @@ package dial
 import (
 	"sync"
 
-	tpt "github.com/libp2p/go-libp2p-transport"
+	"github.com/libp2p/go-libp2p-core/transport"
 	ma "github.com/multiformats/go-multiaddr"
 )
 
@@ -24,14 +24,14 @@ type Job struct {
 	respCh    chan<- *Job
 	callbacks []jobCallbackEntry
 	result    struct {
-		tconn tpt.Conn
+		tconn transport.CapableConn
 		err   error
 	}
 }
 
 // Result returns the connection and error fields from this job.
 // Both return values may be nil or incoherent unless the job has completed.
-func (j *Job) Result() (tpt.Conn, error) {
+func (j *Job) Result() (transport.CapableConn, error) {
 	j.lk.Lock()
 	defer j.lk.Unlock()
 
@@ -116,7 +116,7 @@ func (j *Job) AddCallback(name string, cb func(*Job)) {
 //   2. Fires callbacks in the reverse order they were added.
 //   3. Fires cancel functions in the reverse order they were added.
 //   4. Notifies the response channel.
-func (j *Job) Complete(conn tpt.Conn, err error) {
+func (j *Job) Complete(conn transport.CapableConn, err error) {
 	j.lk.Lock()
 
 	if j.respCh == nil {

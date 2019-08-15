@@ -5,12 +5,12 @@ import (
 	"io"
 
 	logging "github.com/ipfs/go-log"
-	inet "github.com/libp2p/go-libp2p-net"
+	"github.com/libp2p/go-libp2p-core/network"
 )
 
 var log = logging.Logger("swarm_test")
 
-func EchoStreamHandler(stream inet.Stream) {
+func EchoStreamHandler(stream network.Stream) {
 	go func() {
 		defer stream.Close()
 

@@ -2,10 +2,9 @@ package swarm
 
 import (
 	addrutil "github.com/libp2p/go-addr-util"
-	inet "github.com/libp2p/go-libp2p-net"
+	"github.com/libp2p/go-libp2p-core/network"
+	"github.com/libp2p/go-libp2p-core/transport"
 	dial "github.com/libp2p/go-libp2p-swarm/dial"
-	transport "github.com/libp2p/go-libp2p-transport"
-
 	ma "github.com/multiformats/go-multiaddr"
 )
 
@@ -23,8 +22,8 @@ import (
 //  - Throttler: a throttler that limits concurrent dials per peer, as well as by file descriptor usage.
 //  - Executor: a simple executor that launches a goroutine per dial job.
 func (s *Swarm) NewDefaultPipeline() *dial.Pipeline {
-	p := dial.NewPipeline(s.ctx, s, func(tc transport.Conn) (conn inet.Conn, e error) {
-		return s.addConn(tc, inet.DirOutbound)
+	p := dial.NewPipeline(s.ctx, s, func(tc transport.CapableConn) (conn network.Conn, e error) {
+		return s.addConn(tc, network.DirOutbound)
 	})
 
 	// preparers.

@@ -4,8 +4,8 @@ import (
 	"context"
 	"sync"
 
-	inet "github.com/libp2p/go-libp2p-net"
-	peer "github.com/libp2p/go-libp2p-peer"
+	"github.com/libp2p/go-libp2p-core/network"
+	"github.com/libp2p/go-libp2p-core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 )
 
@@ -27,7 +27,7 @@ type Request struct {
 	callbacks []requestCallbackEntry
 
 	result struct {
-		conn inet.Conn
+		conn network.Conn
 		err  error
 	}
 }
@@ -74,7 +74,7 @@ func (r *Request) Await() <-chan struct{} {
 //   2. Fires callbacks in the reverse order they were added.
 //   3. Fires cancel functions in the reverse order they were added.
 //   4. Closes notifyCh (see Await) to notify waiters.
-func (r *Request) Complete(conn inet.Conn, err error) (inet.Conn, error) {
+func (r *Request) Complete(conn network.Conn, err error) (network.Conn, error) {
 	r.lk.Lock()
 
 	r.status.Assert(StatusInflight)
@@ -119,13 +119,13 @@ func (r *Request) IsComplete() bool {
 }
 
 // CompleteFrom completes the request using the result from another request.
-func (r *Request) CompleteFrom(other *Request) (inet.Conn, error) {
+func (r *Request) CompleteFrom(other *Request) (network.Conn, error) {
 	return r.Complete(other.Result())
 }
 
 // Result returns the connection and error fields from this request.
 // Both return values may be nil or incoherent unless the request has completed (see IsComplete).
-func (r *Request) Result() (inet.Conn, error) {
+func (r *Request) Result() (network.Conn, error) {
 	r.lk.RLock()
 	defer r.lk.RUnlock()
 

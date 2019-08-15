@@ -74,9 +74,9 @@ import (
 	"fmt"
 	"crypto/rand"
 
-	ci "github.com/libp2p/go-libp2p-crypto"
-	pstore "github.com/libp2p/go-libp2p-peerstore"
-	peer "github.com/libp2p/go-libp2p-peer"
+	ci "github.com/libp2p/go-libp2p-core/crypto"
+	pstore "github.com/libp2p/go-libp2p-core/peerstore"
+	peer "github.com/libp2p/go-libp2p-core/peer"
 )
 
 func demo() {

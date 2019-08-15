@@ -17,7 +17,6 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/peerstore"
 	"github.com/libp2p/go-libp2p-core/transport"
-	pstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/libp2p/go-libp2p-swarm/dial"
 	filter "github.com/libp2p/go-maddr-filter"
 	ma "github.com/multiformats/go-multiaddr"
@@ -106,7 +105,7 @@ type Swarm struct {
 }
 
 // NewSwarm constructs a Swarm
-func NewSwarm(ctx context.Context, local peer.ID, peers pstore.Peerstore, bwc metrics.Reporter, opts ...Option) *Swarm {
+func NewSwarm(ctx context.Context, local peer.ID, peers peerstore.Peerstore, bwc metrics.Reporter, opts ...Option) *Swarm {
 	s := &Swarm{
 		local:   local,
 		peers:   peers,
