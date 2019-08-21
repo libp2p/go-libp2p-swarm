@@ -35,3 +35,21 @@ func TestDialBadAddrs(t *testing.T) {
 	test(m("/ip6/fe80::100"))              // link local
 	test(m("/ip4/127.0.0.1/udp/1234/utp")) // utp
 }
+
+func TestAddrRace(t *testing.T) {
+	ctx := context.Background()
+	s := makeSwarms(ctx, t, 1)[0]
+
+	a1, err := s.InterfaceListenAddresses()
+	if err != nil {
+		t.Fatal(err)
+	}
+	a2, err := s.InterfaceListenAddresses()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(a1) > 0 && len(a2) > 0 && &a1[0] == &a2[0] {
+		t.Fatal("got the exact same address set twice; this could lead to data races")
+	}
+}
