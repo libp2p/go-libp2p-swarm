@@ -9,19 +9,28 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/libp2p/go-libp2p-core/metrics"
-	"github.com/libp2p/go-libp2p-core/network"
-	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/libp2p/go-libp2p-core/peerstore"
-	"github.com/libp2p/go-libp2p-core/transport"
-
 	logging "github.com/ipfs/go-log"
 	"github.com/jbenet/goprocess"
 	goprocessctx "github.com/jbenet/goprocess/context"
-
+	"github.com/libp2p/go-libp2p-core/metrics"
+	network "github.com/libp2p/go-libp2p-core/network"
+	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p-core/peerstore"
+	"github.com/libp2p/go-libp2p-core/transport"
+	"github.com/libp2p/go-libp2p-swarm/dial"
 	filter "github.com/libp2p/go-maddr-filter"
 	ma "github.com/multiformats/go-multiaddr"
 	mafilter "github.com/whyrusleeping/multiaddr-filter"
+	"golang.org/x/xerrors"
+)
+
+var (
+	// error aliases for backwards compatibility.
+	ErrDialBackoff    = dial.ErrDialBackoff
+	ErrDialToSelf     = dial.ErrDialToSelf
+	ErrNoTransport    = dial.ErrNoTransport
+	ErrAllDialsFailed = dial.ErrAllDialsFailed
+	ErrNoAddresses    = dial.ErrNoAddresses
 )
 
 // DialTimeoutLocal is the maximum duration a Dial to local network address
@@ -39,6 +48,11 @@ var ErrSwarmClosed = errors.New("swarm closed")
 // filtered address. You shouldn't see this error unless some underlying
 // transport is misbehaving.
 var ErrAddrFiltered = errors.New("address filtered")
+
+// DialAttempts governs how many times a goroutine will try to dial a given peer.
+// Note: this is down to one, as we have _too many dials_ atm. To add back in,
+// add loop back in Dial(.)
+const DialAttempts = 1
 
 // Swarm is a connection muxer, allowing connections to other peers to
 // be opened and closed, while still using the same Chan for all
@@ -80,21 +94,18 @@ type Swarm struct {
 	connh   atomic.Value
 	streamh atomic.Value
 
-	// dialing helpers
-	dsync   *DialSync
-	backf   DialBackoff
-	limiter *dialLimiter
-
 	// filters for addresses that shouldnt be dialed (or accepted)
 	Filters *filter.Filters
 
 	proc goprocess.Process
 	ctx  context.Context
 	bwc  metrics.Reporter
+
+	pipeline *dial.Pipeline
 }
 
 // NewSwarm constructs a Swarm
-func NewSwarm(ctx context.Context, local peer.ID, peers peerstore.Peerstore, bwc metrics.Reporter) *Swarm {
+func NewSwarm(ctx context.Context, local peer.ID, peers peerstore.Peerstore, bwc metrics.Reporter, opts ...Option) *Swarm {
 	s := &Swarm{
 		local:   local,
 		peers:   peers,
@@ -107,22 +118,45 @@ func NewSwarm(ctx context.Context, local peer.ID, peers peerstore.Peerstore, bwc
 	s.transports.m = make(map[int]transport.Transport)
 	s.notifs.m = make(map[network.Notifiee]struct{})
 
-	s.dsync = NewDialSync(s.doDial)
-	s.limiter = newDialLimiter(s.dialAddr)
 	s.proc = goprocessctx.WithContextAndTeardown(ctx, s.teardown)
 	s.ctx = goprocessctx.OnClosingContext(s.proc)
 
+	for _, opt := range opts {
+		if err := opt(s); err != nil {
+			panic(xerrors.Errorf("error while applying swarm options: %w", err))
+		}
+	}
+
+	if s.pipeline == nil {
+		// apply the default pipeline if a custom one was not provided.
+		s.pipeline = s.NewDefaultPipeline()
+	}
+
+	s.pipeline.Start()
 	return s
 }
 
+// DialPeer connects to a peer.
+//
+// The idea is that the client of Swarm does not need to know what network
+// the connection will happen over. Swarm can use whichever it choses.
+// This allows us to use various transport protocols, do NAT traversal/relay,
+// etc. to achieve connection.
+func (s *Swarm) DialPeer(ctx context.Context, p peer.ID) (network.Conn, error) {
+	// check if we already have an open connection first
+	if conn := s.bestConnToPeer(p); conn != nil {
+		return conn, nil
+	}
+
+	return s.pipeline.Dial(ctx, p)
+}
+
 func (s *Swarm) teardown() error {
-	// Wait for the context to be canceled.
-	// This allows other parts of the swarm to detect that we're shutting
-	// down.
-	<-s.ctx.Done()
+	if err := s.pipeline.Close(); err != nil {
+		log.Errorf("error when shutting down the swarm dial pipeline: %s", err)
+	}
 
 	// Prevents new connections and/or listeners from being added to the swarm.
-
 	s.listeners.Lock()
 	listeners := s.listeners.m
 	s.listeners.m = nil
@@ -154,7 +188,7 @@ func (s *Swarm) teardown() error {
 		}
 	}
 
-	// Wait for everything to finish.
+	// Await for everything to finish.
 	s.refs.Wait()
 
 	return nil
@@ -172,12 +206,16 @@ func (s *Swarm) AddAddrFilter(f string) error {
 	return nil
 }
 
+func (s *Swarm) Pipeline() *dial.Pipeline {
+	return s.pipeline
+}
+
 // Process returns the Process of the swarm
 func (s *Swarm) Process() goprocess.Process {
 	return s.proc
 }
 
-func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (*Conn, error) {
+func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (network.Conn, error) {
 	// The underlying transport (or the dialer) *should* filter it's own
 	// connections but we should double check anyways.
 	raddr := tc.RemoteMultiaddr()
@@ -192,9 +230,6 @@ func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (*Conn,
 	if pk := tc.RemotePublicKey(); pk != nil {
 		s.peers.AddPubKey(p, pk)
 	}
-
-	// Clear any backoffs
-	s.backf.Clear(p)
 
 	// Finally, add the peer.
 	s.conns.Lock()
@@ -224,10 +259,6 @@ func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (*Conn,
 	// Disconnect notifications until after the Connect notifications done.
 	c.notifyLk.Lock()
 	s.conns.Unlock()
-
-	// We have a connection now. Cancel all other in-progress dials.
-	// This should be fast, no reason to wait till later.
-	s.dsync.CancelDial(p)
 
 	s.notifyAll(func(f network.Notifiee) {
 		f.Connected(s, c)
@@ -304,6 +335,7 @@ func (s *Swarm) NewStream(ctx context.Context, p peer.ID) (network.Stream, error
 	// TODO: Try all connections even if we get an error opening a stream on
 	// a non-closed connection.
 	dials := 0
+	var conn network.Conn
 	for {
 		c := s.bestConnToPeer(p)
 		if c == nil {
@@ -317,14 +349,17 @@ func (s *Swarm) NewStream(ctx context.Context, p peer.ID) (network.Stream, error
 			dials++
 
 			var err error
-			c, err = s.dialPeer(ctx, p)
+			conn, err = s.DialPeer(ctx, p)
 			if err != nil {
 				return nil, err
 			}
+		} else {
+			conn = c
 		}
-		s, err := c.NewStream()
+
+		s, err := conn.NewStream()
 		if err != nil {
-			if c.conn.IsClosed() {
+			if sc, ok := conn.(*Conn); ok && sc.conn.IsClosed() {
 				continue
 			}
 			return nil, err
@@ -445,11 +480,6 @@ func (s *Swarm) Peers() []peer.ID {
 // LocalPeer returns the local peer swarm is associated to.
 func (s *Swarm) LocalPeer() peer.ID {
 	return s.local
-}
-
-// Backoff returns the DialBackoff object for this swarm.
-func (s *Swarm) Backoff() *DialBackoff {
-	return &s.backf
 }
 
 // notifyAll sends a signal to all Notifiees

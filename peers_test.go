@@ -7,15 +7,14 @@ import (
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/peerstore"
-
-	ma "github.com/multiformats/go-multiaddr"
-
 	. "github.com/libp2p/go-libp2p-swarm"
+	swarmt "github.com/libp2p/go-libp2p-swarm/testing"
+	ma "github.com/multiformats/go-multiaddr"
 )
 
 func TestPeers(t *testing.T) {
 	ctx := context.Background()
-	swarms := makeSwarms(ctx, t, 2)
+	swarms := swarmt.MakeSwarms(ctx, t, 2)
 	s1 := swarms[0]
 	s2 := swarms[1]
 

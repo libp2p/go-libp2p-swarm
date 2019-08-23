@@ -22,7 +22,7 @@ const (
 	streamReset
 )
 
-// Validate Stream conforms to the go-libp2p-net Stream interface
+// Validate Stream conforms to the network.Stream interface
 var _ network.Stream = &Stream{}
 
 // Stream is the stream type used by swarm. In general, you won't use this type

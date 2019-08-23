@@ -7,17 +7,16 @@ import (
 
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
-
-	ma "github.com/multiformats/go-multiaddr"
-
 	. "github.com/libp2p/go-libp2p-swarm"
+	swarmt "github.com/libp2p/go-libp2p-swarm/testing"
+	ma "github.com/multiformats/go-multiaddr"
 )
 
 func TestNotifications(t *testing.T) {
 	const swarmSize = 5
 
 	ctx := context.Background()
-	swarms := makeSwarms(ctx, t, swarmSize)
+	swarms := swarmt.MakeSwarms(ctx, t, swarmSize)
 	defer func() {
 		for _, s := range swarms {
 			s.Close()
@@ -34,7 +33,7 @@ func TestNotifications(t *testing.T) {
 		notifiees[i] = n
 	}
 
-	connectSwarms(t, ctx, swarms)
+	swarmt.ConnectSwarms(t, ctx, swarms)
 
 	<-time.After(time.Millisecond)
 	// should've gotten 5 by now.

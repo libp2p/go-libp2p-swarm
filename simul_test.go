@@ -9,12 +9,10 @@ import (
 
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/peerstore"
-
-	ma "github.com/multiformats/go-multiaddr"
-
 	. "github.com/libp2p/go-libp2p-swarm"
 	swarmt "github.com/libp2p/go-libp2p-swarm/testing"
 	"github.com/libp2p/go-libp2p-testing/ci"
+	ma "github.com/multiformats/go-multiaddr"
 )
 
 func TestSimultOpen(t *testing.T) {
@@ -22,7 +20,7 @@ func TestSimultOpen(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	swarms := makeSwarms(ctx, t, 2, swarmt.OptDisableReuseport)
+	swarms := swarmt.MakeSwarms(ctx, t, 2, swarmt.OptDisableReuseport)
 
 	// connect everyone
 	{

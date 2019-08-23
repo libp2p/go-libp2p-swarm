@@ -6,7 +6,7 @@ import (
 
 	"github.com/libp2p/go-libp2p-core/peerstore"
 	"github.com/libp2p/go-libp2p-core/test"
-
+	swarmt "github.com/libp2p/go-libp2p-swarm/testing"
 	ma "github.com/multiformats/go-multiaddr"
 )
 
@@ -21,7 +21,7 @@ func TestDialBadAddrs(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	s := makeSwarms(ctx, t, 1)[0]
+	s := swarmt.MakeSwarms(ctx, t, 1)[0]
 
 	test := func(a ma.Multiaddr) {
 		p := test.RandPeerIDFatal(t)
