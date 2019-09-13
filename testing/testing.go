@@ -73,6 +73,13 @@ func GenSwarm(t *testing.T, ctx context.Context, opts ...Option) *swarm.Swarm {
 	ps.AddPrivKey(p.ID, p.PrivKey)
 	s := swarm.NewSwarm(ctx, p.ID, ps, metrics.NewBandwidthCounter())
 
+	// Close the peerstore when context is expired
+	// TODO: the peerstore should really take a context instead
+	go func() {
+		<-ctx.Done()
+		ps.Close()
+	}()
+
 	tcpTransport := tcp.NewTCPTransport(GenUpgrader(s))
 	tcpTransport.DisableReuseport = cfg.disableReuseport
 
