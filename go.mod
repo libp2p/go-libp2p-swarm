@@ -5,7 +5,8 @@ require (
 	github.com/jbenet/goprocess v0.1.3
 	github.com/libp2p/go-addr-util v0.0.1
 	github.com/libp2p/go-conn-security-multistream v0.1.0
-	github.com/libp2p/go-libp2p-core v0.2.2
+	github.com/libp2p/go-eventbus v0.1.0
+	github.com/libp2p/go-libp2p-core v0.2.3-0.20190913134417-43e3c9c85923
 	github.com/libp2p/go-libp2p-loggables v0.1.0
 	github.com/libp2p/go-libp2p-peerstore v0.1.3
 	github.com/libp2p/go-libp2p-secio v0.2.0
@@ -18,6 +19,7 @@ require (
 	github.com/multiformats/go-multiaddr v0.1.1
 	github.com/multiformats/go-multiaddr-fmt v0.1.0
 	github.com/multiformats/go-multiaddr-net v0.1.0
+	github.com/stretchr/testify v1.3.0
 	github.com/whyrusleeping/multiaddr-filter v0.0.0-20160516205228-e903e4adabd7
 )
 
