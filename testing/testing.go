@@ -18,7 +18,7 @@ import (
 	yamux "github.com/libp2p/go-libp2p-yamux"
 	msmux "github.com/libp2p/go-stream-muxer-multistream"
 
-	swarm "github.com/libp2p/go-libp2p-swarm"
+	"github.com/libp2p/go-libp2p-swarm"
 )
 
 type config struct {
@@ -66,13 +66,15 @@ func GenSwarm(t *testing.T, ctx context.Context, opts ...Option) *swarm.Swarm {
 	for _, o := range opts {
 		o(t, &cfg)
 	}
-
 	p := tnet.RandPeerNetParamsOrFatal(t)
 
 	ps := pstoremem.NewPeerstore()
 	ps.AddPubKey(p.ID, p.PubKey)
 	ps.AddPrivKey(p.ID, p.PrivKey)
-	s := swarm.NewSwarm(ctx, p.ID, ps, metrics.NewBandwidthCounter())
+	s, err := swarm.NewSwarm(ctx, p.ID, ps, metrics.NewBandwidthCounter())
+	if err != nil {
+		t.Fatalf("failed to create swarm, error is %s", err)
+	}
 	s.Process().AddChild(goprocess.WithTeardown(ps.Close))
 
 	tcpTransport := tcp.NewTCPTransport(GenUpgrader(s))

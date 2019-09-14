@@ -137,6 +137,8 @@ func (s *Stream) remove() {
 			f.ClosedStream(s.conn.swarm, s)
 		})
 		s.conn.swarm.refs.Done()
+		s.conn.swarm.emitters.evtStreamStateChange.Emit(
+			network.EvtStreamStateChange{s.conn.swarm, s, network.NotConnected})
 	}()
 }
 

@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/libp2p/go-eventbus"
+	"github.com/libp2p/go-libp2p-core/event"
 	"github.com/libp2p/go-libp2p-core/metrics"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -94,10 +96,16 @@ type Swarm struct {
 	proc goprocess.Process
 	ctx  context.Context
 	bwc  metrics.Reporter
+
+	eventBus event.Bus
+	emitters struct {
+		evtPeerConnectionStateChange event.Emitter
+		evtStreamStateChange         event.Emitter
+	}
 }
 
 // NewSwarm constructs a Swarm
-func NewSwarm(ctx context.Context, local peer.ID, peers peerstore.Peerstore, bwc metrics.Reporter) *Swarm {
+func NewSwarm(ctx context.Context, local peer.ID, peers peerstore.Peerstore, bwc metrics.Reporter) (*Swarm, error) {
 	s := &Swarm{
 		local:   local,
 		peers:   peers,
@@ -114,8 +122,18 @@ func NewSwarm(ctx context.Context, local peer.ID, peers peerstore.Peerstore, bwc
 	s.limiter = newDialLimiter(s.dialAddr)
 	s.proc = goprocessctx.WithContextAndTeardown(ctx, s.teardown)
 	s.ctx = goprocessctx.OnClosingContext(s.proc)
+	s.eventBus = eventbus.NewBus()
 
-	return s
+	var err error
+	if s.emitters.evtPeerConnectionStateChange, err = s.eventBus.Emitter(&network.EvtPeerConnectionStateChange{}); err != nil {
+		return nil, err
+	}
+
+	if s.emitters.evtStreamStateChange, err = s.eventBus.Emitter(&network.EvtStreamStateChange{}); err != nil {
+		return nil, err
+	}
+
+	return s, err
 }
 
 func (s *Swarm) teardown() error {
@@ -160,7 +178,15 @@ func (s *Swarm) teardown() error {
 	// Wait for everything to finish.
 	s.refs.Wait()
 
+	// close event bus emitters
+	_ = s.emitters.evtStreamStateChange.Close()
+	_ = s.emitters.evtPeerConnectionStateChange.Close()
+
 	return nil
+}
+
+func (s *Swarm) EventBus() event.Bus {
+	return s.eventBus
 }
 
 // AddAddrFilter adds a multiaddr filter to the set of filters the swarm will use to determine which
@@ -235,6 +261,11 @@ func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (*Conn,
 	s.notifyAll(func(f network.Notifiee) {
 		f.Connected(s, c)
 	})
+
+	// emit connection state change event on the bus
+	s.emitters.evtPeerConnectionStateChange.Emit(
+		network.EvtPeerConnectionStateChange{s, c, network.Connected})
+
 	c.notifyLk.Unlock()
 
 	c.start()
@@ -473,6 +504,7 @@ func (s *Swarm) notifyAll(notify func(network.Notifiee)) {
 }
 
 // Notify signs up Notifiee to receive signals when events happen
+// Deprecated: use swarm.EventBus().Subscribe()
 func (s *Swarm) Notify(f network.Notifiee) {
 	s.notifs.Lock()
 	s.notifs.m[f] = struct{}{}

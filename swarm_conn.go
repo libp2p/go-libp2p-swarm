@@ -76,6 +76,9 @@ func (c *Conn) doClose() {
 			f.Disconnected(c.swarm, c)
 		})
 		c.swarm.refs.Done() // taken in Swarm.addConn
+
+		c.swarm.emitters.evtPeerConnectionStateChange.Emit(
+			network.EvtPeerConnectionStateChange{c.swarm, c, network.NotConnected})
 	}()
 }
 
@@ -206,6 +209,10 @@ func (c *Conn) addStream(ts mux.MuxedStream, dir network.Direction) (*Stream, er
 	c.swarm.notifyAll(func(f network.Notifiee) {
 		f.OpenedStream(c.swarm, s)
 	})
+
+	c.swarm.emitters.evtStreamStateChange.Emit(
+		network.EvtStreamStateChange{c.swarm, s, network.Connected})
+
 	s.notifyLk.Unlock()
 
 	return s, nil
