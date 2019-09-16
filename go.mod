@@ -1,5 +1,7 @@
 module github.com/libp2p/go-libp2p-swarm
 
+go 1.13
+
 require (
 	github.com/ipfs/go-log v0.0.1
 	github.com/jbenet/goprocess v0.1.3
