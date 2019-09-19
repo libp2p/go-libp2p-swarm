@@ -12,7 +12,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/transport"
 	ma "github.com/multiformats/go-multiaddr"
-	mafmt "github.com/whyrusleeping/mafmt"
+	mafmt "github.com/multiformats/go-multiaddr-fmt"
 )
 
 func mustAddr(t *testing.T, s string) ma.Multiaddr {
