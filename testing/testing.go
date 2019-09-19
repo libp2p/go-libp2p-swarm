@@ -10,6 +10,7 @@ import (
 	"github.com/libp2p/go-libp2p-testing/net"
 	"github.com/libp2p/go-tcp-transport"
 
+	goprocess "github.com/jbenet/goprocess"
 	csms "github.com/libp2p/go-conn-security-multistream"
 	pstoremem "github.com/libp2p/go-libp2p-peerstore/pstoremem"
 	secio "github.com/libp2p/go-libp2p-secio"
@@ -72,6 +73,7 @@ func GenSwarm(t *testing.T, ctx context.Context, opts ...Option) *swarm.Swarm {
 	ps.AddPubKey(p.ID, p.PubKey)
 	ps.AddPrivKey(p.ID, p.PrivKey)
 	s := swarm.NewSwarm(ctx, p.ID, ps, metrics.NewBandwidthCounter())
+	s.Process().AddChild(goprocess.WithTeardown(ps.Close))
 
 	tcpTransport := tcp.NewTCPTransport(GenUpgrader(s))
 	tcpTransport.DisableReuseport = cfg.disableReuseport
