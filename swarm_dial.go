@@ -47,7 +47,7 @@ var (
 	// peer we're trying to dial.
 	ErrNoAddresses = errors.New("no addresses")
 
-	// ErrNoAddresses is returned when we find addresses for a peer but
+	// ErrNoGoodAddresses is returned when we find addresses for a peer but
 	// can't use any of them.
 	ErrNoGoodAddresses = errors.New("no good addresses")
 )
