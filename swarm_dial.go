@@ -198,11 +198,9 @@ func (s *Swarm) dialPeer(ctx context.Context, p peer.ID) (*Conn, error) {
 	}
 
 	if p == s.local {
-		log.Event(ctx, "swarmDialSelf", logdial)
+		log.Infow("swarmDialSelf", "dial", logdial)
 		return nil, ErrDialToSelf
 	}
-
-	defer log.EventBegin(ctx, "swarmDialAttemptSync", p).Done()
 
 	// check if we already have an open connection first
 	conn := s.bestConnToPeer(p)
@@ -212,7 +210,7 @@ func (s *Swarm) dialPeer(ctx context.Context, p peer.ID) (*Conn, error) {
 
 	// if this peer has been backed off, lets get out of here
 	if s.backf.Backoff(p) {
-		log.Event(ctx, "swarmDialBackoff", p)
+		log.Infow("swarmDialBackoff", "peer", p)
 		return nil, ErrDialBackoff
 	}
 
@@ -244,8 +242,6 @@ func (s *Swarm) doDial(ctx context.Context, p peer.ID) (*Conn, error) {
 
 	// ok, we have been charged to dial! let's do it.
 	// if it succeeds, dial will add the conn to the swarm itself.
-	defer log.EventBegin(ctx, "swarmDialAttemptStart", logdial).Done()
-
 	conn, err := s.dial(ctx, p)
 	if err != nil {
 		conn = s.bestConnToPeer(p)
@@ -258,7 +254,7 @@ func (s *Swarm) doDial(ctx context.Context, p peer.ID) (*Conn, error) {
 			return conn, nil
 		}
 		if err != context.Canceled {
-			log.Event(ctx, "swarmDialBackoffAdd", logdial)
+			log.Infow("swarmDialBackoffAdd", "dial", logdial)
 			s.backf.AddBackoff(p) // let others know to backoff
 		}
 
@@ -277,10 +273,9 @@ func (s *Swarm) canDial(addr ma.Multiaddr) bool {
 func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 	var logdial = lgbl.Dial("swarm", s.LocalPeer(), p, nil, nil)
 	if p == s.local {
-		log.Event(ctx, "swarmDialDoDialSelf", logdial)
+		log.Infow("swarmDialDoDialSelf", "dial", logdial)
 		return nil, ErrDialToSelf
 	}
-	defer log.EventBegin(ctx, "swarmDialDo", logdial).Done()
 	logdial["dial"] = "failure" // start off with failure. set to "success" at the end.
 
 	sk := s.peers.PrivKey(s.local)
