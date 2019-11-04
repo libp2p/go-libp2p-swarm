@@ -221,12 +221,23 @@ func (s *Swarm) dialPeer(ctx context.Context, p peer.ID) (*Conn, error) {
 	defer cancel()
 
 	conn, err = s.dsync.DialLock(ctx, p)
-	if err != nil {
-		return nil, err
+	if err == nil {
+		return conn, nil
 	}
 
 	log.Debugf("network for %s finished dialing %s", s.local, p)
-	return conn, err
+
+	if ctx.Err() != nil {
+		// Context error trumps any dial errors as it was likely the ultimate cause.
+		return nil, ctx.Err()
+	}
+
+	if s.ctx.Err() != nil {
+		// Ok, so the swarm is shutting down.
+		return nil, ErrSwarmClosed
+	}
+
+	return nil, err
 }
 
 // doDial is an ugly shim method to retain all the logging and backoff logic
