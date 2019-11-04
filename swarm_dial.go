@@ -317,13 +317,14 @@ func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 	connC, dialErr := s.dialAddrs(ctx, p, goodAddrsChan)
 	if dialErr != nil {
 		logdial["error"] = dialErr.Cause.Error()
-		if dialErr.Cause == context.Canceled {
-			// always prefer the "context canceled" error.
-			// we rely on behing able to check `err == context.Canceled`
+		switch dialErr.Cause {
+		case context.Canceled, context.DeadlineExceeded:
+			// Always prefer the context errors as we rely on being
+			// able to check them.
 			//
 			// Removing this will BREAK backoff (causing us to
 			// backoff when canceling dials).
-			return nil, context.Canceled
+			return nil, dialErr.Cause
 		}
 		return nil, dialErr
 	}
