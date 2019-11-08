@@ -1,7 +1,7 @@
 module github.com/libp2p/go-libp2p-swarm
 
 require (
-	github.com/ipfs/go-log v0.0.1
+	github.com/ipfs/go-log v0.0.2-0.20190920042044-a609c1ae5144
 	github.com/jbenet/goprocess v0.1.3
 	github.com/libp2p/go-addr-util v0.0.1
 	github.com/libp2p/go-conn-security-multistream v0.1.0
