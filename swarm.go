@@ -80,6 +80,9 @@ type Swarm struct {
 	connh   atomic.Value
 	streamh atomic.Value
 
+	//peerLimiter
+	peerLimit int
+
 	// dialing helpers
 	dsync   *DialSync
 	backf   DialBackoff
@@ -94,12 +97,13 @@ type Swarm struct {
 }
 
 // NewSwarm constructs a Swarm
-func NewSwarm(ctx context.Context, local peer.ID, peers peerstore.Peerstore, bwc metrics.Reporter) *Swarm {
+func NewSwarm(ctx context.Context, local peer.ID, peers peerstore.Peerstore, bwc metrics.Reporter, peerLimit int) *Swarm {
 	s := &Swarm{
-		local:   local,
-		peers:   peers,
-		bwc:     bwc,
-		Filters: filter.NewFilters(),
+		local:     local,
+		peers:     peers,
+		bwc:       bwc,
+		Filters:   filter.NewFilters(),
+		peerLimit: peerLimit,
 	}
 
 	s.conns.m = make(map[peer.ID][]*Conn)
@@ -178,6 +182,10 @@ func (s *Swarm) Process() goprocess.Process {
 }
 
 func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (*Conn, error) {
+	numOfPeers := len(s.conns.m)
+	if numOfPeers >= int(s.peerLimit) && s.Connectedness(tc.RemotePeer()) != network.Connected && s.peerLimit != 0 {
+		return nil, errors.New("number of peers over the peer limit, so rejecting connection")
+	}
 	// The underlying transport (or the dialer) *should* filter it's own
 	// connections but we should double check anyways.
 	raddr := tc.RemoteMultiaddr()
