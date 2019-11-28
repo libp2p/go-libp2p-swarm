@@ -41,7 +41,7 @@ var ErrSwarmClosed = errors.New("swarm closed")
 var ErrAddrFiltered = errors.New("address filtered")
 
 // ErrPeerLimitExceeded is returned when we exceed the specified peer limit.
-var ErrPeerLimitExceeded = errors.New("number of peers over the peer limit, so rejecting connection")
+var ErrPeerLimitExceeded = errors.New("number of peers over the peer limit, rejecting connection")
 
 // ErrDialTimeout is returned when one a dial times out due to the global timeout
 var ErrDialTimeout = errors.New("dial timed out")
@@ -195,7 +195,7 @@ func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (*Conn,
 	// Check if the connection would exceed our specified peer limit.
 	if nonZeroLimit && numOfPeers >= int(s.peerLimit) && s.Connectedness(p) != network.Connected {
 		tc.Close()
-		log.Debugf("rejecting connection with peer [%s]", p)
+		log.Debugf("rejecting connection from peer %s", p)
 		return nil, ErrPeerLimitExceeded
 	}
 
