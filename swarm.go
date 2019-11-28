@@ -188,12 +188,17 @@ func (s *Swarm) Process() goprocess.Process {
 }
 
 func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (*Conn, error) {
+	p := tc.RemotePeer()
 	numOfPeers := len(s.conns.m)
 	nonZeroLimit := s.peerLimit > 0
-	if nonZeroLimit && numOfPeers >= int(s.peerLimit) && s.Connectedness(tc.RemotePeer()) != network.Connected {
+
+	// Check if the connection would exceed our specified peer limit.
+	if nonZeroLimit && numOfPeers >= int(s.peerLimit) && s.Connectedness(p) != network.Connected {
 		tc.Close()
+		log.Debugf("rejecting connection with peer [%s]", p)
 		return nil, ErrPeerLimitExceeded
 	}
+
 	// The underlying transport (or the dialer) *should* filter it's own
 	// connections but we should double check anyways.
 	raddr := tc.RemoteMultiaddr()
@@ -201,8 +206,6 @@ func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (*Conn,
 		tc.Close()
 		return nil, ErrAddrFiltered
 	}
-
-	p := tc.RemotePeer()
 
 	// Add the public key.
 	if pk := tc.RemotePublicKey(); pk != nil {
