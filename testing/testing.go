@@ -26,7 +26,7 @@ type config struct {
 	dialOnly         bool
 }
 
-const defaultPeerLimit = 10
+const defaultPeerLimit = 50
 
 // Option is an option that can be passed when constructing a test swarm.
 type Option func(*testing.T, *config)
