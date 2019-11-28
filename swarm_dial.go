@@ -47,7 +47,7 @@ var (
 	// peer we're trying to dial.
 	ErrNoAddresses = errors.New("no addresses")
 
-	// ErrNoAddresses is returned when we find addresses for a peer but
+	// ErrNoGoodAddresses is returned when we find addresses for a peer but
 	// can't use any of them.
 	ErrNoGoodAddresses = errors.New("no good addresses")
 )
@@ -221,12 +221,23 @@ func (s *Swarm) dialPeer(ctx context.Context, p peer.ID) (*Conn, error) {
 	defer cancel()
 
 	conn, err = s.dsync.DialLock(ctx, p)
-	if err != nil {
-		return nil, err
+	if err == nil {
+		return conn, nil
 	}
 
 	log.Debugf("network for %s finished dialing %s", s.local, p)
-	return conn, err
+
+	if ctx.Err() != nil {
+		// Context error trumps any dial errors as it was likely the ultimate cause.
+		return nil, ctx.Err()
+	}
+
+	if s.ctx.Err() != nil {
+		// Ok, so the swarm is shutting down.
+		return nil, ErrSwarmClosed
+	}
+
+	return nil, err
 }
 
 // doDial is an ugly shim method to retain all the logging and backoff logic
@@ -317,13 +328,14 @@ func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 	connC, dialErr := s.dialAddrs(ctx, p, goodAddrsChan)
 	if dialErr != nil {
 		logdial["error"] = dialErr.Cause.Error()
-		if dialErr.Cause == context.Canceled {
-			// always prefer the "context canceled" error.
-			// we rely on behing able to check `err == context.Canceled`
+		switch dialErr.Cause {
+		case context.Canceled, context.DeadlineExceeded:
+			// Always prefer the context errors as we rely on being
+			// able to check them.
 			//
 			// Removing this will BREAK backoff (causing us to
 			// backoff when canceling dials).
-			return nil, context.Canceled
+			return nil, dialErr.Cause
 		}
 		return nil, dialErr
 	}

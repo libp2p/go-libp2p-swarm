@@ -40,6 +40,9 @@ var ErrSwarmClosed = errors.New("swarm closed")
 // transport is misbehaving.
 var ErrAddrFiltered = errors.New("address filtered")
 
+// ErrDialTimeout is returned when one a dial times out due to the global timeout
+var ErrDialTimeout = errors.New("dial timed out")
+
 var ErrPeerLimitExceeded = errors.New("number of peers over the peer limit, so rejecting connection")
 
 // Swarm is a connection muxer, allowing connections to other peers to
