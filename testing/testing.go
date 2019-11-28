@@ -26,8 +26,6 @@ type config struct {
 	dialOnly         bool
 }
 
-const defaultPeerLimit = 50
-
 // Option is an option that can be passed when constructing a test swarm.
 type Option func(*testing.T, *config)
 
@@ -74,7 +72,7 @@ func GenSwarm(t *testing.T, ctx context.Context, opts ...Option) *swarm.Swarm {
 	ps := pstoremem.NewPeerstore()
 	ps.AddPubKey(p.ID, p.PubKey)
 	ps.AddPrivKey(p.ID, p.PrivKey)
-	s := swarm.NewSwarm(ctx, p.ID, ps, metrics.NewBandwidthCounter(), defaultPeerLimit)
+	s := swarm.NewSwarm(ctx, p.ID, ps, metrics.NewBandwidthCounter(), 0)
 	s.Process().AddChild(goprocess.WithTeardown(ps.Close))
 
 	tcpTransport := tcp.NewTCPTransport(GenUpgrader(s))

@@ -40,6 +40,8 @@ var ErrSwarmClosed = errors.New("swarm closed")
 // transport is misbehaving.
 var ErrAddrFiltered = errors.New("address filtered")
 
+var ErrPeerLimitExceeded = errors.New("number of peers over the peer limit, so rejecting connection")
+
 // Swarm is a connection muxer, allowing connections to other peers to
 // be opened and closed, while still using the same Chan for all
 // communication. The Chan sends/receives Messages, which note the
@@ -183,8 +185,10 @@ func (s *Swarm) Process() goprocess.Process {
 
 func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (*Conn, error) {
 	numOfPeers := len(s.conns.m)
-	if numOfPeers >= int(s.peerLimit) && s.Connectedness(tc.RemotePeer()) != network.Connected && s.peerLimit != 0 {
-		return nil, errors.New("number of peers over the peer limit, so rejecting connection")
+	nonZeroLimit := s.peerLimit > 0
+	if nonZeroLimit && numOfPeers >= int(s.peerLimit) && s.Connectedness(tc.RemotePeer()) != network.Connected {
+		tc.Close()
+		return nil, ErrPeerLimitExceeded
 	}
 	// The underlying transport (or the dialer) *should* filter it's own
 	// connections but we should double check anyways.
