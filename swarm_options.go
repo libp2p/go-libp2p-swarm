@@ -5,9 +5,6 @@ type Option func(s *Swarm)
 
 func (s *Swarm) ApplyOptions(opts ...Option) {
 	for _, opt := range opts {
-		if opt == nil {
-			continue
-		}
 		opt(s)
 	}
 }
