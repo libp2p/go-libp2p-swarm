@@ -103,13 +103,12 @@ type Swarm struct {
 }
 
 // NewSwarm constructs a Swarm
-func NewSwarm(ctx context.Context, local peer.ID, peers peerstore.Peerstore, bwc metrics.Reporter, peerLimit int) *Swarm {
+func NewSwarm(ctx context.Context, local peer.ID, peers peerstore.Peerstore, bwc metrics.Reporter, opts ...Option) *Swarm {
 	s := &Swarm{
-		local:     local,
-		peers:     peers,
-		bwc:       bwc,
-		Filters:   filter.NewFilters(),
-		peerLimit: peerLimit,
+		local:   local,
+		peers:   peers,
+		bwc:     bwc,
+		Filters: filter.NewFilters(),
 	}
 
 	s.conns.m = make(map[peer.ID][]*Conn)
@@ -121,6 +120,8 @@ func NewSwarm(ctx context.Context, local peer.ID, peers peerstore.Peerstore, bwc
 	s.limiter = newDialLimiter(s.dialAddr)
 	s.proc = goprocessctx.WithContextAndTeardown(ctx, s.teardown)
 	s.ctx = goprocessctx.OnClosingContext(s.proc)
+
+	s.ApplyOptions(opts...)
 
 	return s
 }
