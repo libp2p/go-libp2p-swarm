@@ -73,14 +73,20 @@ func makeSwarms(ctx context.Context, t *testing.T, num int, opts ...TestOption) 
 	return swarms
 }
 
+func dialAddress(ctx context.Context, s *Swarm, dst peer.ID, addr ma.Multiaddr) error {
+	s.Peerstore().AddAddr(dst, addr, peerstore.PermanentAddrTTL)
+	if _, err := s.DialPeer(ctx, dst); err != nil {
+		return fmt.Errorf("error swarm dialing to peer: %v", err)
+	}
+	return nil
+}
+
 func connectSwarms(t *testing.T, ctx context.Context, swarms []*Swarm) {
 
 	var wg sync.WaitGroup
 	connect := func(s *Swarm, dst peer.ID, addr ma.Multiaddr) {
-		// TODO: make a DialAddr func.
-		s.Peerstore().AddAddr(dst, addr, peerstore.PermanentAddrTTL)
-		if _, err := s.DialPeer(ctx, dst); err != nil {
-			t.Fatal("error swarm dialing to peer", err)
+		if err := dialAddress(ctx, s, dst, addr); err != nil {
+			t.Fatal(err)
 		}
 		wg.Done()
 	}
@@ -344,5 +350,48 @@ func TestNoDial(t *testing.T) {
 	_, err := swarms[0].NewStream(network.WithNoDial(ctx, "swarm test"), swarms[1].LocalPeer())
 	if err != network.ErrNoConn {
 		t.Fatal("should have failed with ErrNoConn")
+	}
+}
+
+func TestPeerLimit(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	swarms := makeSwarms(ctx, t, 5)
+	limitOpt := SwarmPeerLimit(3)
+	swarms[0].ApplyOptions(limitOpt)
+
+	gotconn := make(chan struct{}, 10)
+	swarms[0].SetConnHandler(func(conn network.Conn) {
+		gotconn <- struct{}{}
+	})
+	peerRejected := false
+	for i := 1; i < len(swarms); i++ {
+		err := dialAddress(ctx, swarms[0], swarms[i].LocalPeer(), swarms[i].ListenAddresses()[0])
+		if err != nil {
+			peerRejected = true
+		}
+
+	}
+	<-time.After(time.Millisecond)
+
+	if !peerRejected {
+		t.Error("No peer was rejected despite peer limit being exceeded")
+	}
+
+	swarms[0].SetConnHandler(nil)
+	expect := 3
+	for i := 0; i < expect; i++ {
+		select {
+		case <-time.After(time.Second):
+			t.Fatal("failed to get connections")
+		case <-gotconn:
+		}
+	}
+
+	select {
+	case <-gotconn:
+		t.Fatalf("should have connected to %d swarms, got an extra.", expect)
+	default:
 	}
 }
