@@ -61,7 +61,7 @@ func makeDialOnlySwarm(ctx context.Context, t *testing.T) *Swarm {
 	return swarm
 }
 
-func makeSwarms(ctx context.Context, t *testing.T, num int, opts ...Option) []*Swarm {
+func makeSwarms(ctx context.Context, t *testing.T, num int, opts ...TestOption) []*Swarm {
 	swarms := make([]*Swarm, 0, num)
 
 	for i := 0; i < num; i++ {

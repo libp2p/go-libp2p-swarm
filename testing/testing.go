@@ -26,16 +26,16 @@ type config struct {
 	dialOnly         bool
 }
 
-// Option is an option that can be passed when constructing a test swarm.
-type Option func(*testing.T, *config)
+// TestOption is an option that can be passed when constructing a test swarm.
+type TestOption func(*testing.T, *config)
 
 // OptDisableReuseport disables reuseport in this test swarm.
-var OptDisableReuseport Option = func(_ *testing.T, c *config) {
+var OptDisableReuseport TestOption = func(_ *testing.T, c *config) {
 	c.disableReuseport = true
 }
 
 // OptDialOnly prevents the test swarm from listening.
-var OptDialOnly Option = func(_ *testing.T, c *config) {
+var OptDialOnly TestOption = func(_ *testing.T, c *config) {
 	c.dialOnly = true
 }
 
@@ -61,7 +61,7 @@ func GenUpgrader(n *swarm.Swarm) *tptu.Upgrader {
 }
 
 // GenSwarm generates a new test swarm.
-func GenSwarm(t *testing.T, ctx context.Context, opts ...Option) *swarm.Swarm {
+func GenSwarm(t *testing.T, ctx context.Context, opts ...TestOption) *swarm.Swarm {
 	var cfg config
 	for _, o := range opts {
 		o(t, &cfg)
