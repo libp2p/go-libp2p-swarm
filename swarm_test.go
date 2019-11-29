@@ -358,7 +358,8 @@ func TestPeerLimit(t *testing.T) {
 
 	ctx := context.Background()
 	swarms := makeSwarms(ctx, t, 5)
-	limitOpt := SwarmPeerLimit(3)
+	peerLimit := 3
+	limitOpt := SwarmPeerLimit(peerLimit)
 	swarms[0].ApplyOptions(limitOpt)
 
 	gotconn := make(chan struct{}, 10)
@@ -380,8 +381,7 @@ func TestPeerLimit(t *testing.T) {
 	}
 
 	swarms[0].SetConnHandler(nil)
-	expect := 3
-	for i := 0; i < expect; i++ {
+	for i := 0; i < peerLimit; i++ {
 		select {
 		case <-time.After(time.Second):
 			t.Fatal("failed to get connections")
@@ -391,7 +391,7 @@ func TestPeerLimit(t *testing.T) {
 
 	select {
 	case <-gotconn:
-		t.Fatalf("should have connected to %d swarms, got an extra.", expect)
+		t.Fatalf("should have connected to %d swarms, got an extra.", peerLimit)
 	default:
 	}
 }
