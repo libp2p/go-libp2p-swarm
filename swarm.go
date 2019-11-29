@@ -189,10 +189,11 @@ func (s *Swarm) Process() goprocess.Process {
 }
 
 func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (*Conn, error) {
-	p := tc.RemotePeer()
 	s.conns.RLock()
 	numOfPeers := len(s.conns.m)
 	s.conns.RUnlock()
+
+	p := tc.RemotePeer()
 	nonZeroLimit := s.peerLimit > 0
 
 	// Check if the connection would exceed our specified peer limit.
