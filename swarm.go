@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	coreit "github.com/libp2p/go-libp2p-core/introspection"
 	"github.com/libp2p/go-libp2p-core/metrics"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -97,7 +98,7 @@ type Swarm struct {
 }
 
 // NewSwarm constructs a Swarm
-func NewSwarm(ctx context.Context, local peer.ID, peers peerstore.Peerstore, bwc metrics.Reporter) *Swarm {
+func NewSwarm(ctx context.Context, local peer.ID, peers peerstore.Peerstore, bwc metrics.Reporter, introspector coreit.IntrospectorRegistry) *Swarm {
 	s := &Swarm{
 		local:   local,
 		peers:   peers,
@@ -114,6 +115,13 @@ func NewSwarm(ctx context.Context, local peer.ID, peers peerstore.Peerstore, bwc
 	s.limiter = newDialLimiter(s.dialAddr)
 	s.proc = goprocessctx.WithContextAndTeardown(ctx, s.teardown)
 	s.ctx = goprocessctx.OnClosingContext(s.proc)
+
+	// TODO register provider for introspection
+	if introspector != nil {
+		if err := introspector.RegisterProviders(&coreit.ProvidersTree{Conn: &coreit.ConnProviders{}, Stream: &coreit.StreamProviders{}}); err != nil {
+			log.Errorf("swarm failed to register itself as a provider with the introspector, err=%s", err)
+		}
+	}
 
 	return s
 }
