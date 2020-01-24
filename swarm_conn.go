@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sync"
 
+	pkgerr "github.com/pkg/errors"
+
 	ic "github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/mux"
 	"github.com/libp2p/go-libp2p-core/network"
@@ -12,6 +14,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/transport"
 
 	ma "github.com/multiformats/go-multiaddr"
+	uuid "github.com/satori/go.uuid"
 )
 
 // TODO: Put this elsewhere.
@@ -22,6 +25,7 @@ var ErrConnClosed = errors.New("connection closed")
 // Conn is the connection type used by swarm. In general, you won't use this
 // type directly.
 type Conn struct {
+	id    string
 	conn  transport.CapableConn
 	swarm *Swarm
 
@@ -185,11 +189,17 @@ func (c *Conn) addStream(ts mux.MuxedStream, dir network.Direction) (*Stream, er
 	}
 
 	// Wrap and register the stream.
+	id, err := uuid.NewV4()
+	if err != nil {
+		pkgerr.Wrap(err, "failed to generate uuid for stream")
+	}
 	stat := network.Stat{Direction: dir}
 	s := &Stream{
 		stream: ts,
 		conn:   c,
 		stat:   stat,
+		id:     id.String(),
+		connId: c.id,
 	}
 	c.streams.m[s] = struct{}{}
 

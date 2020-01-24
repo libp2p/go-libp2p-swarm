@@ -4,12 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	coreit "github.com/libp2p/go-libp2p-core/introspection"
+	"github.com/libp2p/go-libp2p-core/introspect"
 	"github.com/libp2p/go-libp2p-core/metrics"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -22,6 +23,8 @@ import (
 
 	filter "github.com/libp2p/go-maddr-filter"
 	ma "github.com/multiformats/go-multiaddr"
+	pkgerr "github.com/pkg/errors"
+	uuid "github.com/satori/go.uuid"
 	mafilter "github.com/whyrusleeping/multiaddr-filter"
 )
 
@@ -98,7 +101,7 @@ type Swarm struct {
 }
 
 // NewSwarm constructs a Swarm
-func NewSwarm(ctx context.Context, local peer.ID, peers peerstore.Peerstore, bwc metrics.Reporter, introspector coreit.IntrospectorRegistry) *Swarm {
+func NewSwarm(ctx context.Context, local peer.ID, peers peerstore.Peerstore, bwc metrics.Reporter, introspector introspect.Introspector) *Swarm {
 	s := &Swarm{
 		local:   local,
 		peers:   peers,
@@ -116,9 +119,10 @@ func NewSwarm(ctx context.Context, local peer.ID, peers peerstore.Peerstore, bwc
 	s.proc = goprocessctx.WithContextAndTeardown(ctx, s.teardown)
 	s.ctx = goprocessctx.OnClosingContext(s.proc)
 
-	// TODO register provider for introspection
 	if introspector != nil {
-		if err := introspector.RegisterProviders(&coreit.ProvidersTree{Conn: &coreit.ConnProviders{}, Stream: &coreit.StreamProviders{}}); err != nil {
+		if err := introspector.RegisterProviders(&introspect.ProvidersMap{
+			Connection: s.toIntrospectConnectionsPb,
+		}); err != nil {
 			log.Errorf("swarm failed to register itself as a provider with the introspector, err=%s", err)
 		}
 	}
@@ -217,11 +221,16 @@ func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (*Conn,
 	}
 
 	// Wrap and register the connection.
+	id, err := uuid.NewV4()
+	if err != nil {
+		return nil, pkgerr.Wrap(err, "failed to generate connection uuid")
+	}
 	stat := network.Stat{Direction: dir}
 	c := &Conn{
 		conn:  tc,
 		swarm: s,
 		stat:  stat,
+		id:    id.String(),
 	}
 	c.streams.m = make(map[*Stream]struct{})
 	s.conns.m[p] = append(s.conns.m[p], c)
