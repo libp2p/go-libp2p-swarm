@@ -72,7 +72,7 @@ func GenSwarm(t *testing.T, ctx context.Context, opts ...Option) *swarm.Swarm {
 	ps := pstoremem.NewPeerstore()
 	ps.AddPubKey(p.ID, p.PubKey)
 	ps.AddPrivKey(p.ID, p.PrivKey)
-	s := swarm.NewSwarm(ctx, p.ID, ps, metrics.NewBandwidthCounter())
+	s := swarm.NewSwarm(ctx, p.ID, ps, metrics.NewBandwidthCounter(), nil)
 	s.Process().AddChild(goprocess.WithTeardown(ps.Close))
 
 	tcpTransport := tcp.NewTCPTransport(GenUpgrader(s))

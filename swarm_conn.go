@@ -4,8 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-
-	pkgerr "github.com/pkg/errors"
+	"time"
 
 	ic "github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/mux"
@@ -173,6 +172,7 @@ func (c *Conn) Stat() network.Stat {
 // NewStream returns a new Stream from this connection
 func (c *Conn) NewStream() (network.Stream, error) {
 	ts, err := c.conn.OpenStream()
+
 	if err != nil {
 		return nil, err
 	}
@@ -189,10 +189,7 @@ func (c *Conn) addStream(ts mux.MuxedStream, dir network.Direction) (*Stream, er
 	}
 
 	// Wrap and register the stream.
-	id, err := uuid.NewV4()
-	if err != nil {
-		pkgerr.Wrap(err, "failed to generate uuid for stream")
-	}
+	id := uuid.NewV4()
 	stat := network.Stat{Direction: dir}
 	s := &Stream{
 		stream: ts,
@@ -200,6 +197,8 @@ func (c *Conn) addStream(ts mux.MuxedStream, dir network.Direction) (*Stream, er
 		stat:   stat,
 		id:     id.String(),
 		connId: c.id,
+		// TODO Is this good enough ?
+		openTime: time.Now(),
 	}
 	c.streams.m[s] = struct{}{}
 

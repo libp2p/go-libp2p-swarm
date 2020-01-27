@@ -23,7 +23,6 @@ import (
 
 	filter "github.com/libp2p/go-maddr-filter"
 	ma "github.com/multiformats/go-multiaddr"
-	pkgerr "github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 	mafilter "github.com/whyrusleeping/multiaddr-filter"
 )
@@ -121,7 +120,7 @@ func NewSwarm(ctx context.Context, local peer.ID, peers peerstore.Peerstore, bwc
 
 	if introspector != nil {
 		if err := introspector.RegisterProviders(&introspect.ProvidersMap{
-			Connection: s.toIntrospectConnectionsPb,
+			Connection: s.IntrospectConns,
 		}); err != nil {
 			log.Errorf("swarm failed to register itself as a provider with the introspector, err=%s", err)
 		}
@@ -221,10 +220,7 @@ func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (*Conn,
 	}
 
 	// Wrap and register the connection.
-	id, err := uuid.NewV4()
-	if err != nil {
-		return nil, pkgerr.Wrap(err, "failed to generate connection uuid")
-	}
+	id := uuid.NewV4()
 	stat := network.Stat{Direction: dir}
 	c := &Conn{
 		conn:  tc,
