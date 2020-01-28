@@ -5,6 +5,21 @@ import (
 	"github.com/pkg/errors"
 )
 
+// IntrospectTraffic introspects & returns the overall traffic for this peer
+func (s *Swarm) IntrospectTraffic() (*introspect.Traffic, error) {
+	if s.bwc != nil {
+		t := &introspect.Traffic{}
+		metrics := s.bwc.GetBandwidthTotals()
+
+		t.TrafficIn = &introspect.DataGauge{CumBytes: uint64(metrics.TotalIn), InstBw: uint64(metrics.RateIn)}
+		t.TrafficOut = &introspect.DataGauge{CumBytes: uint64(metrics.TotalOut), InstBw: uint64(metrics.RateOut)}
+
+		return t, nil
+	}
+
+	return nil, nil
+}
+
 // IntrospectConns introspects & returns the swarm connections
 func (swarm *Swarm) IntrospectConns(query introspect.ConnectionQueryInput) ([]*introspect.Connection, error) {
 	swarm.conns.RLock()

@@ -121,6 +121,7 @@ func NewSwarm(ctx context.Context, local peer.ID, peers peerstore.Peerstore, bwc
 	if introspector != nil {
 		if err := introspector.RegisterProviders(&introspect.ProvidersMap{
 			Connection: s.IntrospectConns,
+			Traffic:    s.IntrospectTraffic,
 		}); err != nil {
 			log.Errorf("swarm failed to register itself as a provider with the introspector, err=%s", err)
 		}

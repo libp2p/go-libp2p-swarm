@@ -94,4 +94,10 @@ func TestConnsAndStreamIntrospect(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, cis[0].Streams.Streams, 0)
 	require.Len(t, cis[0].Streams.StreamIds, 1)
+
+	// introspect traffic
+	tr, err := swarms[0].IntrospectTraffic()
+	require.NoError(t, err)
+	require.True(t, tr.TrafficOut.CumBytes == uint64(len(msg1)+len(msg2)))
+	require.True(t, tr.TrafficIn.CumBytes == 0)
 }
