@@ -87,4 +87,11 @@ func TestConnsAndStreamIntrospect(t *testing.T) {
 		StreamOutputType: introspect.QueryOutputTypeFull})
 	require.NoError(t, err)
 	require.Len(t, cis[0].Streams.Streams, 1)
+
+	// test for stream Ids
+	cis, err = swarms[0].IntrospectConns(introspect.ConnectionQueryInput{Type: introspect.ConnListQueryTypeAll,
+		StreamOutputType: introspect.QueryOutputTypeIds})
+	require.NoError(t, err)
+	require.Len(t, cis[0].Streams.Streams, 0)
+	require.Len(t, cis[0].Streams.StreamIds, 1)
 }
