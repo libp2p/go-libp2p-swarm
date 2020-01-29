@@ -27,8 +27,10 @@ func TestConnsAndStreamIntrospect(t *testing.T) {
 	// send 4 bytes on stream 1 & 5 bytes on stream 2
 	msg1 := "abcd"
 	msg2 := "12345"
-	s1.Write([]byte(msg1))
-	s2.Write([]byte(msg2))
+	_, err = s1.Write([]byte(msg1))
+	require.NoError(t, err)
+	_, err = s2.Write([]byte(msg2))
+	require.NoError(t, err)
 	// wait for the metres to kick in
 	for {
 		cis, err := swarms[0].IntrospectConns(introspect.ConnectionQueryInput{Type: introspect.ConnListQueryTypeAll,
