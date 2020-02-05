@@ -94,7 +94,7 @@ func (swarm *Swarm) introspectConnection(c *Conn) (*introspectpb.Connection, err
 	ic.TransportId = ci.transportId()
 	ic.UserProvidedTags = ci.userProvidedTags()
 	ic.LatencyNs = ci.latencyNs()
-	ic.RelayedOver = nil//ci.relayedOver()
+	ic.RelayedOver = nil //ci.relayedOver()
 
 	return ic, nil
 
