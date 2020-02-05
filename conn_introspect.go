@@ -90,6 +90,6 @@ func (ci *connIntrospector) userProvidedTags() []string {
 }
 
 // TODO What's this & how to fetch it ?
-func (ci *connIntrospector) relayedOver() *introspectpb.Connection_Conn {
+func (ci *connIntrospector) relayedOver() *introspectpb.Connection_ConnId {
 	return nil
 }
