@@ -1,14 +1,13 @@
 package swarm
 
 import (
-	"github.com/golang/protobuf/ptypes/timestamp"
-	"github.com/libp2p/go-libp2p-core/introspect"
+	introspectpb "github.com/libp2p/go-libp2p-core/introspect/pb"
 	"github.com/libp2p/go-libp2p-core/network"
 )
 
 type streamIntrospector struct {
-	s *Stream
-	c *Conn
+	swarm *Swarm
+	s     *Stream
 }
 
 func (si *streamIntrospector) id() string {
@@ -19,38 +18,38 @@ func (si *streamIntrospector) protocol() string {
 	return string(si.s.Protocol())
 }
 
-func (si *streamIntrospector) status() introspect.Status {
+func (si *streamIntrospector) status() introspectpb.Status {
 	switch si.s.state.v {
 	case streamOpen:
-		return introspect.Status_ACTIVE
+		return introspectpb.Status_ACTIVE
 	case streamReset:
-		return introspect.Status_ERROR
+		return introspectpb.Status_ERROR
 	case streamCloseBoth:
-		return introspect.Status_CLOSED
+		return introspectpb.Status_CLOSED
 	default:
-		return introspect.Status_ACTIVE
+		return introspectpb.Status_ACTIVE
 	}
 }
 
-func (si *streamIntrospector) role() introspect.Role {
+func (si *streamIntrospector) role() introspectpb.Role {
 	if si.s.stat.Direction == network.DirInbound {
-		return introspect.Role_RESPONDER
+		return introspectpb.Role_RESPONDER
 	} else {
-		return introspect.Role_INITIATOR
+		return introspectpb.Role_INITIATOR
 	}
 }
 
-func (si *streamIntrospector) conn() *introspect.Stream_ConnectionRef {
-	return &introspect.Stream_ConnectionRef{Connection: &introspect.Stream_ConnectionRef_ConnId{si.c.id}}
+func (si *streamIntrospector) conn() *introspectpb.Stream_ConnectionRef {
+	return &introspectpb.Stream_ConnectionRef{Connection: &introspectpb.Stream_ConnectionRef_ConnId{si.s.conn.id}}
 }
 
 // TODO Number packets ? Is the RateIn/Out a good approximation here ?
-func (si *streamIntrospector) traffic() *introspect.Traffic {
-	if si.c.swarm.bwc != nil {
+func (si *streamIntrospector) traffic() *introspectpb.Traffic {
+	if si.swarm.bwc != nil {
 		streamMetrics := si.s.conn.swarm.bwc.GetBandwidthForProtocol(si.s.Protocol())
-		t := &introspect.Traffic{}
-		t.TrafficIn = &introspect.DataGauge{CumBytes: uint64(streamMetrics.TotalIn), InstBw: uint64(streamMetrics.RateIn)}
-		t.TrafficOut = &introspect.DataGauge{CumBytes: uint64(streamMetrics.TotalOut), InstBw: uint64(streamMetrics.RateOut)}
+		t := &introspectpb.Traffic{}
+		t.TrafficIn = &introspectpb.DataGauge{CumBytes: uint64(streamMetrics.TotalIn), InstBw: uint64(streamMetrics.RateIn)}
+		t.TrafficOut = &introspectpb.DataGauge{CumBytes: uint64(streamMetrics.TotalOut), InstBw: uint64(streamMetrics.RateOut)}
 		return t
 	}
 
@@ -58,8 +57,8 @@ func (si *streamIntrospector) traffic() *introspect.Traffic {
 }
 
 // TODO What about closed time ?
-func (si *streamIntrospector) timeline() *introspect.Stream_Timeline {
-	return &introspect.Stream_Timeline{OpenTs: &timestamp.Timestamp{Seconds: si.s.openTime.Unix()}}
+func (si *streamIntrospector) timeline() *introspectpb.Stream_Timeline {
+	return &introspectpb.Stream_Timeline{OpenTs: &si.s.openTime}
 }
 
 // TODO How ?
