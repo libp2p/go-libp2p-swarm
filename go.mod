@@ -1,12 +1,11 @@
 module github.com/libp2p/go-libp2p-swarm
 
 require (
-	github.com/golang/protobuf v1.3.2
 	github.com/ipfs/go-log v0.0.1
 	github.com/jbenet/goprocess v0.1.3
 	github.com/libp2p/go-addr-util v0.0.1
 	github.com/libp2p/go-conn-security-multistream v0.1.0
-	github.com/libp2p/go-libp2p-core v0.2.5
+	github.com/libp2p/go-libp2p-core v0.3.1-0.20200210163958-6d6f8284b841
 	github.com/libp2p/go-libp2p-loggables v0.1.0
 	github.com/libp2p/go-libp2p-peerstore v0.1.4
 	github.com/libp2p/go-libp2p-secio v0.2.1
@@ -19,8 +18,6 @@ require (
 	github.com/multiformats/go-multiaddr v0.2.0
 	github.com/multiformats/go-multiaddr-fmt v0.1.0
 	github.com/multiformats/go-multiaddr-net v0.1.1
-	github.com/pkg/errors v0.8.1
-	github.com/satori/go.uuid v1.2.0
 	github.com/stretchr/testify v1.4.0
 	github.com/whyrusleeping/multiaddr-filter v0.0.0-20160516205228-e903e4adabd7
 )
