@@ -10,7 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/libp2p/go-libp2p-core/introspect"
+	"github.com/libp2p/go-libp2p-core/introspection"
 	"github.com/libp2p/go-libp2p-core/metrics"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -23,7 +23,6 @@ import (
 
 	filter "github.com/libp2p/go-maddr-filter"
 	ma "github.com/multiformats/go-multiaddr"
-	uuid "github.com/satori/go.uuid"
 	mafilter "github.com/whyrusleeping/multiaddr-filter"
 )
 
@@ -57,6 +56,9 @@ type Swarm struct {
 
 	local peer.ID
 	peers peerstore.Peerstore
+
+	nextConnID   uint32 // guarded by atomic
+	nextStreamID uint32 // guarded by atomic
 
 	conns struct {
 		sync.RWMutex
@@ -100,7 +102,7 @@ type Swarm struct {
 }
 
 // NewSwarm constructs a Swarm
-func NewSwarm(ctx context.Context, local peer.ID, peers peerstore.Peerstore, bwc metrics.Reporter, introspector introspect.Introspector) *Swarm {
+func NewSwarm(ctx context.Context, local peer.ID, peers peerstore.Peerstore, bwc metrics.Reporter, introspector introspection.Introspector) *Swarm {
 	s := &Swarm{
 		local:   local,
 		peers:   peers,
@@ -119,10 +121,10 @@ func NewSwarm(ctx context.Context, local peer.ID, peers peerstore.Peerstore, bwc
 	s.ctx = goprocessctx.OnClosingContext(s.proc)
 
 	if introspector != nil {
-		if err := introspector.RegisterDataProviders(&introspect.DataProviders{
+		if err := introspector.RegisterDataProviders(&introspection.DataProviders{
 			Connection: s.IntrospectConnections,
-			Traffic:    s.IntrospectTraffic,
 			Stream:     s.IntrospectStreams,
+			Traffic:    s.IntrospectTraffic,
 		}); err != nil {
 			log.Errorf("swarm failed to register itself as a provider with the introspector, err=%s", err)
 		}
@@ -222,13 +224,12 @@ func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (*Conn,
 	}
 
 	// Wrap and register the connection.
-	id := uuid.NewV4()
 	stat := network.Stat{Direction: dir}
 	c := &Conn{
 		conn:  tc,
 		swarm: s,
 		stat:  stat,
-		id:    id.String(),
+		id:    atomic.AddUint32(&s.nextConnID, 1),
 	}
 	c.streams.m = make(map[*Stream]struct{})
 	s.conns.m[p] = append(s.conns.m[p], c)

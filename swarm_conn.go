@@ -3,7 +3,9 @@ package swarm
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	ic "github.com/libp2p/go-libp2p-core/crypto"
@@ -13,7 +15,6 @@ import (
 	"github.com/libp2p/go-libp2p-core/transport"
 
 	ma "github.com/multiformats/go-multiaddr"
-	uuid "github.com/satori/go.uuid"
 )
 
 // TODO: Put this elsewhere.
@@ -24,7 +25,7 @@ var ErrConnClosed = errors.New("connection closed")
 // Conn is the connection type used by swarm. In general, you won't use this
 // type directly.
 type Conn struct {
-	id    string
+	id    uint32
 	conn  transport.CapableConn
 	swarm *Swarm
 
@@ -39,6 +40,10 @@ type Conn struct {
 	}
 
 	stat network.Stat
+}
+
+func (c *Conn) ID() string {
+	return strconv.FormatUint(uint64(c.id), 10)
 }
 
 // Close closes this connection.
@@ -189,16 +194,15 @@ func (c *Conn) addStream(ts mux.MuxedStream, dir network.Direction) (*Stream, er
 	}
 
 	// Wrap and register the stream.
-	id := uuid.NewV4()
-	stat := network.Stat{Direction: dir}
+	stat := network.Stat{
+		Direction: dir,
+		Opened:    time.Now(),
+	}
 	s := &Stream{
 		stream: ts,
 		conn:   c,
 		stat:   stat,
-		id:     id.String(),
-		connId: c.id,
-		// TODO Is this good enough ?
-		openTime: time.Now(),
+		id:     atomic.AddUint32(&c.swarm.nextStreamID, 1),
 	}
 	c.streams.m[s] = struct{}{}
 

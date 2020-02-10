@@ -1,173 +1,222 @@
 package swarm
 
 import (
-	"github.com/libp2p/go-libp2p-core/introspect"
-	introspectpb "github.com/libp2p/go-libp2p-core/introspect/pb"
-	"github.com/pkg/errors"
+	"fmt"
+	"math"
+	"strconv"
+
+	"github.com/libp2p/go-libp2p-core/introspection"
+	introspect_pb "github.com/libp2p/go-libp2p-core/introspection/pb"
+	introspection_pb "github.com/libp2p/go-libp2p-core/introspection/pb"
+	"github.com/libp2p/go-libp2p-core/network"
 )
 
-// IntrospectTraffic introspects & returns the overall traffic for this peer
-func (s *Swarm) IntrospectTraffic() (*introspectpb.Traffic, error) {
-	if s.bwc != nil {
-		t := &introspectpb.Traffic{}
-		metrics := s.bwc.GetBandwidthTotals()
-
-		t.TrafficIn = &introspectpb.DataGauge{CumBytes: uint64(metrics.TotalIn), InstBw: uint64(metrics.RateIn)}
-		t.TrafficOut = &introspectpb.DataGauge{CumBytes: uint64(metrics.TotalOut), InstBw: uint64(metrics.RateOut)}
-
-		return t, nil
+// IntrospectTraffic introspects and returns total traffic stats for this swarm.
+func (s *Swarm) IntrospectTraffic() (*introspection_pb.Traffic, error) {
+	if s.bwc == nil {
+		return nil, nil
 	}
 
-	return nil, nil
+	metrics := s.bwc.GetBandwidthTotals()
+	t := &introspection_pb.Traffic{
+		TrafficIn: &introspection_pb.DataGauge{
+			CumBytes: uint64(metrics.TotalIn),
+			InstBw:   uint64(metrics.RateIn),
+		},
+		TrafficOut: &introspection_pb.DataGauge{
+			CumBytes: uint64(metrics.TotalOut),
+			InstBw:   uint64(metrics.RateOut),
+		},
+	}
+
+	return t, nil
 }
 
 // IntrospectConnections introspects & returns the swarm connections
-func (swarm *Swarm) IntrospectConnections(query introspect.ConnectionQueryParams) ([]*introspectpb.Connection, error) {
-	swarm.conns.RLock()
-	defer swarm.conns.RUnlock()
+func (s *Swarm) IntrospectConnections(q introspection.ConnectionQueryParams) ([]*introspection_pb.Connection, error) {
+	var conns []network.Conn
 
-	containsId := func(ids []introspect.ConnectionID, id string) bool {
-		for _, i := range ids {
-			if string(i) == id {
-				return true
-			}
+	switch l := len(q.Include); l {
+	case 0:
+		conns = s.Conns()
+
+	default:
+		conns = make([]network.Conn, 0, l)
+		filter := make(map[string]struct{}, l)
+		for _, id := range q.Include {
+			filter[string(id)] = struct{}{}
 		}
-		return false
+
+		for _, c := range s.Conns() {
+			if _, ok := filter[c.(*Conn).ID()]; !ok {
+				continue
+			}
+			conns = append(conns, c)
+		}
 	}
 
-	var iconns []*introspectpb.Connection
+	introspected := make([]*introspection_pb.Connection, 0, len(conns))
 
-	appendConnection := func(c *Conn) error {
-		if query.Output == introspect.QueryOutputFull {
-			ic, err := swarm.introspectConnection(c)
-			if err != nil {
-				return errors.Wrap(err, "failed to convert connection to introspect.Connection")
-			}
-			iconns = append(iconns, ic)
-		} else {
-			iconns = append(iconns, &introspectpb.Connection{Id: c.id})
-		}
-		return nil
-	}
-
-	// iterate over all connections the swarm has & resolve the ones required by the query
-	for _, conns := range swarm.conns.m {
+	switch q.Output {
+	case introspection.QueryOutputFull:
 		for _, c := range conns {
-			if query.Include != nil {
-				if containsId(query.Include, c.id) {
-					if err := appendConnection(c); err != nil {
-						return nil, err
-					}
-				}
-			} else {
-				if err := appendConnection(c); err != nil {
-					return nil, err
-				}
-			}
+			ic := c.(*Conn).Introspect(s, q)
+			introspected = append(introspected, ic)
 		}
+
+	case introspection.QueryOutputList:
+		for _, c := range conns {
+			introspected = append(introspected, &introspection_pb.Connection{
+				Id: strconv.FormatUint(uint64(c.(*Conn).id), 10),
+			})
+		}
+
+	default:
+		return nil, fmt.Errorf("unexpected query type: %v", q.Output)
 	}
-	return iconns, nil
+
+	return introspected, nil
 }
 
-func (swarm *Swarm) introspectConnection(c *Conn) (*introspectpb.Connection, error) {
+// IntrospectStreams processes a streams introspection query.
+func (s *Swarm) IntrospectStreams(q introspection.StreamQueryParams) (*introspection_pb.StreamList, error) {
+	var streams []network.Stream
+
+	switch l := len(q.Include); l {
+	case 0:
+		for _, c := range s.Conns() {
+			for _, s := range c.GetStreams() {
+				streams = append(streams, s)
+			}
+		}
+
+	default:
+		streams = make([]network.Stream, 0, l)
+		filter := make(map[string]struct{}, l)
+		for _, id := range q.Include {
+			filter[string(id)] = struct{}{}
+		}
+
+		for _, c := range s.Conns() {
+			for _, s := range c.GetStreams() {
+				if _, ok := filter[s.(*Stream).ID()]; !ok {
+					continue
+				}
+				streams = append(streams, s)
+			}
+		}
+	}
+
+	switch q.Output {
+	case introspection.QueryOutputFull:
+		introspected := make([]*introspection_pb.Stream, 0, len(streams))
+		for _, st := range streams {
+			is := st.(*Stream).Introspect(s, q)
+			introspected = append(introspected, is)
+		}
+		return &introspection_pb.StreamList{Streams: introspected}, nil
+
+	case introspection.QueryOutputList:
+		introspected := make([]string, 0, len(streams))
+		for _, st := range streams {
+			introspected = append(introspected, st.(*Stream).ID())
+		}
+		return &introspection_pb.StreamList{StreamIds: introspected}, nil
+	}
+
+	return nil, fmt.Errorf("unexpected query type: %v", q.Output)
+}
+
+func (c *Conn) Introspect(s *Swarm, q introspection.ConnectionQueryParams) *introspect_pb.Connection {
+	stat := c.Stat()
+	res := &introspection_pb.Connection{
+		Id:     c.ID(),
+		Status: introspection_pb.Status_ACTIVE,
+		PeerId: c.RemotePeer().Pretty(),
+		Endpoints: &introspection_pb.EndpointPair{
+			SrcMultiaddr: c.LocalMultiaddr().String(),
+			DstMultiaddr: c.RemoteMultiaddr().String(),
+		},
+		Role: translateRole(stat),
+		Timeline: &introspection_pb.Connection_Timeline{
+			OpenTs:     &stat.Opened,
+			UpgradedTs: &stat.Opened,
+			// TODO ClosedTs, UpgradedTs.
+		},
+	}
+
+	// TODO this is a per-peer, not a per-conn measurement. In the future, when
+	// we have multiple connections per peer, this will produce inaccurate
+	// numbers.
+	// Also, we do not record stream-level stats.
+	if s.bwc != nil {
+		bw := s.bwc.GetBandwidthForPeer(c.RemotePeer())
+		res.Traffic = &introspect_pb.Traffic{
+			// TODO we don't have packet I/O stats.
+			TrafficIn: &introspect_pb.DataGauge{
+				CumBytes: uint64(bw.TotalIn),
+				InstBw:   uint64(math.Round(bw.RateIn)),
+			},
+			TrafficOut: &introspect_pb.DataGauge{
+				CumBytes: uint64(bw.TotalOut),
+				InstBw:   uint64(math.Round(bw.RateOut)),
+			},
+		}
+	}
+
+	// TODO I don't think we pin the multiplexer and the secure channel we've
+	// negotiated anywhere.
+	res.Attribs = &introspect_pb.Connection_Attributes{}
+
+	// TODO can we get the transport ID from the multiaddr?
+	res.TransportId = "unknown"
+
+	// TODO there's the ping protocol, but that's higher than this layer.
+	// How do we source this? We may need some kind of latency manager.
+	res.LatencyNs = 0
+
 	c.streams.Lock()
-	defer c.streams.Unlock()
-
-	ci := &connIntrospector{c, swarm}
-	ic := &introspectpb.Connection{}
-
-	ic.Id = ci.id()
-	ic.PeerId = ci.remotePeerId()
-	ic.Endpoints = ci.endPoints()
-	ic.Role = ci.role()
-
-	streams, err := ci.streams()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to introspect stream for connection")
+	sids := make([]string, 0, len(c.streams.m))
+	for s := range c.streams.m {
+		sids = append(sids, s.ID())
 	}
-	ic.Streams = streams
+	c.streams.Unlock()
 
-	ic.Traffic = ci.traffic()
-	ic.Timeline = ci.timeline()
-	ic.Attribs = ci.attribs()
-	ic.Status = ci.status()
-	ic.TransportId = ci.transportId()
-	ic.UserProvidedTags = ci.userProvidedTags()
-	ic.LatencyNs = ci.latencyNs()
-	ic.RelayedOver = nil //ci.relayedOver()
+	res.Streams = &introspection_pb.StreamList{StreamIds: sids}
 
-	return ic, nil
-
+	return res
 }
 
-func (swarm *Swarm) IntrospectStreams(query introspect.StreamQueryParams) (*introspectpb.StreamList, error) {
-	swarm.conns.RLock()
-	defer swarm.conns.RUnlock()
-
-	containsId := func(ids []introspect.StreamID, id string) bool {
-		for _, i := range ids {
-			if string(i) == id {
-				return true
-			}
-		}
-		return false
+func (s *Stream) Introspect(sw *Swarm, q introspection.StreamQueryParams) *introspect_pb.Stream {
+	stat := s.Stat()
+	res := &introspection_pb.Stream{
+		Id:     s.ID(),
+		Status: introspect_pb.Status_ACTIVE,
+		Conn: &introspect_pb.Stream_ConnectionRef{
+			Connection: &introspection_pb.Stream_ConnectionRef_ConnId{
+				ConnId: strconv.FormatUint(uint64(s.conn.id), 10),
+			},
+		},
+		Protocol: string(s.Protocol()),
+		Role:     translateRole(stat),
+		Timeline: &introspect_pb.Stream_Timeline{
+			OpenTs: &stat.Opened,
+			// TODO CloseTs.
+		},
+		// TODO Traffic: we are not tracking per-stream traffic stats at the
+		// moment.
 	}
 
-	sl := &introspectpb.StreamList{}
-
-	appendStream := func(s *Stream) error {
-		if query.Output == introspect.QueryOutputFull {
-			is, err := swarm.introspectStream(s)
-			if err != nil {
-				return errors.Wrap(err, "failed to convert stream to introspect.Stream")
-			}
-			sl.Streams = append(sl.Streams, is)
-		} else {
-			sl.StreamIds = append(sl.StreamIds, []byte(s.id))
-		}
-		return nil
-	}
-
-	// iterate over all connections the swarm has & resolve the streams in the connections required by the query
-	for _, conns := range swarm.conns.m {
-		for _, c := range conns {
-			// range over all streams in the connection
-			c.streams.Lock()
-			defer c.streams.Unlock()
-
-			for s, _ := range c.streams.m {
-				if query.Include != nil {
-					if containsId(query.Include, s.id) {
-						if err := appendStream(s); err != nil {
-							return nil, err
-						}
-					}
-				} else {
-					if err := appendStream(s); err != nil {
-						return nil, err
-					}
-				}
-			}
-
-		}
-	}
-	return sl, nil
+	return res
 }
 
-func (swarm *Swarm) introspectStream(s *Stream) (*introspectpb.Stream, error) {
-	s.state.Lock()
-	defer s.state.Unlock()
-
-	si := &streamIntrospector{swarm, s}
-	is := &introspectpb.Stream{}
-	is.Id = si.id()
-	is.Protocol = si.protocol()
-	is.Role = si.role()
-	is.Status = si.status()
-	is.Conn = si.conn()
-	is.Traffic = si.traffic()
-	is.Timeline = si.timeline()
-	is.LatencyNs = si.latency()
-	is.UserProvidedTags = si.userProvidedTags()
-	return is, nil
+func translateRole(stat network.Stat) introspect_pb.Role {
+	switch stat.Direction {
+	case network.DirInbound:
+		return introspect_pb.Role_RESPONDER
+	case network.DirOutbound:
+		return introspect_pb.Role_INITIATOR
+	default:
+		return 99 // TODO placeholder value
+	}
 }

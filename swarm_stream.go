@@ -28,9 +28,7 @@ var _ network.Stream = &Stream{}
 // Stream is the stream type used by swarm. In general, you won't use this type
 // directly.
 type Stream struct {
-	id       string
-	connId   string
-	openTime time.Time
+	id uint32
 
 	stream mux.MuxedStream
 	conn   *Conn
@@ -45,6 +43,10 @@ type Stream struct {
 	protocol atomic.Value
 
 	stat network.Stat
+}
+
+func (s *Stream) ID() string {
+	return fmt.Sprintf("%d-%d", s.conn.id, s.id)
 }
 
 func (s *Stream) String() string {
