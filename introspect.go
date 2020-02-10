@@ -3,7 +3,6 @@ package swarm
 import (
 	"fmt"
 	"math"
-	"strconv"
 
 	"github.com/libp2p/go-libp2p-core/introspection"
 	introspect_pb "github.com/libp2p/go-libp2p-core/introspection/pb"
@@ -66,9 +65,7 @@ func (s *Swarm) IntrospectConnections(q introspection.ConnectionQueryParams) ([]
 
 	case introspection.QueryOutputList:
 		for _, c := range conns {
-			introspected = append(introspected, &introspection_pb.Connection{
-				Id: strconv.FormatUint(uint64(c.(*Conn).id), 10),
-			})
+			introspected = append(introspected, &introspection_pb.Connection{Id: c.(*Conn).ID()})
 		}
 
 	default:
@@ -194,7 +191,7 @@ func (s *Stream) Introspect(sw *Swarm, q introspection.StreamQueryParams) *intro
 		Status: introspect_pb.Status_ACTIVE,
 		Conn: &introspect_pb.Stream_ConnectionRef{
 			Connection: &introspection_pb.Stream_ConnectionRef_ConnId{
-				ConnId: strconv.FormatUint(uint64(s.conn.id), 10),
+				ConnId: s.conn.ID(),
 			},
 		},
 		Protocol: string(s.Protocol()),
