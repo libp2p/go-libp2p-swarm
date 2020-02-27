@@ -16,18 +16,32 @@ import (
 func TestNotifications(t *testing.T) {
 	const swarmSize = 5
 
+	notifiees := make([]*netNotifiee, swarmSize)
+
 	ctx := context.Background()
 	swarms := makeSwarms(ctx, t, swarmSize)
 	defer func() {
-		for _, s := range swarms {
-			s.Close()
+		for i, s := range swarms {
+			select {
+			case <-notifiees[i].listenClose:
+				t.Error("should not have been closed")
+			default:
+			}
+			err := s.Close()
+			if err != nil {
+				t.Error(err)
+			}
+			select {
+			case <-notifiees[i].listenClose:
+			default:
+				t.Error("expected a listen close notification")
+			}
 		}
 	}()
 
 	timeout := 5 * time.Second
 
 	// signup notifs
-	notifiees := make([]*netNotifiee, len(swarms))
 	for i, swarm := range swarms {
 		n := newNetNotifiee(swarmSize)
 		swarm.Notify(n)
