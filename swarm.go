@@ -9,7 +9,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/libp2p/go-eventbus"
 	"github.com/libp2p/go-libp2p-core/event"
 	"github.com/libp2p/go-libp2p-core/metrics"
 	"github.com/libp2p/go-libp2p-core/network"
@@ -97,15 +96,16 @@ type Swarm struct {
 	ctx  context.Context
 	bwc  metrics.Reporter
 
-	eventBus event.Bus
 	emitters struct {
 		evtPeerConnectionStateChange event.Emitter
 		evtStreamStateChange         event.Emitter
 	}
+
+	bus event.Bus
 }
 
 // NewSwarm constructs a Swarm
-func NewSwarm(ctx context.Context, local peer.ID, peers peerstore.Peerstore, bwc metrics.Reporter) (*Swarm, error) {
+func NewSwarm(ctx context.Context, local peer.ID, peers peerstore.Peerstore, bwc metrics.Reporter, eb event.Bus) (*Swarm, error) {
 	s := &Swarm{
 		local:   local,
 		peers:   peers,
@@ -122,16 +122,20 @@ func NewSwarm(ctx context.Context, local peer.ID, peers peerstore.Peerstore, bwc
 	s.limiter = newDialLimiter(s.dialAddr)
 	s.proc = goprocessctx.WithContextAndTeardown(ctx, s.teardown)
 	s.ctx = goprocessctx.OnClosingContext(s.proc)
-	s.eventBus = eventbus.NewBus()
 
 	var err error
-	if s.emitters.evtPeerConnectionStateChange, err = s.eventBus.Emitter(&network.EvtPeerConnectionStateChange{}); err != nil {
+	if eb == nil {
+		return nil, errors.New("nil event bus passed to swarm")
+	}
+	if s.emitters.evtPeerConnectionStateChange, err = eb.Emitter(&event.EvtPeerConnectionStateChange{}); err != nil {
 		return nil, err
 	}
 
-	if s.emitters.evtStreamStateChange, err = s.eventBus.Emitter(&network.EvtStreamStateChange{}); err != nil {
+	if s.emitters.evtStreamStateChange, err = eb.Emitter(&event.EvtStreamStateChange{}); err != nil {
 		return nil, err
 	}
+
+	s.bus = eb
 
 	return s, err
 }
@@ -185,8 +189,10 @@ func (s *Swarm) teardown() error {
 	return nil
 }
 
+// EventBus is NOT a part of the network interface.
+// It has been exported to help with testing.
 func (s *Swarm) EventBus() event.Bus {
-	return s.eventBus
+	return s.bus
 }
 
 // AddAddrFilter adds a multiaddr filter to the set of filters the swarm will use to determine which
@@ -262,9 +268,9 @@ func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (*Conn,
 		f.Connected(s, c)
 	})
 
-	// emit connection state change event on the bus
+	// emit connection state change event on the eventBus
 	s.emitters.evtPeerConnectionStateChange.Emit(
-		network.EvtPeerConnectionStateChange{s, c, network.Connected})
+		event.EvtPeerConnectionStateChange{c, network.Connected})
 
 	c.notifyLk.Unlock()
 

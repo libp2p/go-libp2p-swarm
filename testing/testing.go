@@ -7,6 +7,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/metrics"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peerstore"
+	"github.com/libp2p/go-eventbus"
 	"github.com/libp2p/go-libp2p-testing/net"
 	"github.com/libp2p/go-tcp-transport"
 
@@ -62,6 +63,7 @@ func GenUpgrader(n *swarm.Swarm) *tptu.Upgrader {
 
 // GenSwarm generates a new test swarm.
 func GenSwarm(t *testing.T, ctx context.Context, opts ...Option) *swarm.Swarm {
+	b := eventbus.NewBus()
 	var cfg config
 	for _, o := range opts {
 		o(t, &cfg)
@@ -71,7 +73,7 @@ func GenSwarm(t *testing.T, ctx context.Context, opts ...Option) *swarm.Swarm {
 	ps := pstoremem.NewPeerstore()
 	ps.AddPubKey(p.ID, p.PubKey)
 	ps.AddPrivKey(p.ID, p.PrivKey)
-	s, err := swarm.NewSwarm(ctx, p.ID, ps, metrics.NewBandwidthCounter())
+	s, err := swarm.NewSwarm(ctx, p.ID, ps, metrics.NewBandwidthCounter(), b)
 	if err != nil {
 		t.Fatalf("failed to create swarm, error is %s", err)
 	}

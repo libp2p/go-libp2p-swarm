@@ -10,6 +10,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/transport"
+	"github.com/libp2p/go-libp2p-core/event"
 
 	ma "github.com/multiformats/go-multiaddr"
 )
@@ -78,7 +79,7 @@ func (c *Conn) doClose() {
 		c.swarm.refs.Done() // taken in Swarm.addConn
 
 		c.swarm.emitters.evtPeerConnectionStateChange.Emit(
-			network.EvtPeerConnectionStateChange{c.swarm, c, network.NotConnected})
+			event.EvtPeerConnectionStateChange{c, network.NotConnected})
 	}()
 }
 
@@ -211,7 +212,7 @@ func (c *Conn) addStream(ts mux.MuxedStream, dir network.Direction) (*Stream, er
 	})
 
 	c.swarm.emitters.evtStreamStateChange.Emit(
-		network.EvtStreamStateChange{c.swarm, s, network.Connected})
+		event.EvtStreamStateChange{s, network.Connected})
 
 	s.notifyLk.Unlock()
 

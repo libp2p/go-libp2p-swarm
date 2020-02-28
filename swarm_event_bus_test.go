@@ -25,16 +25,16 @@ func TestEventBus(t *testing.T) {
 
 	timeout := 5 * time.Second
 
-	// subscribe to event bus for peer connections
+	// subscribe to event eventBus for peer connections
 	connSubs := make([]event.Subscription, len(swarms))
-	// subscribe to event bus for stream notifs
+	// subscribe to event eventBus for stream notifs
 	streamSubs := make([]event.Subscription, len(swarms))
 
 	var err error
 	for i, swarm := range swarms {
-		connSubs[i], err = swarm.EventBus().Subscribe(&network.EvtPeerConnectionStateChange{})
+		connSubs[i], err = swarm.EventBus().Subscribe(&event.EvtPeerConnectionStateChange{})
 		require.NoError(t, err)
-		streamSubs[i], err = swarm.EventBus().Subscribe(&network.EvtStreamStateChange{})
+		streamSubs[i], err = swarm.EventBus().Subscribe(&event.EvtStreamStateChange{})
 		require.NoError(t, err)
 		defer connSubs[i].Close()
 		defer streamSubs[i].Close()
@@ -58,7 +58,7 @@ func TestEventBus(t *testing.T) {
 			for len(s.ConnsToPeer(s2.LocalPeer())) != len(notifs[s2.LocalPeer()]) {
 				select {
 				case o := <-sub.Out():
-					evt := o.(network.EvtPeerConnectionStateChange)
+					evt := o.(event.EvtPeerConnectionStateChange)
 					require.Equal(t, network.Connected, evt.NewState)
 					c := evt.Connection
 					nfp := notifs[c.RemotePeer()]
@@ -115,7 +115,7 @@ func TestEventBus(t *testing.T) {
 		var s2 network.Stream
 		select {
 		case o := <-sub.Out():
-			evt := o.(network.EvtStreamStateChange)
+			evt := o.(event.EvtStreamStateChange)
 			require.Equal(t, network.Connected, evt.NewState)
 			s2 = evt.Stream
 			t.Log("got notif for opened stream")
@@ -128,7 +128,7 @@ func TestEventBus(t *testing.T) {
 
 		select {
 		case o := <-sub.Out():
-			evt := o.(network.EvtStreamStateChange)
+			evt := o.(event.EvtStreamStateChange)
 			require.Equal(t, network.NotConnected, evt.NewState)
 			s2 = evt.Stream
 			t.Log("got notif for closed stream")
@@ -177,7 +177,7 @@ func TestEventBus(t *testing.T) {
 			var c3, c4 network.Conn
 			select {
 			case o := <-n.Out():
-				evt := o.(network.EvtPeerConnectionStateChange)
+				evt := o.(event.EvtPeerConnectionStateChange)
 				require.Equal(t, network.NotConnected, evt.NewState)
 				c3 = evt.Connection
 			case <-time.After(timeout):
@@ -189,7 +189,7 @@ func TestEventBus(t *testing.T) {
 
 			select {
 			case o := <-n2.Out():
-				evt := o.(network.EvtPeerConnectionStateChange)
+				evt := o.(event.EvtPeerConnectionStateChange)
 				require.Equal(t, network.NotConnected, evt.NewState)
 				c4 = evt.Connection
 			case <-time.After(timeout):
