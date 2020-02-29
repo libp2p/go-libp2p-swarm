@@ -121,6 +121,8 @@ func (s *Swarm) AddTransport(ot transport.BaseTransport) error {
 	return nil
 }
 
+var _ transport.QTransport = transportUpgrader{}
+
 // Used to upgrade `transport.Transport` to `transport.QTransport`.
 // Only use it with `BaseTransport` castable to `transport.Transport`.
 type transportUpgrader struct {
@@ -132,7 +134,17 @@ func (t transportUpgrader) Dial(ctx context.Context, raddr ma.Multiaddr, p peer.
 	if err != nil {
 		return nil, err
 	}
-	return upgradedCapableConn{CapableConn: conn}, nil
+	return upgradedCapableConn{
+		listenedUpgradedCapableConn{BaseCapableConn: conn, t: t},
+	}, nil
+}
+
+func (t transportUpgrader) Listen(laddr ma.Multiaddr) (transport.QListener, error) {
+	l, err := t.BaseTransport.(transport.Transport).Listen(laddr)
+	if err != nil {
+		return nil, err
+	}
+	return upgradedListener{BaseListener: l, t: t}, nil
 }
 
 func (t transportUpgrader) Score(raddr ma.Multiaddr, _ peer.ID) (transport.Score, error) {
@@ -183,7 +195,7 @@ func (t transportUpgrader) Score(raddr ma.Multiaddr, _ peer.ID) (transport.Score
 
 // Used to upgrade `transport.CapableConn` to `transport.QCapableConn`.
 type upgradedCapableConn struct {
-	transport.CapableConn
+	listenedUpgradedCapableConn
 }
 
 func (c upgradedCapableConn) Quality() uint32 {
@@ -204,4 +216,26 @@ func (c upgradedCapableConn) Quality() uint32 {
 		return defaultNonProxyQuality >> 8
 	}
 	return defaultNonProxyQuality
+}
+
+type listenedUpgradedCapableConn struct {
+	transport.BaseCapableConn
+	t transport.QTransport
+}
+
+func (c listenedUpgradedCapableConn) Transport() transport.QTransport {
+	return c.t
+}
+
+type upgradedListener struct {
+	transport.BaseListener
+	t transport.QTransport
+}
+
+func (l upgradedListener) Accept() (transport.ListenedQCapableConn, error) {
+	c, err := l.BaseListener.(transport.Listener).Accept()
+	if err != nil {
+		return nil, err
+	}
+	return listenedUpgradedCapableConn{BaseCapableConn: c, t: l.t}, nil
 }
