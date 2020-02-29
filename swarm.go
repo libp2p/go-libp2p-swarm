@@ -76,7 +76,7 @@ type Swarm struct {
 
 	transports struct {
 		sync.RWMutex
-		m map[int]transport.Transport
+		m map[int]transport.QTransport
 	}
 
 	// new connection and stream handlers
@@ -107,7 +107,7 @@ func NewSwarm(ctx context.Context, local peer.ID, peers peerstore.Peerstore, bwc
 
 	s.conns.m = make(map[peer.ID][]*Conn)
 	s.listeners.m = make(map[transport.Listener]struct{})
-	s.transports.m = make(map[int]transport.Transport)
+	s.transports.m = make(map[int]transport.QTransport)
 	s.notifs.m = make(map[network.Notifiee]struct{})
 
 	s.dsync = NewDialSync(s.doDial)

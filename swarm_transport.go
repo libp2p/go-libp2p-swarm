@@ -3,15 +3,22 @@ package swarm
 import (
 	"fmt"
 	"strings"
+	"context"
 
-	"github.com/libp2p/go-libp2p-core/transport"
+		"github.com/libp2p/go-libp2p-core/transport"
+			"github.com/libp2p/go-libp2p-core/peer"
 
 	ma "github.com/multiformats/go-multiaddr"
 )
 
+// 2^31
+const defaultNonProxyQuality = 2147483648
+// 2^31+2^30
+const defaultProxyQuality = 3221225472
+
 // TransportForDialing retrieves the appropriate transport for dialing the given
 // multiaddr.
-func (s *Swarm) TransportForDialing(a ma.Multiaddr) transport.Transport {
+func (s *Swarm) TransportForDialing(a ma.Multiaddr) transport.QTransport {
 	protocols := a.Protocols()
 	if len(protocols) == 0 {
 		return nil
@@ -39,7 +46,7 @@ func (s *Swarm) TransportForDialing(a ma.Multiaddr) transport.Transport {
 
 // TransportForListening retrieves the appropriate transport for listening on
 // the given multiaddr.
-func (s *Swarm) TransportForListening(a ma.Multiaddr) transport.Transport {
+func (s *Swarm) TransportForListening(a ma.Multiaddr) transport.QTransport {
 	protocols := a.Protocols()
 	if len(protocols) == 0 {
 		return nil
@@ -65,10 +72,20 @@ func (s *Swarm) TransportForListening(a ma.Multiaddr) transport.Transport {
 	return selected
 }
 
+var errTransportUncastable = fmt.Errorf("BaseTransport must be `transport.QTransport` or `transport.Transport`.")
 // AddTransport adds a transport to this swarm.
 //
 // Satisfies the Network interface from go-libp2p-transport.
-func (s *Swarm) AddTransport(t transport.Transport) error {
+func (s *Swarm) AddTransport(ot transport.BaseTransport) error{
+var t transport.QTransport
+	switch rt := ot.(type) {
+	case transport.QTransport:
+		t = rt
+	case transport.Transport:
+		t = transportUpgrader{BaseTransport: rt}
+	default:
+		return errTransportUncastable
+	}
 	protocols := t.Protocols()
 
 	if len(protocols) == 0 {
@@ -99,4 +116,45 @@ func (s *Swarm) AddTransport(t transport.Transport) error {
 		s.transports.m[p] = t
 	}
 	return nil
+}
+
+// Used to upgrade `transport.Transport` to `transport.QTransport`.
+// Only use it with `BaseTransport` castable to `transport.Transport`.
+type transportUpgrader struct {
+	transport.BaseTransport
+}
+
+func (t transportUpgrader) Dial(ctx context.Context, raddr ma.Multiaddr, p peer.ID) (transport.QCapableConn, error){
+	conn, err := t.BaseTransport.(transport.Transport).Dial(ctx, raddr, p)
+	if err != nil {
+		return nil, err
+	}
+	return upgradedCapableConn{CapableConn: conn}, nil
+}
+
+func (t transportUpgrader) Score(_ ma.Multiaddr, _ peer.ID) (transport.Score, error) {
+	if t.Proxy() {
+		return transport.Score{
+			Quality: defaultProxyQuality,
+			IsQuality: true,
+			Fd:1,
+		}, nil
+	}
+	return transport.Score{
+		Quality: defaultNonProxyQuality,
+		IsQuality: true,
+		Fd:1,
+	}, nil
+}
+
+// Used to upgrade `transport.CapableConn` to `transport.QCapableConn`.
+type upgradedCapableConn struct {
+	transport.CapableConn
+}
+
+func (c upgradedCapableConn) Quality() uint32 {
+	if c.Transport().Proxy() {
+		return defaultProxyQuality
+	}
+	return defaultNonProxyQuality
 }
