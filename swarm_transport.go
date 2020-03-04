@@ -6,12 +6,14 @@ import (
 
 	"github.com/libp2p/go-libp2p-core/transport"
 
+	"github.com/libp2p/go-libp2p-swarm/QTransport"
+
 	ma "github.com/multiformats/go-multiaddr"
 )
 
 // TransportForDialing retrieves the appropriate transport for dialing the given
 // multiaddr.
-func (s *Swarm) TransportForDialing(a ma.Multiaddr) transport.Transport {
+func (s *Swarm) TransportForDialing(a ma.Multiaddr) transport.QTransport {
 	protocols := a.Protocols()
 	if len(protocols) == 0 {
 		return nil
@@ -39,7 +41,7 @@ func (s *Swarm) TransportForDialing(a ma.Multiaddr) transport.Transport {
 
 // TransportForListening retrieves the appropriate transport for listening on
 // the given multiaddr.
-func (s *Swarm) TransportForListening(a ma.Multiaddr) transport.Transport {
+func (s *Swarm) TransportForListening(a ma.Multiaddr) transport.QTransport {
 	protocols := a.Protocols()
 	if len(protocols) == 0 {
 		return nil
@@ -65,10 +67,21 @@ func (s *Swarm) TransportForListening(a ma.Multiaddr) transport.Transport {
 	return selected
 }
 
+var errTransportUncastable = fmt.Errorf("BaseTransport must be `transport.QTransport` or `transport.Transport`.")
+
 // AddTransport adds a transport to this swarm.
 //
 // Satisfies the Network interface from go-libp2p-transport.
-func (s *Swarm) AddTransport(t transport.Transport) error {
+func (s *Swarm) AddTransport(ot transport.BaseTransport) error {
+	var t transport.QTransport
+	switch rt := ot.(type) {
+	case transport.QTransport:
+		t = rt
+	case transport.Transport:
+		t = QTransport.TransportUpgrader{BaseTransport: rt}
+	default:
+		return errTransportUncastable
+	}
 	protocols := t.Protocols()
 
 	if len(protocols) == 0 {
