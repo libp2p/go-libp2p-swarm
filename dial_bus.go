@@ -61,6 +61,11 @@ func (s *Swarm) getOrCreateDialBus(p peer.ID) *dialBus {
 	}
 	s.conns.RUnlock()
 	s.conns.Lock()
+	// Check again we have not holded the lock for a short time.
+	if db := s.conns.m[p]; db != nil {
+		s.conns.Unlock()
+		return db
+	}
 	db := s.newDialBus(p)
 	s.conns.m[p] = db
 	s.conns.Unlock()
@@ -104,11 +109,13 @@ AddrIterator:
 	for _, addr := range goodAddrs {
 		// Iterate over the linked list
 		current := d.dials.d
+		var past *dialJob
 		for current != nil {
 			// Check if we are already dialling this address.
 			if current.raddr == addr {
 				continue AddrIterator
 			}
+			past = current
 			current = current.next
 		}
 		// If not start a dial to this address.
@@ -121,14 +128,19 @@ AddrIterator:
 		if err != nil || (d.c.conn != nil && score.Quality >= currentQuality) {
 			continue
 		}
-		current.next = &dialJob{
+		dj := &dialJob{
 			cancel:  cancel,
 			raddr:   addr,
 			quality: score.Quality,
 		}
+		if past == nil {
+			d.dials.d = dj
+		} else {
+			past.next = dj
+		}
 		isNotDialling = false
 		// TODO: Implement fd limiting.
-		go d.watchDial(ctxDial, current.next, tpt)
+		go d.watchDial(ctxDial, dj, tpt)
 	}
 	d.c.RUnlock()
 	d.dials.Unlock()

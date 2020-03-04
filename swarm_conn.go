@@ -237,7 +237,7 @@ func (c *Conn) GetStreams() []network.Stream {
 // The callback is gonna be called only one time.
 func (c *Conn) OnBetter(h network.OnBetterHandler) {
 	c.onBetter.Lock()
-	defer c.onBetter.Lock()
+	defer c.onBetter.Unlock()
 	// If a better conn already have been found, yield the event.
 	if !c.onBetter.hardCloseDeadline.IsZero() {
 		go h(c.onBetter.hardCloseDeadline)
@@ -254,7 +254,7 @@ var ErrAlreadyFoundBetter = fmt.Errorf("Found better have been called at least t
 // pointer to the new conn in the coresponding dialBus.
 func (c *Conn) foundBetter() {
 	c.onBetter.Lock()
-	defer c.onBetter.Lock()
+	defer c.onBetter.Unlock()
 	if !c.onBetter.hardCloseDeadline.IsZero() {
 		log.Error(ErrAlreadyFoundBetter)
 		return

@@ -202,6 +202,10 @@ func (s *Swarm) addConn(tc transport.QCapableConn, dir network.Direction) error 
 	// Clear any backoffs
 	s.backf.Clear(p)
 
+	// Get Quality that before locking, some transport (e.g. webrtc-aside) may
+	// return before quality is avaible.
+	quality := tc.Quality()
+
 	// Finally, add the peer.
 	s.conns.Lock()
 	// Check if we're still online
@@ -220,14 +224,13 @@ func (s *Swarm) addConn(tc transport.QCapableConn, dir network.Direction) error 
 	}
 	c.streams.m = make(map[*Stream]struct{})
 
-	// Setuping dialBus
+	// Setuping dialBus, can't use getOrCreateDialBus because we are holding the
+	// lock.
 	d, ok := s.conns.m[p]
 	if !ok {
 		d = s.newDialBus(p)
 		s.conns.m[p] = d
 	}
-	// Get Quality that before locking, some transport (e.g. webrtc-aside) may return before quality is avaible.
-	quality := tc.Quality()
 	d.c.Lock()
 	if d.c.conn == nil {
 		// We are first, good !
