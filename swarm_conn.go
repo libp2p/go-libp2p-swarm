@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	ic "github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/mux"
@@ -22,7 +23,7 @@ var ErrConnClosed = errors.New("connection closed")
 // Conn is the connection type used by swarm. In general, you won't use this
 // type directly.
 type Conn struct {
-	conn  transport.CapableConn
+	conn  transport.QCapableConn
 	swarm *Swarm
 
 	closeOnce sync.Once
@@ -36,6 +37,14 @@ type Conn struct {
 	}
 
 	stat network.Stat
+
+	onBetter struct {
+		sync.Mutex
+		// != 0 once a better conn is found
+		hardCloseDeadline time.Time
+		// List of function to call when better is found, each on in their own goroutine
+		handlers []network.OnBetterHandler
+	}
 }
 
 // Close closes this connection.
@@ -220,4 +229,42 @@ func (c *Conn) GetStreams() []network.Stream {
 		streams = append(streams, s)
 	}
 	return streams
+}
+
+// OnBetter callback the handler when a better connection is found.
+// Threadsafe, callback will be called even if registering after the event
+// happend, call to OnBetter are non blocking.
+// The callback is gonna be called only one time.
+func (c *Conn) OnBetter(h network.OnBetterHandler) {
+	c.onBetter.Lock()
+	defer c.onBetter.Lock()
+	// If a better conn already have been found, yield the event.
+	if !c.onBetter.hardCloseDeadline.IsZero() {
+		go h(c.onBetter.hardCloseDeadline)
+		return
+	}
+	// Else add to the list.
+	c.onBetter.handlers = append(c.onBetter.handlers, h)
+	return
+}
+
+var ErrAlreadyFoundBetter = fmt.Errorf("Found better have been called at least twice, that a bug in Swarm.")
+
+// Found better raise the OnBetter event, must be called after replacing the
+// pointer to the new conn in the coresponding dialBus.
+func (c *Conn) foundBetter() {
+	c.onBetter.Lock()
+	defer c.onBetter.Lock()
+	if !c.onBetter.hardCloseDeadline.IsZero() {
+		log.Error(ErrAlreadyFoundBetter)
+		return
+	}
+	// TODO: Support real deadline
+	c.onBetter.hardCloseDeadline = time.Now().Add(time.Second * 5)
+	for _, v := range c.onBetter.handlers {
+		go v(c.onBetter.hardCloseDeadline)
+	}
+	time.Sleep(time.Second * 5)
+	// TODO: support asyncClose
+	c.Close()
 }

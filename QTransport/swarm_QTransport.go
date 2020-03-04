@@ -1,4 +1,5 @@
 package QTransport
+
 // This file contains the whole Transport to QTransport abstraction layer.
 
 import (
@@ -14,6 +15,7 @@ import (
 
 // 2^31
 var defaultNonProxyQuality uint32 = 2147483648
+
 // 2^31+2^30
 var defaultProxyQuality uint32 = 3221225472
 
@@ -30,9 +32,7 @@ func (t TransportUpgrader) Dial(ctx context.Context, raddr ma.Multiaddr, p peer.
 	if err != nil {
 		return nil, err
 	}
-	return upgradedCapableConn{
-		listenedUpgradedCapableConn{BaseCapableConn: conn, t: t},
-	}, nil
+	return upgradedCapableConn{BaseCapableConn: conn, t: t}, nil
 }
 
 func (t TransportUpgrader) Listen(laddr ma.Multiaddr) (transport.QListener, error) {
@@ -50,48 +50,43 @@ func (t TransportUpgrader) Score(raddr ma.Multiaddr, _ peer.ID) (transport.Score
 	if t.Proxy() {
 		if manet.IsIPLoopback(raddr) {
 			return transport.Score{
-				Quality:   defaultProxyQuality >> 16,
-				IsQuality: true,
-				Fd:        1,
+				Quality: defaultProxyQuality >> 16,
+				Fd:      1,
 			}, nil
 		}
 		if manet.IsPrivateAddr(raddr) {
 			return transport.Score{
-				Quality:   defaultProxyQuality >> 8,
-				IsQuality: true,
-				Fd:        1,
+				Quality: defaultProxyQuality >> 8,
+				Fd:      1,
 			}, nil
 		}
 		return transport.Score{
-			Quality:   defaultProxyQuality,
-			IsQuality: true,
-			Fd:        1,
+			Quality: defaultProxyQuality,
+			Fd:      1,
 		}, nil
 	}
 	if manet.IsIPLoopback(raddr) {
 		return transport.Score{
-			Quality:   defaultNonProxyQuality >> 16,
-			IsQuality: true,
-			Fd:        1,
+			Quality: defaultNonProxyQuality >> 16,
+			Fd:      1,
 		}, nil
 	}
 	if manet.IsPrivateAddr(raddr) {
 		return transport.Score{
-			Quality:   defaultNonProxyQuality >> 8,
-			IsQuality: true,
-			Fd:        1,
+			Quality: defaultNonProxyQuality >> 8,
+			Fd:      1,
 		}, nil
 	}
 	return transport.Score{
-		Quality:   defaultNonProxyQuality,
-		IsQuality: true,
-		Fd:        1,
+		Quality: defaultNonProxyQuality,
+		Fd:      1,
 	}, nil
 }
 
 // Used to upgrade `transport.CapableConn` to `transport.QCapableConn`.
 type upgradedCapableConn struct {
-	listenedUpgradedCapableConn
+	transport.BaseCapableConn
+	t transport.QTransport
 }
 
 func (c upgradedCapableConn) Quality() uint32 {
@@ -114,12 +109,7 @@ func (c upgradedCapableConn) Quality() uint32 {
 	return defaultNonProxyQuality
 }
 
-type listenedUpgradedCapableConn struct {
-	transport.BaseCapableConn
-	t transport.QTransport
-}
-
-func (c listenedUpgradedCapableConn) Transport() transport.QTransport {
+func (c upgradedCapableConn) Transport() transport.QTransport {
 	return c.t
 }
 
@@ -128,10 +118,10 @@ type upgradedListener struct {
 	t transport.QTransport
 }
 
-func (l upgradedListener) Accept() (transport.ListenedQCapableConn, error) {
+func (l upgradedListener) Accept() (transport.QCapableConn, error) {
 	c, err := l.BaseListener.(transport.Listener).Accept()
 	if err != nil {
 		return nil, err
 	}
-	return listenedUpgradedCapableConn{BaseCapableConn: c, t: l.t}, nil
+	return upgradedCapableConn{BaseCapableConn: c, t: l.t}, nil
 }

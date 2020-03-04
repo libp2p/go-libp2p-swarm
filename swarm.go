@@ -57,7 +57,7 @@ type Swarm struct {
 
 	conns struct {
 		sync.RWMutex
-		m map[peer.ID][]*Conn
+		m map[peer.ID]*dialBus
 	}
 
 	listeners struct {
@@ -66,7 +66,7 @@ type Swarm struct {
 		ifaceListenAddres []ma.Multiaddr
 		cacheEOL          time.Time
 
-		m map[transport.Listener]struct{}
+		m map[transport.QListener]struct{}
 	}
 
 	notifs struct {
@@ -84,9 +84,7 @@ type Swarm struct {
 	streamh atomic.Value
 
 	// dialing helpers
-	dsync   *DialSync
-	backf   DialBackoff
-	limiter *dialLimiter
+	backf DialBackoff
 
 	// filters for addresses that shouldnt be dialed (or accepted)
 	Filters *filter.Filters
@@ -105,13 +103,11 @@ func NewSwarm(ctx context.Context, local peer.ID, peers peerstore.Peerstore, bwc
 		Filters: filter.NewFilters(),
 	}
 
-	s.conns.m = make(map[peer.ID][]*Conn)
-	s.listeners.m = make(map[transport.Listener]struct{})
+	s.conns.m = make(map[peer.ID]*dialBus)
+	s.listeners.m = make(map[transport.QListener]struct{})
 	s.transports.m = make(map[int]transport.QTransport)
 	s.notifs.m = make(map[network.Notifiee]struct{})
 
-	s.dsync = NewDialSync(s.doDial)
-	s.limiter = newDialLimiter(s.dialAddr)
 	s.proc = goprocessctx.WithContextAndTeardown(ctx, s.teardown)
 	s.ctx = goprocessctx.OnClosingContext(s.proc)
 
@@ -140,21 +136,28 @@ func (s *Swarm) teardown() error {
 	// possible.
 
 	for l := range listeners {
-		go func(l transport.Listener) {
+		go func(l transport.QListener) {
 			if err := l.Close(); err != nil {
 				log.Errorf("error when shutting down listener: %s", err)
 			}
 		}(l)
 	}
 
-	for _, cs := range conns {
-		for _, c := range cs {
-			go func(c *Conn) {
-				if err := c.Close(); err != nil {
-					log.Errorf("error when shutting down connection: %s", err)
-				}
-			}(c)
-		}
+	for _, db := range conns {
+		go func(db *dialBus) {
+			db.dials.Lock()
+			defer db.dials.Unlock()
+			db.c.Lock()
+			defer db.c.Unlock()
+			current := db.dials.d
+			for current != nil {
+				current.cancel()
+				current = current.next
+			}
+			if err := db.c.conn.Close(); err != nil {
+				log.Errorf("error when shutting down connection: %s", err)
+			}
+		}(db)
 	}
 
 	// Wait for everything to finish.
@@ -180,13 +183,13 @@ func (s *Swarm) Process() goprocess.Process {
 	return s.proc
 }
 
-func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (*Conn, error) {
+func (s *Swarm) addConn(tc transport.QCapableConn, dir network.Direction) error {
 	// The underlying transport (or the dialer) *should* filter it's own
 	// connections but we should double check anyways.
 	raddr := tc.RemoteMultiaddr()
 	if s.Filters.AddrBlocked(raddr) {
 		tc.Close()
-		return nil, ErrAddrFiltered
+		return ErrAddrFiltered
 	}
 
 	p := tc.RemotePeer()
@@ -205,7 +208,7 @@ func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (*Conn,
 	if s.conns.m == nil {
 		s.conns.Unlock()
 		tc.Close()
-		return nil, ErrSwarmClosed
+		return ErrSwarmClosed
 	}
 
 	// Wrap and register the connection.
@@ -216,7 +219,46 @@ func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (*Conn,
 		stat:  stat,
 	}
 	c.streams.m = make(map[*Stream]struct{})
-	s.conns.m[p] = append(s.conns.m[p], c)
+
+	// Setuping dialBus
+	d, ok := s.conns.m[p]
+	if !ok {
+		d = s.newDialBus(p)
+		s.conns.m[p] = d
+	}
+	// Get Quality that before locking, some transport (e.g. webrtc-aside) may return before quality is avaible.
+	quality := tc.Quality()
+	d.c.Lock()
+	if d.c.conn == nil {
+		// We are first, good !
+		d.c.conn = c
+		close(d.c.available)
+		d.c.Unlock()
+	} else {
+		// Check who is better
+		if d.c.conn.conn.Quality() <= quality {
+			// We are not the best, terminating.
+			tc.Close()
+			// Good, we finished.
+			return ErrAlreadyFoundBetter
+		}
+		// If its us replace and shutdown.
+		oldConn := d.c.conn
+		d.c.conn = c
+		d.c.Unlock()
+		oldConn.foundBetter()
+		// Cancel worst dial.
+		d.dials.Lock()
+		current := d.dials.d
+		for current != nil {
+			// If same or equal cancel.
+			if current.quality >= quality {
+				current.cancel()
+			}
+			current = current.next
+		}
+		d.dials.Unlock()
+	}
 
 	// Add two swarm refs:
 	// * One will be decremented after the close notifications fire in Conn.doClose
@@ -227,10 +269,6 @@ func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (*Conn,
 	// Disconnect notifications until after the Connect notifications done.
 	c.notifyLk.Lock()
 	s.conns.Unlock()
-
-	// We have a connection now. Cancel all other in-progress dials.
-	// This should be fast, no reason to wait till later.
-	s.dsync.CancelDial(p)
 
 	s.notifyAll(func(f network.Notifiee) {
 		f.Connected(s, c)
@@ -246,7 +284,7 @@ func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (*Conn,
 		go h(c)
 	}
 
-	return c, nil
+	return nil
 }
 
 // Peerstore returns this swarms internal Peerstore.
@@ -336,46 +374,31 @@ func (s *Swarm) NewStream(ctx context.Context, p peer.ID) (network.Stream, error
 	}
 }
 
-// ConnsToPeer returns all the live connections to peer.
 func (s *Swarm) ConnsToPeer(p peer.ID) []network.Conn {
-	// TODO: Consider sorting the connection list best to worst. Currently,
-	// it's sorted oldest to newest.
-	s.conns.RLock()
-	defer s.conns.RUnlock()
-	conns := s.conns.m[p]
-	output := make([]network.Conn, len(conns))
-	for i, c := range conns {
-		output[i] = c
+	c := s.bestConnToPeer(p)
+	if c == nil {
+		return []network.Conn{}
 	}
-	return output
+	return []network.Conn{c}
 }
 
 // bestConnToPeer returns the best connection to peer.
 func (s *Swarm) bestConnToPeer(p peer.ID) *Conn {
 	// Selects the best connection we have to the peer.
-	// TODO: Prefer some transports over others. Currently, we just select
-	// the newest non-closed connection with the most streams.
 	s.conns.RLock()
-	defer s.conns.RUnlock()
-
-	var best *Conn
-	bestLen := 0
-	for _, c := range s.conns.m[p] {
-		if c.conn.IsClosed() {
-			// We *will* garbage collect this soon anyways.
-			continue
-		}
-		c.streams.Lock()
-		cLen := len(c.streams.m)
-		c.streams.Unlock()
-
-		if cLen >= bestLen {
-			best = c
-			bestLen = cLen
-		}
-
+	db, ok := s.conns.m[p]
+	s.conns.RUnlock()
+	if !ok {
+		return nil
 	}
-	return best
+	select {
+	case <-db.c.available:
+		db.c.RLock()
+		defer db.c.RUnlock()
+		return db.c.conn
+	default:
+	}
+	return nil
 }
 
 // Connectedness returns our "connectedness" state with the given peer.
@@ -394,11 +417,9 @@ func (s *Swarm) Conns() []network.Conn {
 	s.conns.RLock()
 	defer s.conns.RUnlock()
 
-	conns := make([]network.Conn, 0, len(s.conns.m))
-	for _, cs := range s.conns.m {
-		for _, c := range cs {
-			conns = append(conns, c)
-		}
+	conns := make([]network.Conn, len(s.conns.m))
+	for _, db := range s.conns.m {
+		conns = append(conns, db.c.conn)
 	}
 	return conns
 }
@@ -490,23 +511,20 @@ func (s *Swarm) removeConn(c *Conn) {
 	p := c.RemotePeer()
 
 	s.conns.Lock()
-	defer s.conns.Unlock()
-	cs := s.conns.m[p]
-	for i, ci := range cs {
-		if ci == c {
-			if len(cs) == 1 {
-				delete(s.conns.m, p)
-			} else {
-				// NOTE: We're intentionally preserving order.
-				// This way, connections to a peer are always
-				// sorted oldest to newest.
-				copy(cs[i:], cs[i+1:])
-				cs[len(cs)-1] = nil
-				s.conns.m[p] = cs[:len(cs)-1]
-			}
-			return
+	db := s.conns.m[p]
+	db.c.Lock()
+	if c == db.c.conn {
+		delete(s.conns.m, p)
+		db.dials.Lock()
+		current := db.dials.d
+		for current != nil {
+			current.cancel()
+			current = current.next
 		}
+		db.dials.Unlock()
 	}
+	s.conns.Unlock()
+	db.c.Unlock()
 }
 
 // String returns a string representation of Network.

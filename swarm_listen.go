@@ -93,7 +93,7 @@ func (s *Swarm) AddListenAddr(a ma.Multiaddr) error {
 			s.refs.Add(1)
 			go func() {
 				defer s.refs.Done()
-				_, err := s.addConn(c, network.DirInbound)
+				err := s.addConn(c, network.DirInbound)
 				switch err {
 				case nil:
 				case ErrSwarmClosed:
