@@ -2,9 +2,6 @@ package swarm_test
 
 import (
 	"context"
-	"github.com/libp2p/go-eventbus"
-	"github.com/libp2p/go-libp2p-core/peerstore"
-	swarmt "github.com/libp2p/go-libp2p-swarm/testing"
 	"github.com/pkg/errors"
 	"sync"
 	"testing"
@@ -12,7 +9,12 @@ import (
 
 	"github.com/libp2p/go-libp2p-core/event"
 	"github.com/libp2p/go-libp2p-core/network"
+	"github.com/libp2p/go-libp2p-core/peerstore"
+
+	"github.com/libp2p/go-eventbus"
 	. "github.com/libp2p/go-libp2p-swarm"
+	swarmt "github.com/libp2p/go-libp2p-swarm/testing"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -98,6 +100,7 @@ func TestNotifieeEventbusConcurrent(t *testing.T) {
 		t.Fatal("did not get connected event")
 	}
 
+	var lk sync.Mutex
 	// now make simultaneous disconnect<->connect from both sides
 	var wg sync.WaitGroup
 	for i := 0; i < 100; i++ {
@@ -108,8 +111,10 @@ func TestNotifieeEventbusConcurrent(t *testing.T) {
 		}()
 
 		go func() {
-			_, connErr = s2.DialPeer(ctx, s1.LocalPeer())
-			connErr = errors.WithMessage(connErr, "s1 failed to dial to s2")
+			_, err := s2.DialPeer(ctx, s1.LocalPeer())
+			lk.Lock()
+			connErr = errors.WithMessage(err, "s1 failed to dial to s2")
+			lk.Unlock()
 			wg.Done()
 		}()
 	}
@@ -125,6 +130,7 @@ LOOP:
 		case e := <-sub1.Out():
 			evt, ok := e.(event.EvtPeerConnectednessChanged)
 			require.True(t, ok)
+			// make sure we only get alternate connectedness states
 			if finalState != nil {
 				require.NotEqual(t, finalState.Connectedness, evt.Connectedness)
 			}
@@ -140,6 +146,7 @@ LOOP:
 	require.Equal(t, s1.Connectedness(s2.LocalPeer()), finalState.Connectedness)
 
 	finalState = nil
+
 	// ENSURE FINAL STATE IS CORRECT ON S2
 LOOP2:
 	for {
@@ -147,6 +154,7 @@ LOOP2:
 		case e := <-sub2.Out():
 			evt, ok := e.(event.EvtPeerConnectednessChanged)
 			require.True(t, ok)
+			// make sure we only get alternate connectedness states
 			if finalState != nil {
 				require.NotEqual(t, finalState.Connectedness, evt.Connectedness)
 			}

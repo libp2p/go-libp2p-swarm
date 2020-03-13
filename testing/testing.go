@@ -4,22 +4,22 @@ import (
 	"context"
 	"testing"
 
-	"github.com/libp2p/go-eventbus"
 	"github.com/libp2p/go-libp2p-core/metrics"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peerstore"
 	"github.com/libp2p/go-libp2p-testing/net"
-	"github.com/libp2p/go-tcp-transport"
 
-	goprocess "github.com/jbenet/goprocess"
 	csms "github.com/libp2p/go-conn-security-multistream"
+	"github.com/libp2p/go-eventbus"
 	pstoremem "github.com/libp2p/go-libp2p-peerstore/pstoremem"
 	secio "github.com/libp2p/go-libp2p-secio"
+	"github.com/libp2p/go-libp2p-swarm"
 	tptu "github.com/libp2p/go-libp2p-transport-upgrader"
 	yamux "github.com/libp2p/go-libp2p-yamux"
 	msmux "github.com/libp2p/go-stream-muxer-multistream"
+	"github.com/libp2p/go-tcp-transport"
 
-	"github.com/libp2p/go-libp2p-swarm"
+	goprocess "github.com/jbenet/goprocess"
 )
 
 type config struct {

@@ -98,11 +98,10 @@ type Swarm struct {
 	ctx  context.Context
 	bwc  metrics.Reporter
 
+	bus      event.Bus
 	emitters struct {
 		evtPeerConnectednessChanged event.Emitter
 	}
-
-	bus event.Bus
 }
 
 // NewSwarm constructs a Swarm
@@ -521,7 +520,6 @@ func (s *Swarm) notifyAll(notify func(network.Notifiee)) {
 }
 
 // Notify signs up Notifiee to receive signals when events happen
-// Deprecated: use swarm.EventBus().Subscribe()
 func (s *Swarm) Notify(f network.Notifiee) {
 	s.notifs.Lock()
 	s.notifs.m[f] = struct{}{}
