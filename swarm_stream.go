@@ -7,7 +7,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/libp2p/go-libp2p-core/event"
 	"github.com/libp2p/go-libp2p-core/mux"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/protocol"
@@ -138,8 +137,6 @@ func (s *Stream) remove() {
 			f.ClosedStream(s.conn.swarm, s)
 		})
 		s.conn.swarm.refs.Done()
-		s.conn.swarm.emitters.evtStreamStateChange.Emit(
-			event.EvtStreamStateChange{s, network.NotConnected})
 	}()
 }
 

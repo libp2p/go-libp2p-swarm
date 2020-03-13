@@ -1,5 +1,6 @@
 package swarm
 
+import "C"
 import (
 	"errors"
 	"fmt"
@@ -76,10 +77,27 @@ func (c *Conn) doClose() {
 		c.swarm.notifyAll(func(f network.Notifiee) {
 			f.Disconnected(c.swarm, c)
 		})
-		c.swarm.refs.Done() // taken in Swarm.addConn
 
-		c.swarm.emitters.evtPeerConnectionStateChange.Emit(
-			event.EvtPeerConnectionStateChange{c, network.NotConnected})
+		// ---------------------------------------------------------
+		// Emit the Connectedness=NotConnected event on the bus if we just went
+		// from having a/many connections with the peer to having no connection to the peer
+		p := c.RemotePeer()
+		indexForLk := len(p) - 1
+		stripe := &c.swarm.stripedPeerConnectivity[p[indexForLk]]
+		stripe.Lock()
+		c.swarm.conns.RLock()
+		// we went from having a connection/s with the peer to having no connections to it
+		// if after this disconnection, we have no OPEN connections with the peer
+		isConnectednessFlip := len(c.swarm.conns.m[p]) == 0
+		c.swarm.conns.RUnlock()
+		if isConnectednessFlip {
+			c.swarm.emitters.evtPeerConnectednessChanged.Emit(
+				event.EvtPeerConnectednessChanged{p, network.NotConnected})
+		}
+		stripe.Unlock()
+		//---------------------------------------------------------------
+
+		c.swarm.refs.Done() // taken in Swarm.addConn
 	}()
 }
 
@@ -210,9 +228,6 @@ func (c *Conn) addStream(ts mux.MuxedStream, dir network.Direction) (*Stream, er
 	c.swarm.notifyAll(func(f network.Notifiee) {
 		f.OpenedStream(c.swarm, s)
 	})
-
-	c.swarm.emitters.evtStreamStateChange.Emit(
-		event.EvtStreamStateChange{s, network.Connected})
 
 	s.notifyLk.Unlock()
 

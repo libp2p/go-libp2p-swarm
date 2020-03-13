@@ -2,202 +2,161 @@ package swarm_test
 
 import (
 	"context"
+	"github.com/libp2p/go-eventbus"
+	"github.com/libp2p/go-libp2p-core/peerstore"
+	swarmt "github.com/libp2p/go-libp2p-swarm/testing"
+	"github.com/pkg/errors"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/libp2p/go-libp2p-core/event"
 	"github.com/libp2p/go-libp2p-core/network"
-	"github.com/libp2p/go-libp2p-core/peer"
 	. "github.com/libp2p/go-libp2p-swarm"
 	"github.com/stretchr/testify/require"
 )
 
-func TestEventBus(t *testing.T) {
-	const swarmSize = 5
-
+func TestNotifieeEventbusSimple(t *testing.T) {
 	ctx := context.Background()
-	swarms := makeSwarms(ctx, t, swarmSize)
-	defer func() {
-		for _, s := range swarms {
-			s.Close()
-		}
-	}()
+	s1 := swarmt.GenSwarm(t, ctx)
+	defer s1.Close()
+	s2 := swarmt.GenSwarm(t, ctx)
+	defer s2.Close()
 
-	timeout := 5 * time.Second
+	// subscribe for notifications on s1
+	s, err := s1.EventBus().Subscribe(&event.EvtPeerConnectednessChanged{})
+	defer s.Close()
+	require.NoError(t, err)
 
-	// subscribe to event eventBus for peer connections
-	connSubs := make([]event.Subscription, len(swarms))
-	// subscribe to event eventBus for stream notifs
-	streamSubs := make([]event.Subscription, len(swarms))
-
-	var err error
-	for i, swarm := range swarms {
-		connSubs[i], err = swarm.EventBus().Subscribe(&event.EvtPeerConnectionStateChange{})
-		require.NoError(t, err)
-		streamSubs[i], err = swarm.EventBus().Subscribe(&event.EvtStreamStateChange{})
-		require.NoError(t, err)
-		defer connSubs[i].Close()
-		defer streamSubs[i].Close()
+	// connect to s1 to s2 so we get the first notificaion
+	connectSwarms(t, ctx, []*Swarm{s1, s2})
+	select {
+	case e := <-s.Out():
+		evt, ok := e.(event.EvtPeerConnectednessChanged)
+		require.True(t, ok)
+		require.Equal(t, network.Connected, evt.Connectedness)
+		require.Equal(t, s2.LocalPeer(), evt.Peer)
+	case <-time.After(1 * time.Second):
+		t.Fatal("did not get notification")
 	}
 
-	connectSwarms(t, ctx, swarms)
+	// disconnect so we get a notification
+	require.NoError(t, s1.ClosePeer(s2.LocalPeer()))
+	select {
+	case e := <-s.Out():
+		evt, ok := e.(event.EvtPeerConnectednessChanged)
+		require.True(t, ok)
+		require.Equal(t, network.NotConnected, evt.Connectedness)
+		require.Equal(t, s2.LocalPeer(), evt.Peer)
+	case <-time.After(1 * time.Second):
+		t.Fatal("did not get disconnect notification")
+	}
+}
 
-	<-time.After(time.Millisecond)
-	// should've gotten 5 by now.
+func TestNotifieeEventbusConcurrent(t *testing.T) {
+	ctx := context.Background()
+	s1 := swarmt.GenSwarm(t, ctx)
+	defer s1.Close()
+	s2 := swarmt.GenSwarm(t, ctx)
+	defer s2.Close()
 
-	// test everyone got the correct connection opened calls
-	for i, s := range swarms {
-		sub := connSubs[i]
-		notifs := make(map[peer.ID][]network.Conn)
-		for j, s2 := range swarms {
-			if i == j {
-				continue
-			}
+	// subscribe for notifications on s1
+	sub1, err := s1.EventBus().Subscribe(&event.EvtPeerConnectednessChanged{}, eventbus.BufSize(200))
+	defer sub1.Close()
+	require.NoError(t, err)
 
-			// this feels a little sketchy, but its probably okay
-			for len(s.ConnsToPeer(s2.LocalPeer())) != len(notifs[s2.LocalPeer()]) {
-				select {
-				case o := <-sub.Out():
-					evt := o.(event.EvtPeerConnectionStateChange)
-					require.Equal(t, network.Connected, evt.NewState)
-					c := evt.Connection
-					nfp := notifs[c.RemotePeer()]
-					notifs[c.RemotePeer()] = append(nfp, c)
-				case <-time.After(timeout):
-					t.Fatal("timeout")
-				}
-			}
-		}
+	// subscribe for notifications on s2
+	sub2, err := s2.EventBus().Subscribe(&event.EvtPeerConnectednessChanged{}, eventbus.BufSize(200))
+	defer sub2.Close()
+	require.NoError(t, err)
 
-		for p, cons := range notifs {
-			expect := s.ConnsToPeer(p)
-			if len(expect) != len(cons) {
-				t.Fatal("got different number of connections")
-			}
+	// create a connection between s1 & s2
+	s1.Peerstore().AddAddrs(s2.LocalPeer(), s2.ListenAddresses(), peerstore.PermanentAddrTTL)
+	s2.Peerstore().AddAddrs(s1.LocalPeer(), s1.ListenAddresses(), peerstore.PermanentAddrTTL)
+	c, connErr := s1.DialPeer(ctx, s2.LocalPeer())
+	require.NoError(t, connErr)
+	require.NotNil(t, c)
 
-			for _, c := range cons {
-				var found bool
-				for _, c2 := range expect {
-					if c == c2 {
-						found = true
-						break
-					}
-				}
-
-				if !found {
-					t.Fatal("connection not found!")
-				}
-			}
-		}
+	// ensure both get connected event
+	select {
+	case e := <-sub1.Out():
+		evt, ok := e.(event.EvtPeerConnectednessChanged)
+		require.True(t, ok)
+		require.Equal(t, network.Connected, evt.Connectedness)
+		require.Equal(t, s2.LocalPeer(), evt.Peer)
+	case <-time.After(1 * time.Second):
+		t.Fatal("did not get connected event")
 	}
 
-	complement := func(c network.Conn, isConn bool) (*Swarm, event.Subscription, *Conn) {
-		var sub event.Subscription
-		for i, s := range swarms {
-			if isConn {
-				sub = connSubs[i]
-			} else {
-				sub = streamSubs[i]
-			}
-			for _, c2 := range s.Conns() {
-				if c.LocalMultiaddr().Equal(c2.RemoteMultiaddr()) &&
-					c2.LocalMultiaddr().Equal(c.RemoteMultiaddr()) {
-
-					return s, sub, c2.(*Conn)
-				}
-			}
-		}
-		t.Fatal("complementary conn not found", c)
-		return nil, nil, nil
+	select {
+	case e := <-sub2.Out():
+		evt, ok := e.(event.EvtPeerConnectednessChanged)
+		require.True(t, ok)
+		require.Equal(t, network.Connected, evt.Connectedness)
+		require.Equal(t, s1.LocalPeer(), evt.Peer)
+	case <-time.After(1 * time.Second):
+		t.Fatal("did not get connected event")
 	}
 
-	testOCStream := func(sub event.Subscription, s network.Stream) {
-		var s2 network.Stream
+	// now make simultaneous disconnect<->connect from both sides
+	var wg sync.WaitGroup
+	for i := 0; i < 100; i++ {
+		wg.Add(2)
+		go func() {
+			s1.ClosePeer(s2.LocalPeer())
+			wg.Done()
+		}()
+
+		go func() {
+			_, connErr = s2.DialPeer(ctx, s1.LocalPeer())
+			connErr = errors.WithMessage(connErr, "s1 failed to dial to s2")
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+
+	require.NoError(t, connErr)
+
+	// ENSURE FINAL STATE IS CORRECT ON S1
+	var finalState *event.EvtPeerConnectednessChanged
+LOOP:
+	for {
 		select {
-		case o := <-sub.Out():
-			evt := o.(event.EvtStreamStateChange)
-			require.Equal(t, network.Connected, evt.NewState)
-			s2 = evt.Stream
-			t.Log("got notif for opened stream")
-		case <-time.After(timeout):
-			t.Fatal("timeout")
+		case e := <-sub1.Out():
+			evt, ok := e.(event.EvtPeerConnectednessChanged)
+			require.True(t, ok)
+			if finalState != nil {
+				require.NotEqual(t, finalState.Connectedness, evt.Connectedness)
+			}
+			finalState = &evt
+		default:
+			// since events are emitted before the dial function returns, this means there are no more events
+			break LOOP
 		}
-		if s != s2 {
-			t.Fatal("got incorrect stream", s.Conn(), s2.Conn())
-		}
+	}
 
+	require.NotNil(t, finalState)
+	require.Equal(t, s2.LocalPeer(), finalState.Peer)
+	require.Equal(t, s1.Connectedness(s2.LocalPeer()), finalState.Connectedness)
+
+	finalState = nil
+	// ENSURE FINAL STATE IS CORRECT ON S2
+LOOP2:
+	for {
 		select {
-		case o := <-sub.Out():
-			evt := o.(event.EvtStreamStateChange)
-			require.Equal(t, network.NotConnected, evt.NewState)
-			s2 = evt.Stream
-			t.Log("got notif for closed stream")
-		case <-time.After(timeout):
-			t.Fatal("timeout")
-		}
-		if s != s2 {
-			t.Fatal("got incorrect stream", s.Conn(), s2.Conn())
-		}
-	}
-
-	streams := make(chan network.Stream)
-	for _, s := range swarms {
-		s.SetStreamHandler(func(s network.Stream) {
-			streams <- s
-			s.Reset()
-		})
-	}
-
-	// open a streams in each conn
-	for i, s := range swarms {
-		for _, c := range s.Conns() {
-			_, n2, _ := complement(c, false)
-
-			st1, err := c.NewStream()
-			if err != nil {
-				t.Error(err)
-			} else {
-				st1.Write([]byte("hello"))
-				st1.Reset()
-				testOCStream(streamSubs[i], st1)
-				st2 := <-streams
-				testOCStream(n2, st2)
+		case e := <-sub2.Out():
+			evt, ok := e.(event.EvtPeerConnectednessChanged)
+			require.True(t, ok)
+			if finalState != nil {
+				require.NotEqual(t, finalState.Connectedness, evt.Connectedness)
 			}
+			finalState = &evt
+		default:
+			break LOOP2
 		}
 	}
 
-	// close conns
-	for i, s := range swarms {
-		n := connSubs[i]
-		for _, c := range s.Conns() {
-			_, n2, c2 := complement(c, true)
-			c.Close()
-			c2.Close()
-
-			var c3, c4 network.Conn
-			select {
-			case o := <-n.Out():
-				evt := o.(event.EvtPeerConnectionStateChange)
-				require.Equal(t, network.NotConnected, evt.NewState)
-				c3 = evt.Connection
-			case <-time.After(timeout):
-				t.Fatal("timeout")
-			}
-			if c != c3 {
-				t.Fatal("got incorrect conn", c, c3)
-			}
-
-			select {
-			case o := <-n2.Out():
-				evt := o.(event.EvtPeerConnectionStateChange)
-				require.Equal(t, network.NotConnected, evt.NewState)
-				c4 = evt.Connection
-			case <-time.After(timeout):
-				t.Fatal("timeout")
-			}
-			if c2 != c4 {
-				t.Fatal("got incorrect conn", c, c2)
-			}
-		}
-	}
+	require.NotNil(t, finalState)
+	require.Equal(t, s1.LocalPeer(), finalState.Peer)
+	require.Equal(t, s2.Connectedness(s1.LocalPeer()), finalState.Connectedness)
 }

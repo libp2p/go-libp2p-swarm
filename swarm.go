@@ -61,6 +61,8 @@ type Swarm struct {
 		m map[peer.ID][]*Conn
 	}
 
+	stripedPeerConnectivity [256]sync.Mutex
+
 	listeners struct {
 		sync.RWMutex
 
@@ -97,8 +99,7 @@ type Swarm struct {
 	bwc  metrics.Reporter
 
 	emitters struct {
-		evtPeerConnectionStateChange event.Emitter
-		evtStreamStateChange         event.Emitter
+		evtPeerConnectednessChanged event.Emitter
 	}
 
 	bus event.Bus
@@ -127,11 +128,7 @@ func NewSwarm(ctx context.Context, local peer.ID, peers peerstore.Peerstore, bwc
 	if eb == nil {
 		return nil, errors.New("nil event bus passed to swarm")
 	}
-	if s.emitters.evtPeerConnectionStateChange, err = eb.Emitter(&event.EvtPeerConnectionStateChange{}); err != nil {
-		return nil, err
-	}
-
-	if s.emitters.evtStreamStateChange, err = eb.Emitter(&event.EvtStreamStateChange{}); err != nil {
+	if s.emitters.evtPeerConnectednessChanged, err = eb.Emitter(&event.EvtPeerConnectednessChanged{}); err != nil {
 		return nil, err
 	}
 
@@ -183,8 +180,7 @@ func (s *Swarm) teardown() error {
 	s.refs.Wait()
 
 	// close event bus emitters
-	_ = s.emitters.evtStreamStateChange.Close()
-	_ = s.emitters.evtPeerConnectionStateChange.Close()
+	_ = s.emitters.evtPeerConnectednessChanged.Close()
 
 	return nil
 }
@@ -268,10 +264,25 @@ func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (*Conn,
 		f.Connected(s, c)
 	})
 
-	// emit connection state change event on the eventBus
-	s.emitters.evtPeerConnectionStateChange.Emit(
-		event.EvtPeerConnectionStateChange{c, network.Connected})
-
+	// ---------------------------------------------------------
+	// Emit the Connectedness=Connected event on the bus if we just went
+	// from having no connections with the peer to having this connection with the peer.
+	indexForLk := len(p) - 1
+	stripe := &s.stripedPeerConnectivity[p[indexForLk]]
+	stripe.Lock()
+	s.conns.RLock()
+	// TODO Probably being over-cautious here, need to clean up
+	cs := s.conns.m[p]
+	// we went from having no connection with the peer to having this connection with the peer
+	// if this is the ONLY open connection we have with the peer.
+	isConnectednessFlip := (len(cs) == 1 && cs[0] == c && !cs[0].conn.IsClosed())
+	s.conns.RUnlock()
+	if isConnectednessFlip {
+		s.emitters.evtPeerConnectednessChanged.Emit(
+			event.EvtPeerConnectednessChanged{p, network.Connected})
+	}
+	stripe.Unlock()
+	//---------------------------------------------------------------
 	c.notifyLk.Unlock()
 
 	c.start()
