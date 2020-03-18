@@ -387,7 +387,7 @@ func (s *Swarm) dialAddrs(ctx context.Context, p peer.ID, remoteAddrs <-chan ma.
 
 	// use a single response type instead of errs and conns, reduces complexity *a ton*
 	respch := make(chan dialResult)
-	err := new(DialError)
+	err := &DialError{Peer: p}
 
 	defer s.limiter.clearAllPeerDials(p)
 
