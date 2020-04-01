@@ -101,7 +101,9 @@ type DialBackoff struct {
 	lock    sync.RWMutex
 }
 
-type backoffPeer struct {
+type backoffPeer map[ma.Multiaddr]*backoffAddr
+
+type backoffAddr struct {
 	tries int
 	until time.Time
 }
@@ -113,14 +115,18 @@ func (db *DialBackoff) init() {
 }
 
 // Backoff returns whether the client should backoff from dialing
-// peer p
-func (db *DialBackoff) Backoff(p peer.ID) (backoff bool) {
+// peer p at address addr
+func (db *DialBackoff) Backoff(p peer.ID, addr ma.Multiaddr) (backoff bool) {
 	db.lock.Lock()
 	defer db.lock.Unlock()
 	db.init()
 	bp, found := db.entries[p]
-	if found && time.Now().Before(bp.until) {
-		return true
+	if found && bp != nil {
+		ap, found := (*bp)[addr]
+		// TODO: cleanup out of date entries.
+		if found && time.Now().Before(ap.until) {
+			return true
+		}
 	}
 
 	return false
@@ -145,25 +151,36 @@ var BackoffMax = time.Minute * 5
 //     BackoffBase + BakoffCoef * PriorBackoffs^2
 //
 // Where PriorBackoffs is the number of previous backoffs.
-func (db *DialBackoff) AddBackoff(p peer.ID) {
+func (db *DialBackoff) AddBackoff(p peer.ID, addr ma.Multiaddr) {
 	db.lock.Lock()
 	defer db.lock.Unlock()
 	db.init()
 	bp, ok := db.entries[p]
 	if !ok {
-		db.entries[p] = &backoffPeer{
+		bp := backoffPeer(make(map[ma.Multiaddr]*backoffAddr))
+		db.entries[p] = &bp
+		bp[addr] = &backoffAddr{
+			tries: 1,
+			until: time.Now().Add(BackoffBase),
+		}
+		return
+	}
+	// todo: cleanup out of date entries.
+	ba, ok := (*bp)[addr]
+	if !ok {
+		(*bp)[addr] = &backoffAddr{
 			tries: 1,
 			until: time.Now().Add(BackoffBase),
 		}
 		return
 	}
 
-	backoffTime := BackoffBase + BackoffCoef*time.Duration(bp.tries*bp.tries)
+	backoffTime := BackoffBase + BackoffCoef*time.Duration(ba.tries*ba.tries)
 	if backoffTime > BackoffMax {
 		backoffTime = BackoffMax
 	}
-	bp.until = time.Now().Add(backoffTime)
-	bp.tries++
+	ba.until = time.Now().Add(backoffTime)
+	ba.tries++
 }
 
 // Clear removes a backoff record. Clients should call this after a
@@ -208,12 +225,6 @@ func (s *Swarm) dialPeer(ctx context.Context, p peer.ID) (*Conn, error) {
 	conn := s.bestConnToPeer(p)
 	if conn != nil {
 		return conn, nil
-	}
-
-	// if this peer has been backed off, lets get out of here
-	if s.backf.Backoff(p) {
-		log.Event(ctx, "swarmDialBackoff", p)
-		return nil, ErrDialBackoff
 	}
 
 	// apply the DialPeer timeout
@@ -268,10 +279,6 @@ func (s *Swarm) doDial(ctx context.Context, p peer.ID) (*Conn, error) {
 			log.Debugf("ignoring dial error because we have a connection: %s", err)
 			return conn, nil
 		}
-		if err != context.Canceled {
-			log.Event(ctx, "swarmDialBackoffAdd", logdial)
-			s.backf.AddBackoff(p) // let others know to backoff
-		}
 
 		// ok, we failed.
 		return nil, err
@@ -318,10 +325,18 @@ func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 		return nil, &DialError{Peer: p, Cause: ErrNoGoodAddresses}
 	}
 	goodAddrsChan := make(chan ma.Multiaddr, len(goodAddrs))
+	nonBackoff := false
 	for _, a := range goodAddrs {
-		goodAddrsChan <- a
+		// skip addresses in back-off
+		if !s.backf.Backoff(p, a) {
+			nonBackoff = true
+			goodAddrsChan <- a
+		}
 	}
 	close(goodAddrsChan)
+	if !nonBackoff {
+		return nil, ErrDialBackoff
+	}
 	/////////
 
 	// try to get a connection to any addr
@@ -402,6 +417,10 @@ dialLoop:
 			active--
 			if resp.Err != nil {
 				// Errors are normal, lots of dials will fail
+				if resp.Err != context.Canceled {
+					s.backf.AddBackoff(p, resp.Addr)
+				}
+
 				log.Infof("got error on dial: %s", resp.Err)
 				err.recordErr(resp.Addr, resp.Err)
 			} else if resp.Conn != nil {
@@ -429,6 +448,10 @@ dialLoop:
 			active--
 			if resp.Err != nil {
 				// Errors are normal, lots of dials will fail
+				if resp.Err != context.Canceled {
+					s.backf.AddBackoff(p, resp.Addr)
+				}
+
 				log.Infof("got error on dial: %s", resp.Err)
 				err.recordErr(resp.Addr, resp.Err)
 			} else if resp.Conn != nil {
