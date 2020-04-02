@@ -114,6 +114,7 @@ func NewSwarm(ctx context.Context, local peer.ID, peers peerstore.Peerstore, bwc
 	s.limiter = newDialLimiter(s.dialAddr)
 	s.proc = goprocessctx.WithContext(ctx)
 	s.ctx = goprocessctx.OnClosingContext(s.proc)
+	s.backf.init(s.ctx)
 
 	// Set teardown after setting the context/process so we don't start the
 	// teardown process early.
