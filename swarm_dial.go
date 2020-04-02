@@ -196,7 +196,11 @@ func (db *DialBackoff) cleanup() {
 	for p, e := range db.entries {
 		good := false
 		for _, backoff := range e {
-			if now.Before(backoff.until) {
+			backoffTime := BackoffBase + BackoffCoef*time.Duration(backoff.tries*backoff.tries)
+			if backoffTime > BackoffMax {
+				backoffTime = BackoffMax
+			}
+			if now.Before(backoff.until.Add(backoffTime)) {
 				good = true
 				break
 			}
