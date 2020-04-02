@@ -131,15 +131,9 @@ func (db *DialBackoff) background(ctx context.Context) {
 func (db *DialBackoff) Backoff(p peer.ID, addr ma.Multiaddr) (backoff bool) {
 	db.lock.Lock()
 	defer db.lock.Unlock()
-	bp, found := db.entries[p]
-	if found {
-		ap, found := bp[string(addr.Bytes())]
-		if found && time.Now().Before(ap.until) {
-			return true
-		}
-	}
 
-	return false
+	ap, found := db.entries[p][string(addr.Bytes())]
+	return found && time.Now().Before(ap.until)
 }
 
 // BackoffBase is the base amount of time to backoff (default: 5s).
@@ -167,12 +161,8 @@ func (db *DialBackoff) AddBackoff(p peer.ID, addr ma.Multiaddr) {
 	defer db.lock.Unlock()
 	bp, ok := db.entries[p]
 	if !ok {
-		db.entries[p] = make(map[string]*backoffAddr)
-		db.entries[p][saddr] = &backoffAddr{
-			tries: 1,
-			until: time.Now().Add(BackoffBase),
-		}
-		return
+		bp = make(map[string]*backoffAddr, 1)
+		db.entries[p] = bp
 	}
 	ba, ok := bp[saddr]
 	if !ok {
