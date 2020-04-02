@@ -97,11 +97,9 @@ const DefaultPerPeerRateLimit = 8
 // * It's thread-safe.
 // * It's *not* safe to move this type after using.
 type DialBackoff struct {
-	entries map[peer.ID]backoffPeer
+	entries map[peer.ID]map[string]*backoffAddr
 	lock    sync.RWMutex
 }
-
-type backoffPeer map[ma.Multiaddr]*backoffAddr
 
 type backoffAddr struct {
 	tries int
@@ -110,17 +108,17 @@ type backoffAddr struct {
 
 func (db *DialBackoff) init(ctx context.Context) {
 	if db.entries == nil {
-		db.entries = make(map[peer.ID]backoffPeer)
+		db.entries = make(map[peer.ID]map[string]*backoffAddr)
 	}
 	go db.background(ctx)
 }
 
 func (db *DialBackoff) background(ctx context.Context) {
 	ticker := time.NewTicker(BackoffMax)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
-			ticker.Stop()
 			return
 		case <-ticker.C:
 			db.cleanup()
@@ -134,9 +132,8 @@ func (db *DialBackoff) Backoff(p peer.ID, addr ma.Multiaddr) (backoff bool) {
 	db.lock.Lock()
 	defer db.lock.Unlock()
 	bp, found := db.entries[p]
-	if found && bp != nil {
-		ap, found := bp[addr]
-		// TODO: cleanup out of date entries.
+	if found {
+		ap, found := bp[string(addr.Bytes())]
 		if found && time.Now().Before(ap.until) {
 			return true
 		}
@@ -165,20 +162,21 @@ var BackoffMax = time.Minute * 5
 //
 // Where PriorBackoffs is the number of previous backoffs.
 func (db *DialBackoff) AddBackoff(p peer.ID, addr ma.Multiaddr) {
+	saddr := string(addr.Bytes())
 	db.lock.Lock()
 	defer db.lock.Unlock()
 	bp, ok := db.entries[p]
 	if !ok {
-		db.entries[p] = backoffPeer(make(map[ma.Multiaddr]*backoffAddr))
-		db.entries[p][addr] = &backoffAddr{
+		db.entries[p] = make(map[string]*backoffAddr)
+		db.entries[p][saddr] = &backoffAddr{
 			tries: 1,
 			until: time.Now().Add(BackoffBase),
 		}
 		return
 	}
-	ba, ok := bp[addr]
+	ba, ok := bp[saddr]
 	if !ok {
-		bp[addr] = &backoffAddr{
+		bp[saddr] = &backoffAddr{
 			tries: 1,
 			until: time.Now().Add(BackoffBase),
 		}
@@ -205,7 +203,6 @@ func (db *DialBackoff) cleanup() {
 	db.lock.Lock()
 	defer db.lock.Unlock()
 	now := time.Now()
-	deletePeers := []peer.ID{}
 	for p, e := range db.entries {
 		good := false
 		for _, backoff := range e {
@@ -215,11 +212,8 @@ func (db *DialBackoff) cleanup() {
 			}
 		}
 		if !good {
-			deletePeers = append(deletePeers, p)
+			delete(db.entries, p)
 		}
-	}
-	for _, p := range deletePeers {
-		delete(db.entries, p)
 	}
 }
 
