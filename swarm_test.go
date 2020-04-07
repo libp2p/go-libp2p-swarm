@@ -4,21 +4,21 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/stretchr/testify/require"
 	"io"
 	"sync"
 	"testing"
 	"time"
 
-	logging "github.com/ipfs/go-log"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/peerstore"
 
-	ma "github.com/multiformats/go-multiaddr"
-
 	. "github.com/libp2p/go-libp2p-swarm"
 	. "github.com/libp2p/go-libp2p-swarm/testing"
+
+	logging "github.com/ipfs/go-log"
+	ma "github.com/multiformats/go-multiaddr"
+	"github.com/stretchr/testify/require"
 )
 
 var log = logging.Logger("swarm_test")
