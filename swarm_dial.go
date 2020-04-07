@@ -50,6 +50,9 @@ var (
 	// ErrNoGoodAddresses is returned when we find addresses for a peer but
 	// can't use any of them.
 	ErrNoGoodAddresses = errors.New("no good addresses")
+
+	// ErrConnectionAttemptGated is returned when the gater prevents us from forming a connection with a peer.
+	ErrConnectionAttemptGated = errors.New("gater prevented connection to peer")
 )
 
 // DialAttempts governs how many times a goroutine will try to dial a given peer.
@@ -312,6 +315,12 @@ func (s *Swarm) canDial(addr ma.Multiaddr) bool {
 
 // dial is the actual swarm's dial logic, gated by Dial.
 func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
+	// should we allow the connection to this peer at all ?
+	if s.ConnGater != nil && s.ConnGater.DenyPeerConnection(network.DirOutbound, p) {
+		log.Debugf("gater disallowed outbound connection to peer %s", p)
+		return nil, &DialError{Peer: p, Cause: ErrConnectionAttemptGated}
+	}
+
 	var logdial = lgbl.Dial("swarm", s.LocalPeer(), p, nil, nil)
 	if p == s.local {
 		log.Event(ctx, "swarmDialDoDialSelf", logdial)
@@ -409,7 +418,13 @@ func (s *Swarm) filterKnownUndialables(addrs []ma.Multiaddr) []ma.Multiaddr {
 		s.canDial,
 		// TODO: Consider allowing link-local addresses
 		addrutil.AddrOverNonLocalIP,
-		addrutil.FilterNeg(s.Filters.AddrBlocked),
+		func(addr ma.Multiaddr) bool {
+			if s.ConnGater == nil {
+				return true
+			}
+
+			return !s.ConnGater.DenyAddrConnection(addr)
+		},
 	)
 }
 

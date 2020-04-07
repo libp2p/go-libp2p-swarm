@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/libp2p/go-libp2p-core/connmgr"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -19,9 +20,7 @@ import (
 	"github.com/jbenet/goprocess"
 	goprocessctx "github.com/jbenet/goprocess/context"
 
-	filter "github.com/libp2p/go-maddr-filter"
 	ma "github.com/multiformats/go-multiaddr"
-	mafilter "github.com/whyrusleeping/multiaddr-filter"
 )
 
 // DialTimeoutLocal is the maximum duration a Dial to local network address
@@ -88,8 +87,7 @@ type Swarm struct {
 	backf   DialBackoff
 	limiter *dialLimiter
 
-	// filters for addresses that shouldnt be dialed (or accepted)
-	Filters *filter.Filters
+	ConnGater connmgr.ConnectionGater
 
 	proc goprocess.Process
 	ctx  context.Context
@@ -99,10 +97,9 @@ type Swarm struct {
 // NewSwarm constructs a Swarm
 func NewSwarm(ctx context.Context, local peer.ID, peers peerstore.Peerstore, bwc metrics.Reporter) *Swarm {
 	s := &Swarm{
-		local:   local,
-		peers:   peers,
-		bwc:     bwc,
-		Filters: filter.NewFilters(),
+		local: local,
+		peers: peers,
+		bwc:   bwc,
 	}
 
 	s.conns.m = make(map[peer.ID][]*Conn)
@@ -168,32 +165,27 @@ func (s *Swarm) teardown() error {
 	return nil
 }
 
-// AddAddrFilter adds a multiaddr filter to the set of filters the swarm will use to determine which
-// addresses not to dial to.
-func (s *Swarm) AddAddrFilter(f string) error {
-	m, err := mafilter.NewMask(f)
-	if err != nil {
-		return err
-	}
-
-	s.Filters.AddDialFilter(m)
-	return nil
-}
-
 // Process returns the Process of the swarm
 func (s *Swarm) Process() goprocess.Process {
 	return s.proc
 }
 
-func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (*Conn, error) {
-	// The underlying transport (or the dialer) *should* filter it's own
-	// connections but we should double check anyways.
-	raddr := tc.RemoteMultiaddr()
-	if s.Filters.AddrBlocked(raddr) {
-		tc.Close()
-		return nil, ErrAddrFiltered
+func (s *Swarm) denyConn(tc transport.CapableConn, dir network.Direction) (deny bool) {
+	// we have no gater
+	if s.ConnGater == nil {
+		return false
 	}
 
+	// deny peer ?
+	if s.ConnGater.DenyPeerConnection(dir, tc.RemotePeer()) {
+		return true
+	}
+
+	// deny the specific address
+	return s.ConnGater.DenyAddrConnection(tc.RemoteMultiaddr())
+}
+
+func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (*Conn, error) {
 	p := tc.RemotePeer()
 
 	// Add the public key.

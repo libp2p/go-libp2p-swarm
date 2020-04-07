@@ -53,9 +53,9 @@ func GenUpgrader(n *swarm.Swarm) *tptu.Upgrader {
 	stMuxer.AddTransport("/yamux/1.0.0", yamux.DefaultTransport)
 
 	return &tptu.Upgrader{
-		Secure:  secMuxer,
-		Muxer:   stMuxer,
-		Filters: n.Filters,
+		Secure:        secMuxer,
+		Muxer:         stMuxer,
+		AddrConnGater: n.ConnGater,
 	}
 
 }
