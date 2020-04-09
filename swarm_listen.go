@@ -89,7 +89,6 @@ func (s *Swarm) AddListenAddr(a ma.Multiaddr) error {
 				}
 				return
 			}
-
 			log.Debugf("swarm listener accepted connection: %s", c)
 			s.refs.Add(1)
 			go func() {

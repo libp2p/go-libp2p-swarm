@@ -4,16 +4,16 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/libp2p/go-libp2p-core/control"
-	"github.com/libp2p/go-libp2p-core/transport"
 	"io"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/libp2p/go-libp2p-core/control"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/peerstore"
+	"github.com/libp2p/go-libp2p-core/transport"
 
 	. "github.com/libp2p/go-libp2p-swarm"
 	. "github.com/libp2p/go-libp2p-swarm/testing"
@@ -375,65 +375,6 @@ func TestConnectionGating(t *testing.T) {
 		require.Equal(t, tc.p2ConnectednessToP1, sw2.Connectedness(p1), n)
 	}
 }
-
-/*func TestPeerIdBlocking(t *testing.T) {
-	// peer1 is not able to connect to peer2 because it gates outbound connections
-	// but peer2 is able to connect to peer1
-	ctx := context.Background()
-	swarms := makeSwarms(ctx, t, 2)
-	swarms[0].Peerstore().AddAddr(swarms[1].LocalPeer(), swarms[1].ListenAddresses()[0], peerstore.PermanentAddrTTL)
-	swarms[1].Peerstore().AddAddr(swarms[0].LocalPeer(), swarms[0].ListenAddresses()[0], peerstore.PermanentAddrTTL)
-
-	gaterForPeer0 := &mockGater{dir: network.DirOutbound, p: swarms[1].LocalPeer()}
-	swarms[0].ConnGater = gaterForPeer0
-
-	c, err := swarms[0].DialPeer(ctx, swarms[1].LocalPeer())
-	require.Nil(t, c)
-	require.Error(t, err)
-	require.Equal(t, network.NotConnected, swarms[0].Connectedness(swarms[1].LocalPeer()))
-
-	c, err = swarms[1].DialPeer(ctx, swarms[0].LocalPeer())
-	require.NotNil(t, c)
-	require.NoError(t, err)
-	require.Equal(t, network.Connected, swarms[1].Connectedness(swarms[0].LocalPeer()))
-
-	// peer2 is not able to connect to peer1 because peer1 gates inbound connections
-	swarms = makeSwarms(ctx, t, 2)
-	swarms[0].Peerstore().AddAddr(swarms[1].LocalPeer(), swarms[1].ListenAddresses()[0], peerstore.PermanentAddrTTL)
-	swarms[1].Peerstore().AddAddr(swarms[0].LocalPeer(), swarms[0].ListenAddresses()[0], peerstore.PermanentAddrTTL)
-
-	swarms[0].ConnGater = &mockGater{dir: network.DirInbound, p: swarms[1].LocalPeer()}
-	c, err = swarms[1].DialPeer(ctx, swarms[0].LocalPeer())
-	// connection is established, but later closed by the other peer, so we should not see connectedness
-	require.True(t, swarms[0].Connectedness(swarms[1].LocalPeer()) == network.NotConnected)
-}
-
-func TestAddrBlocking(t *testing.T) {
-	ctx := context.Background()
-
-	swarms := makeSwarms(ctx, t, 2)
-
-	swarms[0].SetConnHandler(func(conn network.Conn) {
-		t.Errorf("no connections should happen! -- %s", conn)
-	})
-
-	gaterForPeer0 := &mockGater{addrs: swarms[1].ListenAddresses()}
-	gaterForPeer1 := &mockGater{addrs: swarms[0].ListenAddresses()}
-	swarms[0].ConnGater = gaterForPeer0
-	swarms[1].ConnGater = gaterForPeer1
-
-	swarms[1].Peerstore().AddAddr(swarms[0].LocalPeer(), swarms[0].ListenAddresses()[0], peerstore.PermanentAddrTTL)
-	_, err := swarms[1].DialPeer(ctx, swarms[0].LocalPeer())
-	if err == nil {
-		t.Fatal("dial should have failed")
-	}
-
-	swarms[0].Peerstore().AddAddr(swarms[1].LocalPeer(), swarms[1].ListenAddresses()[0], peerstore.PermanentAddrTTL)
-	_, err = swarms[0].DialPeer(ctx, swarms[1].LocalPeer())
-	if err == nil {
-		t.Fatal("dial should have failed")
-	}
-}*/
 
 func TestNoDial(t *testing.T) {
 	ctx := context.Background()
