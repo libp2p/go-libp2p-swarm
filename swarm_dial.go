@@ -316,7 +316,7 @@ func (s *Swarm) canDial(addr ma.Multiaddr) bool {
 // dial is the actual swarm's dial logic, gated by Dial.
 func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 	// should we allow the connection to this peer at all ?
-	if s.ConnGater != nil && s.ConnGater.DenyPeerConnection(network.DirOutbound, p) {
+	if s.ConnGater != nil && !s.ConnGater.InterceptPeerDial(p) {
 		log.Debugf("gater disallowed outbound connection to peer %s", p)
 		return nil, &DialError{Peer: p, Cause: ErrConnectionAttemptGated}
 	}
@@ -419,11 +419,7 @@ func (s *Swarm) filterKnownUndialables(addrs []ma.Multiaddr) []ma.Multiaddr {
 		// TODO: Consider allowing link-local addresses
 		addrutil.AddrOverNonLocalIP,
 		func(addr ma.Multiaddr) bool {
-			if s.ConnGater == nil {
-				return true
-			}
-
-			return !s.ConnGater.DenyAddrConnection(addr)
+			return s.ConnGater == nil || s.ConnGater.InterceptDial(addr)
 		},
 	)
 }

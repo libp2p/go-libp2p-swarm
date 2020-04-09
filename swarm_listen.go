@@ -90,15 +90,6 @@ func (s *Swarm) AddListenAddr(a ma.Multiaddr) error {
 				return
 			}
 
-			// should we get the incoming connection ?
-			if s.denyConn(c, network.DirInbound) {
-				log.Debugf("swarm listener rejected incoming connection:%s because of gating, closing connection", c)
-				if err := c.Close(); err != nil {
-					log.Debugf("error while closing gated connection,err=%s", err)
-				}
-				continue
-			}
-
 			log.Debugf("swarm listener accepted connection: %s", c)
 			s.refs.Add(1)
 			go func() {

@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/libp2p/go-libp2p-core/control"
+	"github.com/libp2p/go-libp2p-core/transport"
 	"io"
 	"sync"
 	"testing"
@@ -280,26 +282,101 @@ func TestConnHandler(t *testing.T) {
 	}
 }
 
-type mockGater struct {
-	addrs []ma.Multiaddr
-	p     peer.ID
-	dir   network.Direction
-}
+func TestConnectionGating(t *testing.T) {
+	ctx := context.Background()
+	tcs := map[string]struct {
+		p1Gater func(gater *MockConnectionGater) *MockConnectionGater
+		p2Gater func(gater *MockConnectionGater) *MockConnectionGater
 
-func (m *mockGater) DenyAddrConnection(addrs ma.Multiaddr) (deny bool) {
-	for _, a := range m.addrs {
-		if a == addrs {
-			return true
-		}
+		p1ConnectednessToP2 network.Connectedness
+		p2ConnectednessToP1 network.Connectedness
+		isP1OutboundErr     bool
+	}{
+		"no gating": {
+			p1ConnectednessToP2: network.Connected,
+			p2ConnectednessToP1: network.Connected,
+		},
+		"p1 gates outbound peer dial": {
+			p1Gater: func(c *MockConnectionGater) *MockConnectionGater {
+				c.PeerDial = func(p peer.ID) bool { return false }
+				return c
+			},
+			p1ConnectednessToP2: network.NotConnected,
+			p2ConnectednessToP1: network.NotConnected,
+			isP1OutboundErr:     true,
+		},
+		"p1 gates outbound addr dialing": {
+			p1Gater: func(c *MockConnectionGater) *MockConnectionGater {
+				c.Dial = func(addr ma.Multiaddr) bool { return false }
+				return c
+			},
+			p1ConnectednessToP2: network.NotConnected,
+			p2ConnectednessToP1: network.NotConnected,
+			isP1OutboundErr:     true,
+		},
+		"p2 gates inbound peer dial before securing": {
+			p2Gater: func(c *MockConnectionGater) *MockConnectionGater {
+				c.Accept = func(c network.ConnMultiaddrs) bool { return false }
+				return c
+			},
+			p1ConnectednessToP2: network.NotConnected,
+			p2ConnectednessToP1: network.NotConnected,
+			isP1OutboundErr:     true,
+		},
+		"p2 gates inbound peer dial before multiplexing": {
+			p1Gater: func(c *MockConnectionGater) *MockConnectionGater {
+				c.Secured = func(network.Direction, peer.ID, network.ConnMultiaddrs) bool { return false }
+				return c
+			},
+			p1ConnectednessToP2: network.NotConnected,
+			p2ConnectednessToP1: network.NotConnected,
+			isP1OutboundErr:     true,
+		},
+		"p2 gates inbound peer dial after upgrading": {
+			p1Gater: func(c *MockConnectionGater) *MockConnectionGater {
+				c.Upgraded = func(p transport.CapableConn) (bool, control.DisconnectReason) { return false, 0 }
+				return c
+			},
+			p1ConnectednessToP2: network.NotConnected,
+			p2ConnectednessToP1: network.NotConnected,
+			isP1OutboundErr:     true,
+		},
+		"p2 gates outbound dials": {
+			p2Gater: func(c *MockConnectionGater) *MockConnectionGater {
+				c.PeerDial = func(p peer.ID) bool { return false }
+				return c
+			},
+			p1ConnectednessToP2: network.Connected,
+			p2ConnectednessToP1: network.Connected,
+			isP1OutboundErr:     false,
+		},
 	}
-	return false
+
+	for n, tc := range tcs {
+		p1Gater := DefaultMockConnectionGater()
+		p2Gater := DefaultMockConnectionGater()
+		if tc.p1Gater != nil {
+			p1Gater = tc.p1Gater(p1Gater)
+		}
+		if tc.p2Gater != nil {
+			p2Gater = tc.p2Gater(p2Gater)
+		}
+
+		sw1 := GenSwarm(t, ctx, OptConnGater(p1Gater))
+		sw2 := GenSwarm(t, ctx, OptConnGater(p2Gater))
+
+		p1 := sw1.LocalPeer()
+		p2 := sw2.LocalPeer()
+		sw1.Peerstore().AddAddr(p2, sw2.ListenAddresses()[0], peerstore.PermanentAddrTTL)
+		// 1 -> 2
+		_, err := sw1.DialPeer(ctx, p2)
+		require.Equal(t, tc.isP1OutboundErr, err != nil, n)
+		require.Equal(t, tc.p1ConnectednessToP2, sw1.Connectedness(p2), n)
+		require.Equal(t, tc.p2ConnectednessToP1, sw2.Connectedness(p1), n)
+	}
 }
 
-func (m *mockGater) DenyPeerConnection(dir network.Direction, id peer.ID) bool {
-	return dir == m.dir && id == m.p
-}
-
-func TestPeerIdBlocking(t *testing.T) {
+/*func TestPeerIdBlocking(t *testing.T) {
 	// peer1 is not able to connect to peer2 because it gates outbound connections
 	// but peer2 is able to connect to peer1
 	ctx := context.Background()
@@ -355,37 +432,6 @@ func TestAddrBlocking(t *testing.T) {
 	_, err = swarms[0].DialPeer(ctx, swarms[1].LocalPeer())
 	if err == nil {
 		t.Fatal("dial should have failed")
-	}
-}
-
-// TODO NOT SKIP THIS
-/*
-func TestFilterBounds(t *testing.T) {
-	ctx := context.Background()
-	swarms := makeSwarms(ctx, t, 2)
-
-	conns := make(chan struct{}, 8)
-	swarms[0].SetConnHandler(func(conn network.Conn) {
-		conns <- struct{}{}
-	})
-
-	// Address that we wont be dialing from
-	_, block, err := net.ParseCIDR("192.0.0.1/8")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// set filter on both sides, shouldnt matter
-	swarms[1].Filters.AddDialFilter(block)
-	swarms[0].Filters.AddDialFilter(block)
-
-	connectSwarms(t, ctx, swarms)
-
-	select {
-	case <-time.After(time.Second):
-		t.Fatal("should have gotten connection")
-	case <-conns:
-		t.Log("got connect")
 	}
 }*/
 

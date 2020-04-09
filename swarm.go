@@ -170,23 +170,41 @@ func (s *Swarm) Process() goprocess.Process {
 	return s.proc
 }
 
-func (s *Swarm) denyConn(tc transport.CapableConn, dir network.Direction) (deny bool) {
-	// we have no gater
-	if s.ConnGater == nil {
-		return false
-	}
-
-	// deny peer ?
-	if s.ConnGater.DenyPeerConnection(dir, tc.RemotePeer()) {
-		return true
-	}
-
-	// deny the specific address
-	return s.ConnGater.DenyAddrConnection(tc.RemoteMultiaddr())
-}
-
 func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (*Conn, error) {
 	p := tc.RemotePeer()
+	// last fallback check for gating connections
+	var rejectConnection bool
+	if s.ConnGater != nil {
+		switch dir {
+		case network.DirInbound:
+			if !s.ConnGater.InterceptAccept(tc) {
+				rejectConnection = true
+			}
+		case network.DirOutbound:
+			if !s.ConnGater.InterceptDial(tc.RemoteMultiaddr()) || !s.ConnGater.InterceptPeerDial(p) {
+				rejectConnection = true
+			}
+		}
+
+		if !s.ConnGater.InterceptSecured(dir, p, tc) {
+			rejectConnection = true
+		}
+
+		// we ONLY check upgraded connections here so we can send them a Disconnect message.
+		// If we do this in the Upgrader, we will not be able to do this.
+		if ac, _ := s.ConnGater.InterceptUpgraded(tc); !ac {
+			// TODO Send disconnect with reason here
+			rejectConnection = true
+		}
+	}
+
+	if rejectConnection {
+		if err := tc.Close(); err != nil {
+			log.Errorf("failed to close connection with %s, err=%s", p.Pretty(), err)
+		}
+		log.Debugf("gater disallowed connection with peer %s", p)
+		return nil, ErrConnectionAttemptGated
+	}
 
 	// Add the public key.
 	if pk := tc.RemotePublicKey(); pk != nil {
