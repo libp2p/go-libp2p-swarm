@@ -370,11 +370,13 @@ func TestConnectionGating(t *testing.T) {
 		sw1.Peerstore().AddAddr(p2, sw2.ListenAddresses()[0], peerstore.PermanentAddrTTL)
 		// 1 -> 2
 		_, err := sw1.DialPeer(ctx, p2)
-		// give time for the swarm data structures to be updated
-		time.Sleep(100 * time.Millisecond)
+
 		require.Equal(t, tc.isP1OutboundErr, err != nil, n)
 		require.Equal(t, tc.p1ConnectednessToP2, sw1.Connectedness(p2), n)
-		require.Equal(t, tc.p2ConnectednessToP1, sw2.Connectedness(p1), n)
+
+		require.Eventually(t, func() bool {
+			return tc.p2ConnectednessToP1 == sw2.Connectedness(p1)
+		}, 2*time.Second, 100*time.Millisecond, n)
 	}
 }
 
