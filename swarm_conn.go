@@ -185,7 +185,7 @@ func (c *Conn) addStream(ts mux.MuxedStream, dir network.Direction) (*Stream, er
 	}
 
 	// Wrap and register the stream.
-	stat := network.Stat{Direction: dir}
+	stat := network.Stat{Direction: dir, Extra: make(map[interface{}]interface{})}
 	s := &Stream{
 		stream: ts,
 		conn:   c,
