@@ -295,6 +295,7 @@ func TestConnectionGating(t *testing.T) {
 		"no gating": {
 			p1ConnectednessToP2: network.Connected,
 			p2ConnectednessToP1: network.Connected,
+			isP1OutboundErr:     false,
 		},
 		"p1 gates outbound peer dial": {
 			p1Gater: func(c *MockConnectionGater) *MockConnectionGater {
@@ -307,7 +308,7 @@ func TestConnectionGating(t *testing.T) {
 		},
 		"p1 gates outbound addr dialing": {
 			p1Gater: func(c *MockConnectionGater) *MockConnectionGater {
-				c.Dial = func(addr ma.Multiaddr) bool { return false }
+				c.Dial = func(p peer.ID, addr ma.Multiaddr) bool { return false }
 				return c
 			},
 			p1ConnectednessToP2: network.NotConnected,

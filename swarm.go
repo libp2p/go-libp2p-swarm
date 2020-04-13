@@ -181,7 +181,7 @@ func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (*Conn,
 				rejectConnection = true
 			}
 		case network.DirOutbound:
-			if !s.ConnGater.InterceptDial(tc.RemoteMultiaddr()) || !s.ConnGater.InterceptPeerDial(p) {
+			if !s.ConnGater.InterceptPeerAddrDial(p, tc.RemoteMultiaddr()) || !s.ConnGater.InterceptPeerDial(p) {
 				rejectConnection = true
 			}
 		}

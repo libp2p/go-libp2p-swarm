@@ -348,7 +348,7 @@ func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 	if len(peerAddrs) == 0 {
 		return nil, &DialError{Peer: p, Cause: ErrNoAddresses}
 	}
-	goodAddrs := s.filterKnownUndialables(peerAddrs)
+	goodAddrs := s.filterKnownUndialables(p, peerAddrs)
 	if len(goodAddrs) == 0 {
 		return nil, &DialError{Peer: p, Cause: ErrNoGoodAddresses}
 	}
@@ -402,7 +402,7 @@ func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 // IPv6 link-local addresses, addresses without a dial-capable transport,
 // and addresses that we know to be our own.
 // This is an optimization to avoid wasting time on dials that we know are going to fail.
-func (s *Swarm) filterKnownUndialables(addrs []ma.Multiaddr) []ma.Multiaddr {
+func (s *Swarm) filterKnownUndialables(p peer.ID, addrs []ma.Multiaddr) []ma.Multiaddr {
 	lisAddrs, _ := s.InterfaceListenAddresses()
 	var ourAddrs []ma.Multiaddr
 	for _, addr := range lisAddrs {
@@ -419,7 +419,7 @@ func (s *Swarm) filterKnownUndialables(addrs []ma.Multiaddr) []ma.Multiaddr {
 		// TODO: Consider allowing link-local addresses
 		addrutil.AddrOverNonLocalIP,
 		func(addr ma.Multiaddr) bool {
-			return s.ConnGater == nil || s.ConnGater.InterceptDial(addr)
+			return s.ConnGater == nil || s.ConnGater.InterceptPeerAddrDial(p, addr)
 		},
 	)
 }
