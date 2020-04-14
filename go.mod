@@ -6,7 +6,7 @@ require (
 	github.com/jbenet/goprocess v0.1.3
 	github.com/libp2p/go-addr-util v0.0.1
 	github.com/libp2p/go-conn-security-multistream v0.1.0
-	github.com/libp2p/go-libp2p-core v0.3.1-0.20200210163958-6d6f8284b841
+	github.com/libp2p/go-libp2p-core v0.3.2-0.20200414114438-d47936597d5b
 	github.com/libp2p/go-libp2p-loggables v0.1.0
 	github.com/libp2p/go-libp2p-peerstore v0.1.4
 	github.com/libp2p/go-libp2p-secio v0.2.1
@@ -23,6 +23,5 @@ require (
 	github.com/whyrusleeping/multiaddr-filter v0.0.0-20160516205228-e903e4adabd7
 )
 
-replace github.com/libp2p/go-libp2p-core => /Users/aarshshah/go/src/github.com/libp2p/go-libp2p-core
 
 go 1.12
