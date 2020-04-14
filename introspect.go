@@ -8,6 +8,8 @@ import (
 	introspect_pb "github.com/libp2p/go-libp2p-core/introspection/pb"
 	introspection_pb "github.com/libp2p/go-libp2p-core/introspection/pb"
 	"github.com/libp2p/go-libp2p-core/network"
+
+	"github.com/gogo/protobuf/types"
 )
 
 // IntrospectTraffic introspects and returns total traffic stats for this swarm.
@@ -59,13 +61,16 @@ func (s *Swarm) IntrospectConnections(q introspection.ConnectionQueryParams) ([]
 	switch q.Output {
 	case introspection.QueryOutputFull:
 		for _, c := range conns {
-			ic := c.(*Conn).Introspect(s, q)
+			ic, err := c.(*Conn).Introspect(s, q)
+			if err != nil {
+				return nil, fmt.Errorf("failed to introspect conneciton, err=%s", err)
+			}
 			introspected = append(introspected, ic)
 		}
 
 	case introspection.QueryOutputList:
 		for _, c := range conns {
-			introspected = append(introspected, &introspection_pb.Connection{Id: c.(*Conn).ID()})
+			introspected = append(introspected, &introspection_pb.Connection{Id: []byte(c.(*Conn).ID())})
 		}
 
 	default:
@@ -108,15 +113,18 @@ func (s *Swarm) IntrospectStreams(q introspection.StreamQueryParams) (*introspec
 	case introspection.QueryOutputFull:
 		introspected := make([]*introspection_pb.Stream, 0, len(streams))
 		for _, st := range streams {
-			is := st.(*Stream).Introspect(s, q)
+			is, err := st.(*Stream).Introspect(s, q)
+			if err != nil {
+				return nil, fmt.Errorf("failed to introspect stream, err=%s", err)
+			}
 			introspected = append(introspected, is)
 		}
 		return &introspection_pb.StreamList{Streams: introspected}, nil
 
 	case introspection.QueryOutputList:
-		introspected := make([]string, 0, len(streams))
+		introspected := make([][]byte, 0, len(streams))
 		for _, st := range streams {
-			introspected = append(introspected, st.(*Stream).ID())
+			introspected = append(introspected, []byte(st.(*Stream).ID()))
 		}
 		return &introspection_pb.StreamList{StreamIds: introspected}, nil
 	}
@@ -124,10 +132,16 @@ func (s *Swarm) IntrospectStreams(q introspection.StreamQueryParams) (*introspec
 	return nil, fmt.Errorf("unexpected query type: %v", q.Output)
 }
 
-func (c *Conn) Introspect(s *Swarm, q introspection.ConnectionQueryParams) *introspect_pb.Connection {
+func (c *Conn) Introspect(s *Swarm, q introspection.ConnectionQueryParams) (*introspect_pb.Connection, error) {
 	stat := c.Stat()
+
+	openTs, err := types.TimestampProto(stat.Opened)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert open time to proto, err=%s", err)
+	}
+
 	res := &introspection_pb.Connection{
-		Id:     c.ID(),
+		Id:     []byte(c.ID()),
 		Status: introspection_pb.Status_ACTIVE,
 		PeerId: c.RemotePeer().Pretty(),
 		Endpoints: &introspection_pb.EndpointPair{
@@ -135,9 +149,10 @@ func (c *Conn) Introspect(s *Swarm, q introspection.ConnectionQueryParams) *intr
 			DstMultiaddr: c.RemoteMultiaddr().String(),
 		},
 		Role: translateRole(stat),
+
 		Timeline: &introspection_pb.Connection_Timeline{
-			OpenTs:     &stat.Opened,
-			UpgradedTs: &stat.Opened,
+			OpenTs:     openTs,
+			UpgradedTs: openTs,
 			// TODO ClosedTs, UpgradedTs.
 		},
 	}
@@ -166,45 +181,50 @@ func (c *Conn) Introspect(s *Swarm, q introspection.ConnectionQueryParams) *intr
 	res.Attribs = &introspect_pb.Connection_Attributes{}
 
 	// TODO can we get the transport ID from the multiaddr?
-	res.TransportId = "unknown"
+	res.TransportId = nil
 
 	// TODO there's the ping protocol, but that's higher than this layer.
 	// How do we source this? We may need some kind of latency manager.
 	res.LatencyNs = 0
 
 	c.streams.Lock()
-	sids := make([]string, 0, len(c.streams.m))
+	sids := make([][]byte, 0, len(c.streams.m))
 	for s := range c.streams.m {
-		sids = append(sids, s.ID())
+		sids = append(sids, []byte(s.ID()))
 	}
 	c.streams.Unlock()
 
 	res.Streams = &introspection_pb.StreamList{StreamIds: sids}
 
-	return res
+	return res, nil
 }
 
-func (s *Stream) Introspect(sw *Swarm, q introspection.StreamQueryParams) *introspect_pb.Stream {
+func (s *Stream) Introspect(sw *Swarm, q introspection.StreamQueryParams) (*introspect_pb.Stream, error) {
 	stat := s.Stat()
+	openTs, err := types.TimestampProto(stat.Opened)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert open time to proto, err=%s", err)
+	}
+
 	res := &introspection_pb.Stream{
-		Id:     s.ID(),
+		Id:     []byte(s.ID()),
 		Status: introspect_pb.Status_ACTIVE,
 		Conn: &introspect_pb.Stream_ConnectionRef{
 			Connection: &introspection_pb.Stream_ConnectionRef_ConnId{
-				ConnId: s.conn.ID(),
+				ConnId: []byte(s.conn.ID()),
 			},
 		},
 		Protocol: string(s.Protocol()),
 		Role:     translateRole(stat),
 		Timeline: &introspect_pb.Stream_Timeline{
-			OpenTs: &stat.Opened,
+			OpenTs: openTs,
 			// TODO CloseTs.
 		},
 		// TODO Traffic: we are not tracking per-stream traffic stats at the
 		// moment.
 	}
 
-	return res
+	return res, nil
 }
 
 func translateRole(stat network.Stat) introspect_pb.Role {
