@@ -107,6 +107,8 @@ github.com/libp2p/go-libp2p-core v0.3.1-0.20200210163958-6d6f8284b841 h1:NtLkfbs
 github.com/libp2p/go-libp2p-core v0.3.1-0.20200210163958-6d6f8284b841/go.mod h1:thvWy0hvaSBhnVBaW37BvzgVV68OUhgJJLAa6almrII=
 github.com/libp2p/go-libp2p-core v0.3.2-0.20200414114438-d47936597d5b h1:/q9bdQKGXGhjQolx/d3N0mlU4m47W7fyo7Vsc9qwbyU=
 github.com/libp2p/go-libp2p-core v0.3.2-0.20200414114438-d47936597d5b/go.mod h1:thvWy0hvaSBhnVBaW37BvzgVV68OUhgJJLAa6almrII=
+github.com/libp2p/go-libp2p-core v0.3.2-0.20200415062127-fcc117eae71a h1:ijScFHS86L0LYjaagrxxinbsd1HIniHSKB2vFobmJ5s=
+github.com/libp2p/go-libp2p-core v0.3.2-0.20200415062127-fcc117eae71a/go.mod h1:thvWy0hvaSBhnVBaW37BvzgVV68OUhgJJLAa6almrII=
 github.com/libp2p/go-libp2p-loggables v0.1.0 h1:h3w8QFfCt2UJl/0/NW4K829HX/0S4KD31PQ7m8UXXO8=
 github.com/libp2p/go-libp2p-loggables v0.1.0/go.mod h1:EyumB2Y6PrYjr55Q3/tiJ/o3xoDasoRYM7nOzEpoa90=
 github.com/libp2p/go-libp2p-mplex v0.2.0/go.mod h1:Ejl9IyjvXJ0T9iqUTE1jpYATQ9NM3g+OtR+EMMODbKo=
