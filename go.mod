@@ -6,7 +6,7 @@ require (
 	github.com/jbenet/goprocess v0.1.3
 	github.com/libp2p/go-addr-util v0.0.1
 	github.com/libp2p/go-conn-security-multistream v0.1.0
-	github.com/libp2p/go-libp2p-core v0.3.2-0.20200415062127-fcc117eae71a
+	github.com/libp2p/go-libp2p-core v0.3.2-0.20200416170247-0a7a9856715c
 	github.com/libp2p/go-libp2p-loggables v0.1.0
 	github.com/libp2p/go-libp2p-peerstore v0.1.4
 	github.com/libp2p/go-libp2p-secio v0.2.1
