@@ -8,6 +8,8 @@ import (
 	"github.com/libp2p/go-libp2p-core/test"
 
 	ma "github.com/multiformats/go-multiaddr"
+
+	swarmt "github.com/libp2p/go-libp2p-swarm/testing"
 )
 
 func TestDialBadAddrs(t *testing.T) {
@@ -37,8 +39,10 @@ func TestDialBadAddrs(t *testing.T) {
 }
 
 func TestAddrRace(t *testing.T) {
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	s := makeSwarms(ctx, t, 1)[0]
+	defer s.Close()
 
 	a1, err := s.InterfaceListenAddresses()
 	if err != nil {
@@ -51,5 +55,19 @@ func TestAddrRace(t *testing.T) {
 
 	if len(a1) > 0 && len(a2) > 0 && &a1[0] == &a2[0] {
 		t.Fatal("got the exact same address set twice; this could lead to data races")
+	}
+}
+
+func TestAddressesWithoutListening(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	s := swarmt.GenSwarm(t, ctx, swarmt.OptDialOnly)
+
+	a1, err := s.InterfaceListenAddresses()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(a1) != 0 {
+		t.Fatalf("expected to be listening on no addresses, was listening on %d", len(a1))
 	}
 }

@@ -116,8 +116,13 @@ func NewSwarm(ctx context.Context, local peer.ID, peers peerstore.Peerstore, bwc
 
 	s.dsync = NewDialSync(s.doDial)
 	s.limiter = newDialLimiter(s.dialAddr)
-	s.proc = goprocessctx.WithContextAndTeardown(ctx, s.teardown)
+	s.proc = goprocessctx.WithContext(ctx)
 	s.ctx = goprocessctx.OnClosingContext(s.proc)
+	s.backf.init(s.ctx)
+
+	// Set teardown after setting the context/process so we don't start the
+	// teardown process early.
+	s.proc.SetTeardown(s.teardown)
 
 	if introspector != nil {
 		if err := introspector.RegisterDataProviders(&introspection.DataProviders{
@@ -245,7 +250,9 @@ func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (*Conn,
 
 	// We have a connection now. Cancel all other in-progress dials.
 	// This should be fast, no reason to wait till later.
-	s.dsync.CancelDial(p)
+	if dir == network.DirOutbound {
+		s.dsync.CancelDial(p)
+	}
 
 	s.notifyAll(func(f network.Notifiee) {
 		f.Connected(s, c)

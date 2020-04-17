@@ -200,7 +200,7 @@ func TestDialWait(t *testing.T) {
 		t.Error("> 2*transport.DialTimeout * DialAttempts not being respected", duration, 2*transport.DialTimeout*DialAttempts)
 	}
 
-	if !s1.Backoff().Backoff(s2p) {
+	if !s1.Backoff().Backoff(s2p, s2addr) {
 		t.Error("s2 should now be on backoff")
 	}
 }
@@ -337,10 +337,10 @@ func TestDialBackoff(t *testing.T) {
 		}
 
 		// check backoff state
-		if s1.Backoff().Backoff(s2.LocalPeer()) {
+		if s1.Backoff().Backoff(s2.LocalPeer(), s2addrs[0]) {
 			t.Error("s2 should not be on backoff")
 		}
-		if !s1.Backoff().Backoff(s3p) {
+		if !s1.Backoff().Backoff(s3p, s3addr) {
 			t.Error("s3 should be on backoff")
 		}
 
@@ -407,10 +407,10 @@ func TestDialBackoff(t *testing.T) {
 		}
 
 		// check backoff state (the same)
-		if s1.Backoff().Backoff(s2.LocalPeer()) {
+		if s1.Backoff().Backoff(s2.LocalPeer(), s2addrs[0]) {
 			t.Error("s2 should not be on backoff")
 		}
-		if !s1.Backoff().Backoff(s3p) {
+		if !s1.Backoff().Backoff(s3p, s3addr) {
 			t.Error("s3 should be on backoff")
 		}
 	}
@@ -451,7 +451,7 @@ func TestDialBackoffClears(t *testing.T) {
 		t.Error("> 2*transport.DialTimeout * DialAttempts not being respected", duration, 2*transport.DialTimeout*DialAttempts)
 	}
 
-	if !s1.Backoff().Backoff(s2.LocalPeer()) {
+	if !s1.Backoff().Backoff(s2.LocalPeer(), s2bad) {
 		t.Error("s2 should now be on backoff")
 	} else {
 		t.Log("correctly added to backoff")
@@ -464,8 +464,9 @@ func TestDialBackoffClears(t *testing.T) {
 	}
 	s1.Peerstore().AddAddrs(s2.LocalPeer(), ifaceAddrs1, peerstore.PermanentAddrTTL)
 
-	if _, err := s1.DialPeer(ctx, s2.LocalPeer()); err == nil {
-		t.Fatal("should have failed to dial backed off peer")
+	if c, err := s1.DialPeer(ctx, s2.LocalPeer()); err == nil {
+		c.Close()
+		t.Log("backoffs are per address, not peer")
 	}
 
 	time.Sleep(BackoffBase)
@@ -477,7 +478,7 @@ func TestDialBackoffClears(t *testing.T) {
 		t.Log("correctly connected")
 	}
 
-	if s1.Backoff().Backoff(s2.LocalPeer()) {
+	if s1.Backoff().Backoff(s2.LocalPeer(), s2bad) {
 		t.Error("s2 should no longer be on backoff")
 	} else {
 		t.Log("correctly cleared backoff")
