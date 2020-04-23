@@ -73,7 +73,9 @@ func GenSwarm(t *testing.T, ctx context.Context, opts ...Option) *swarm.Swarm {
 	ps.AddPubKey(p.ID, p.PubKey)
 	ps.AddPrivKey(p.ID, p.PrivKey)
 	s := swarm.NewSwarm(ctx, p.ID, ps, metrics.NewBandwidthCounter())
-	s.Process().AddChild(goprocess.WithTeardown(ps.Close))
+	// Call AddChildNoWait because we can't call AddChild after the process
+	// may have been closed (e.g., if the context was canceled).
+	s.Process().AddChildNoWait(goprocess.WithTeardown(ps.Close))
 
 	tcpTransport := tcp.NewTCPTransport(GenUpgrader(s))
 	tcpTransport.DisableReuseport = cfg.disableReuseport
