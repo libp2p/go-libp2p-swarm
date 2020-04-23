@@ -221,6 +221,7 @@ func (s *Stream) Introspect(sw *Swarm, q introspection.StreamQueryParams) (*intr
 			// TODO CloseTs.
 		},
 		// TODO Traffic: we are not tracking per-stream traffic stats at the
+		Traffic: &introspection_pb.Traffic{&introspection_pb.DataGauge{}, &introspection_pb.DataGauge{}},
 		// moment.
 	}
 

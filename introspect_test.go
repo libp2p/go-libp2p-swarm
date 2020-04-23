@@ -99,6 +99,10 @@ func TestConnsAndStreamIntrospect(t *testing.T) {
 	require.Equal(t, introspection_pb.Role_INITIATOR, stream1.Role)
 	require.Equal(t, introspection_pb.Status_ACTIVE, stream1.Status)
 	require.NotEmpty(t, stream1.Id)
+	require.NotNil(t, stream1.Traffic)
+	require.NotNil(t, stream1.Traffic.TrafficIn)
+	require.NotNil(t, stream1.Traffic.TrafficOut)
+
 	// require.True(t, len(msg1) == int(stream1.Traffic.TrafficOut.CumBytes))
 	// require.True(t, 0 == int(stream1.Traffic.TrafficIn.CumBytes))
 
