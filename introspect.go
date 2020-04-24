@@ -8,8 +8,6 @@ import (
 	introspect_pb "github.com/libp2p/go-libp2p-core/introspection/pb"
 	introspection_pb "github.com/libp2p/go-libp2p-core/introspection/pb"
 	"github.com/libp2p/go-libp2p-core/network"
-
-	"github.com/gogo/protobuf/types"
 )
 
 // IntrospectTraffic introspects and returns total traffic stats for this swarm.
@@ -134,11 +132,7 @@ func (s *Swarm) IntrospectStreams(q introspection.StreamQueryParams) (*introspec
 
 func (c *Conn) Introspect(s *Swarm, q introspection.ConnectionQueryParams) (*introspect_pb.Connection, error) {
 	stat := c.Stat()
-
-	openTs, err := types.TimestampProto(stat.Opened)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert open time to proto, err=%s", err)
-	}
+	openTs := uint64(stat.Opened.UnixNano() / 1000000)
 
 	res := &introspection_pb.Connection{
 		Id:     []byte(c.ID()),
@@ -201,10 +195,7 @@ func (c *Conn) Introspect(s *Swarm, q introspection.ConnectionQueryParams) (*int
 
 func (s *Stream) Introspect(sw *Swarm, q introspection.StreamQueryParams) (*introspect_pb.Stream, error) {
 	stat := s.Stat()
-	openTs, err := types.TimestampProto(stat.Opened)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert open time to proto, err=%s", err)
-	}
+	openTs := uint64(stat.Opened.UnixNano() / 1000000)
 
 	res := &introspection_pb.Stream{
 		Id:     []byte(s.ID()),
