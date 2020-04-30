@@ -17,7 +17,7 @@ require (
 	github.com/libp2p/go-tcp-transport v0.2.0
 	github.com/multiformats/go-multiaddr v0.2.1
 	github.com/multiformats/go-multiaddr-fmt v0.1.0
-	github.com/multiformats/go-multiaddr-net v0.1.4
+	github.com/multiformats/go-multiaddr-net v0.1.5
 	github.com/whyrusleeping/multiaddr-filter v0.0.0-20160516205228-e903e4adabd7
 	golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550 // indirect
 )
