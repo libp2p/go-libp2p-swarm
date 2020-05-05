@@ -10,11 +10,13 @@ import (
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/transport"
+
+	addrutil "github.com/libp2p/go-addr-util"
 	lgbl "github.com/libp2p/go-libp2p-loggables"
 
 	logging "github.com/ipfs/go-log"
-	addrutil "github.com/libp2p/go-addr-util"
 	ma "github.com/multiformats/go-multiaddr"
+	manet "github.com/multiformats/go-multiaddr-net"
 )
 
 // Diagram of dial sync:
@@ -55,6 +57,11 @@ var (
 	// forming a connection with a peer.
 	ErrGaterDisallowedConnection = errors.New("gater disallows connection to peer")
 )
+
+var fdConsumingTptProtos = map[int]struct{}{
+	ma.P_WS:  struct{}{},
+	ma.P_TCP: struct{}{},
+}
 
 // DialAttempts governs how many times a goroutine will try to dial a given peer.
 // Note: this is down to one, as we have _too many dials_ atm. To add back in,
@@ -337,13 +344,6 @@ func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 	}
 
 	//////
-	/*
-		This slice-to-chan code is temporary, the peerstore can currently provide
-		a channel as an interface for receiving addresses, but more thought
-		needs to be put into the execution. For now, this allows us to use
-		the improved rate limiter, while maintaining the outward behaviour
-		that we previously had (halting a dial when we run out of addrs)
-	*/
 	peerAddrs := s.peers.Addrs(p)
 	if len(peerAddrs) == 0 {
 		return nil, &DialError{Peer: p, Cause: ErrNoAddresses}
@@ -352,23 +352,87 @@ func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 	if len(goodAddrs) == 0 {
 		return nil, &DialError{Peer: p, Cause: ErrNoGoodAddresses}
 	}
-	goodAddrsChan := make(chan ma.Multiaddr, len(goodAddrs))
+
+	///////// Partition and rank addresses
+	// Partition into Fd and non-Fd consuming addresses as we first we want
+	// to try dialling ALL Non-Fd consuming addresses.
 	nonBackoff := false
+	var fdAddrs []ma.Multiaddr
+	var nonFdAddrs []ma.Multiaddr
+
 	for _, a := range goodAddrs {
 		// skip addresses in back-off
 		if !s.backf.Backoff(p, a) {
 			nonBackoff = true
-			goodAddrsChan <- a
+			if s.IsFdConsumingAddr(a) {
+				fdAddrs = append(fdAddrs, a)
+			} else {
+				nonFdAddrs = append(nonFdAddrs, a)
+			}
 		}
 	}
-	close(goodAddrsChan)
 	if !nonBackoff {
 		return nil, ErrDialBackoff
 	}
-	/////////
 
-	// try to get a connection to any addr
-	connC, dialErr := s.dialAddrs(ctx, p, goodAddrsChan)
+	/*
+		This slice-to-chan code is temporary, the peerstore can currently provide
+		a channel as an interface for receiving addresses, but more thought
+		needs to be put into the execution. For now, this allows us to use
+		the improved rate limiter, while maintaining the outward behaviour
+		that we previously had (halting a dial when we run out of addrs)
+	*/
+	// addrsToChanFnc transforms a slice of addresses to a closed channel of addresses.
+	addrsToChanFnc := func(goodAddrs []ma.Multiaddr) chan ma.Multiaddr {
+		goodAddrsChan := make(chan ma.Multiaddr, len(goodAddrs))
+		for _, a := range goodAddrs {
+			goodAddrsChan <- a
+		}
+		close(goodAddrsChan)
+		return goodAddrsChan
+	}
+
+	// ranks addresses in descending order of preference for dialing
+	// local addrs > non-relay public addrs > relay-addrs
+	rankAddrsFnc := func(addrs []ma.Multiaddr) []ma.Multiaddr {
+		var localAddrs []ma.Multiaddr
+		var relayAddrs []ma.Multiaddr
+		var others []ma.Multiaddr
+
+		for _, a := range addrs {
+			if manet.IsPrivateAddr(a) {
+				localAddrs = append(localAddrs, a)
+			} else if _, err := a.ValueForProtocol(ma.P_CIRCUIT); err == nil {
+				relayAddrs = append(relayAddrs, a)
+			} else {
+				others = append(others, a)
+			}
+		}
+
+		return append(append(localAddrs, others...), relayAddrs...)
+	}
+
+	// Sort/Rank by preference
+	nonFdAddrs = rankAddrsFnc(nonFdAddrs)
+	fdAddrs = rankAddrsFnc(fdAddrs)
+
+	/////////
+	// first try to get a connection to a non-fd consuming addr and if that fails,
+	// try to get a connection to a fd consuming addr.
+	var connC transport.CapableConn
+	var errNonFd *DialError
+	var dialErr *DialError
+
+	connC, errNonFd = s.dialAddrs(ctx, p, addrsToChanFnc(nonFdAddrs))
+	if errNonFd != nil {
+		var errFd *DialError
+		connC, errFd = s.dialAddrs(ctx, p, addrsToChanFnc(fdAddrs))
+		if errFd != nil {
+			dialErr = &DialError{Peer: p, DialErrors: append(errNonFd.DialErrors, errFd.DialErrors...),
+				Skipped: errFd.Skipped + errNonFd.Skipped, Cause: errFd.Cause}
+		}
+	}
+
 	if dialErr != nil {
 		logdial["error"] = dialErr.Cause.Error()
 		switch dialErr.Cause {
@@ -539,4 +603,49 @@ func (s *Swarm) dialAddr(ctx context.Context, p peer.ID, addr ma.Multiaddr) (tra
 
 	// success! we got one!
 	return connC, nil
+}
+
+// TODO We should have a `IsFdConsuming() bool` method on the `Transport` interface in go-libp2p-core/transport.
+// This function checks if any of the transport protocols in the address requires a file descriptor.
+func (s *Swarm) IsFdConsumingAddr(addr ma.Multiaddr) bool {
+	noProxyAddrFnc := func(addr ma.Multiaddr) bool {
+		tpt := s.TransportForDialing(addr)
+		if tpt == nil {
+			// let's return true to be safe
+			log.Debugf("no transport registered for address %s, so marking it as Fd consuming for safety", addr.String())
+			return true
+		}
+		protos := tpt.Protocols()
+		// is a fd consuming transport present in the list of protocols that the transport supports ?
+		for i := range protos {
+			if _, ok := fdConsumingTptProtos[protos[i]]; ok {
+				return true
+			}
+		}
+		return false
+	}
+
+	tpt := s.TransportForDialing(addr)
+	if tpt == nil {
+		// let's return true to be safe
+		log.Debugf("no transport registered for address %s, so marking it as Fd consuming for safety", addr.String())
+		return true
+	}
+
+	if tpt.Proxy() {
+		// check the address of the relay server we will be "directly" dialling.
+		relayaddr, _ := ma.SplitFunc(addr, func(c ma.Component) bool {
+			return c.Protocol().Code == ma.P_CIRCUIT
+		})
+		if relayaddr == nil {
+			log.Debugf("proxy address %s did not have a Circuit Component,"+
+				"so marking it as FD Consuming for safety", addr.String())
+			return true
+		}
+		return noProxyAddrFnc(relayaddr)
+	}
+
+	// For non-relay transports i.e. "direct dials", we can directly verify
+	// if the transport needs a Fd.
+	return noProxyAddrFnc(addr)
 }
