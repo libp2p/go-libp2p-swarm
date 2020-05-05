@@ -14,6 +14,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/transport"
 
 	testutil "github.com/libp2p/go-libp2p-core/test"
+	qc "github.com/libp2p/go-libp2p-quic-transport"
 	swarmt "github.com/libp2p/go-libp2p-swarm/testing"
 	"github.com/libp2p/go-libp2p-testing/ci"
 
@@ -21,6 +22,8 @@ import (
 	manet "github.com/multiformats/go-multiaddr-net"
 
 	. "github.com/libp2p/go-libp2p-swarm"
+
+	"github.com/stretchr/testify/require"
 )
 
 func init() {
@@ -523,4 +526,54 @@ func TestDialPeerFailed(t *testing.T) {
 	if len(dialErr.DialErrors) != expectedErrorsCount {
 		t.Errorf("expected %d errors, got %d", expectedErrorsCount, len(dialErr.DialErrors))
 	}
+}
+
+func TestDialNonFdAddressPreferred(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	swarms := makeSwarms(ctx, t, 2)
+	defer closeSwarms(swarms)
+	s1 := swarms[0]
+	s2 := swarms[1]
+
+	// Register a QUIC transport on S1
+	sk := s1.Peerstore().PrivKey(s1.LocalPeer())
+	qtpt, err := qc.NewTransport(sk, nil, nil)
+	require.NoError(t, err)
+	require.NoError(t, s1.AddTransport(qtpt))
+
+	// Register a QUIC transport on S2
+	sk = s2.Peerstore().PrivKey(s2.LocalPeer())
+	qtpt, err = qc.NewTransport(sk, nil, nil)
+	require.NoError(t, err)
+	require.NoError(t, s2.AddTransport(qtpt))
+
+	// S2 listens on a QUIC address
+	maddr, err := ma.NewMultiaddr("/ip4/127.0.0.1/udp/0/quic")
+	require.NoError(t, err)
+	require.NoError(t, s2.Listen(maddr))
+
+	// S2 listens on 10 other TCP addresses
+	for i := 0; i < DefaultPerPeerRateLimit+2; i++ {
+		maddr, err := ma.NewMultiaddr("/ip4/127.0.0.1/tcp/0")
+		require.NoError(t, err)
+		require.NoError(t, s2.Listen(maddr))
+	}
+
+	// s2 is listening on 11 valid TCP address and 1 QUIC address
+	s1.Peerstore().AddAddrs(s2.LocalPeer(), s2.ListenAddresses(), peerstore.PermanentAddrTTL)
+
+	// Inspite of that, we will make a QUIC connection.
+	c, err := s1.DialPeer(ctx, s2.LocalPeer())
+	require.NoError(t, err)
+	rmaddr := c.RemoteMultiaddr()
+	_, err = rmaddr.ValueForProtocol(ma.P_QUIC)
+	require.NoError(t, err)
+	_, err = rmaddr.ValueForProtocol(ma.P_TCP)
+	require.Error(t, err)
+
+	s, err := c.NewStream()
+	require.NoError(t, err)
+	s.Close()
 }
