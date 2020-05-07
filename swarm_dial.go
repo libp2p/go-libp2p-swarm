@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -375,46 +376,37 @@ func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 		return nil, ErrDialBackoff
 	}
 
-	/*
-		This slice-to-chan code is temporary, the peerstore can currently provide
-		a channel as an interface for receiving addresses, but more thought
-		needs to be put into the execution. For now, this allows us to use
-		the improved rate limiter, while maintaining the outward behaviour
-		that we previously had (halting a dial when we run out of addrs)
-	*/
-	// addrsToChanFnc transforms a slice of addresses to a closed channel of addresses.
-	addrsToChanFnc := func(goodAddrs []ma.Multiaddr) chan ma.Multiaddr {
-		goodAddrsChan := make(chan ma.Multiaddr, len(goodAddrs))
-		for _, a := range goodAddrs {
-			goodAddrsChan <- a
-		}
-		close(goodAddrsChan)
-		return goodAddrsChan
-	}
-
-	// ranks addresses in descending order of preference for dialing
+	// sorts addresses in descending order of preference for dialing
 	// local addrs > non-relay public addrs > relay-addrs
-	rankAddrsFnc := func(addrs []ma.Multiaddr) []ma.Multiaddr {
-		var localAddrs []ma.Multiaddr
-		var relayAddrs []ma.Multiaddr
-		var others []ma.Multiaddr
+	sortAddrs := func(addrs []ma.Multiaddr) {
+		sort.Slice(addrs, func(i, j int) bool {
+			first := addrs[i]
+			second := addrs[j]
 
-		for _, a := range addrs {
-			if manet.IsPrivateAddr(a) {
-				localAddrs = append(localAddrs, a)
-			} else if _, err := a.ValueForProtocol(ma.P_CIRCUIT); err == nil {
-				relayAddrs = append(relayAddrs, a)
-			} else {
-				others = append(others, a)
+			// first preferred if it is private.
+			if manet.IsPrivateAddr(first) {
+				return true
 			}
-		}
 
-		return append(append(localAddrs, others...), relayAddrs...)
+			// second preferred if first is non-private and second is private.
+			if manet.IsPrivateAddr(second) {
+				return false
+			}
+
+			// first preferred if first is non-relay and second is not private.
+			if _, err := first.ValueForProtocol(ma.P_CIRCUIT); err != nil {
+				return true
+			}
+
+			// second preferred if first is a relay address.
+			// we don't need this sort to be stable.
+			return false
+		})
 	}
 
 	// Sort/Rank by preference
-	nonFdAddrs = rankAddrsFnc(nonFdAddrs)
-	fdAddrs = rankAddrsFnc(fdAddrs)
+	sortAddrs(nonFdAddrs)
+	sortAddrs(fdAddrs)
 
 	/////////
 	// first try to get a connection to a non-fd consuming addr and if that fails,
@@ -423,13 +415,12 @@ func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 	var errNonFd *DialError
 	var dialErr *DialError
 
-	connC, errNonFd = s.dialAddrs(ctx, p, addrsToChanFnc(nonFdAddrs))
+	connC, errNonFd = s.dialAddrs(ctx, p, nonFdAddrs)
 	if errNonFd != nil {
 		var errFd *DialError
-		connC, errFd = s.dialAddrs(ctx, p, addrsToChanFnc(fdAddrs))
+		connC, errFd = s.dialAddrs(ctx, p, fdAddrs)
 		if errFd != nil {
-			dialErr = &DialError{Peer: p, DialErrors: append(errNonFd.DialErrors, errFd.DialErrors...),
-				Skipped: errFd.Skipped + errNonFd.Skipped, Cause: errFd.Cause}
+			dialErr = errNonFd.combine(errFd)
 		}
 	}
 
@@ -488,7 +479,23 @@ func (s *Swarm) filterKnownUndialables(p peer.ID, addrs []ma.Multiaddr) []ma.Mul
 	)
 }
 
-func (s *Swarm) dialAddrs(ctx context.Context, p peer.ID, remoteAddrs <-chan ma.Multiaddr) (transport.CapableConn, *DialError) {
+func (s *Swarm) dialAddrs(ctx context.Context, p peer.ID, remoteAddrs []ma.Multiaddr) (transport.CapableConn, *DialError) {
+	/*
+		This slice-to-chan code is temporary, the peerstore can currently provide
+		a channel as an interface for receiving addresses, but more thought
+		needs to be put into the execution. For now, this allows us to use
+		the improved rate limiter, while maintaining the outward behaviour
+		that we previously had (halting a dial when we run out of addrs)
+	*/
+	var remoteAddrChan chan ma.Multiaddr
+	if len(remoteAddrs) > 0 {
+		remoteAddrChan = make(chan ma.Multiaddr, len(remoteAddrs))
+		for i := range remoteAddrs {
+			remoteAddrChan <- remoteAddrs[i]
+		}
+		close(remoteAddrChan)
+	}
+
 	log.Debugf("%s swarm dialing %s", s.local, p)
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -502,7 +509,7 @@ func (s *Swarm) dialAddrs(ctx context.Context, p peer.ID, remoteAddrs <-chan ma.
 
 	var active int
 dialLoop:
-	for remoteAddrs != nil || active > 0 {
+	for remoteAddrChan != nil || active > 0 {
 		// Check for context cancellations and/or responses first.
 		select {
 		case <-ctx.Done():
@@ -528,9 +535,9 @@ dialLoop:
 
 		// Now, attempt to dial.
 		select {
-		case addr, ok := <-remoteAddrs:
+		case addr, ok := <-remoteAddrChan:
 			if !ok {
-				remoteAddrs = nil
+				remoteAddrChan = nil
 				continue
 			}
 
