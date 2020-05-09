@@ -241,7 +241,7 @@ func (s *Swarm) dialPeer(ctx context.Context, p peer.ID) (*Conn, error) {
 	defer log.EventBegin(ctx, "swarmDialAttemptSync", p).Done()
 
 	// check if we already have an open connection first
-	conn := s.bestConnToPeer(p)
+	conn := s.bestConnToPeerWrapper(p)
 	if conn != nil {
 		return conn, nil
 	}
@@ -276,7 +276,7 @@ func (s *Swarm) doDial(ctx context.Context, p peer.ID) (*Conn, error) {
 	// Short circuit.
 	// By the time we take the dial lock, we may already *have* a connection
 	// to the peer.
-	c := s.bestConnToPeer(p)
+	c := s.bestConnToPeerWrapper(p)
 	if c != nil {
 		return c, nil
 	}
@@ -289,7 +289,7 @@ func (s *Swarm) doDial(ctx context.Context, p peer.ID) (*Conn, error) {
 
 	conn, err := s.dial(ctx, p)
 	if err != nil {
-		conn = s.bestConnToPeer(p)
+		conn = s.bestConnToPeerFallbackWrapper(p)
 		if conn != nil {
 			// Hm? What error?
 			// Could have canceled the dial because we received a
@@ -340,8 +340,17 @@ func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 		return nil, &DialError{Peer: p, Cause: ErrNoAddresses}
 	}
 	goodAddrs := s.filterKnownUndialables(peerAddrs)
+
 	if len(goodAddrs) == 0 {
 		return nil, &DialError{Peer: p, Cause: ErrNoGoodAddresses}
+	}
+
+	if s.bestDest != nil {
+		// Select the best address to peer.
+		bestAddrs := s.bestDestSelectWrapper(p, goodAddrs)
+		if len(bestAddrs) != 0 {
+			goodAddrs = bestAddrs
+		}
 	}
 	goodAddrsChan := make(chan ma.Multiaddr, len(goodAddrs))
 	nonBackoff := false

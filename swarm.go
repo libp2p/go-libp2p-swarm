@@ -91,6 +91,9 @@ type Swarm struct {
 	// filters for addresses that shouldnt be dialed (or accepted)
 	Filters *filter.Filters
 
+	bestConn BestConn
+	bestDest BestDest
+
 	proc goprocess.Process
 	ctx  context.Context
 	bwc  metrics.Reporter
@@ -296,6 +299,16 @@ func (s *Swarm) StreamHandler() network.StreamHandler {
 	return handler
 }
 
+// SetBestConn set the BestConn interface
+func (s *Swarm) SetBestConn(bc BestConn) {
+	s.bestConn = bc
+}
+
+// SetBestDest set the BestDest interface
+func (s *Swarm) SetBestDest(bd BestDest) {
+	s.bestDest = bd
+}
+
 // NewStream creates a new stream on any available connection to peer, dialing
 // if necessary.
 func (s *Swarm) NewStream(ctx context.Context, p peer.ID) (network.Stream, error) {
@@ -383,6 +396,34 @@ func (s *Swarm) bestConnToPeer(p peer.ID) *Conn {
 
 	}
 	return best
+}
+
+// Wrapper for BestConn Interface
+func (s *Swarm) bestConnToPeerWrapper(p peer.ID) *Conn {
+	if s.bestConn == nil {
+		return s.bestConnToPeer(p)
+	}
+	s.conns.RLock()
+	defer s.conns.RUnlock()
+	return s.bestConn.BestConn(p, s.conns.m[p])
+}
+
+// Wrapper for BestConnFallback Interface
+func (s *Swarm) bestConnToPeerFallbackWrapper(p peer.ID) *Conn {
+	if s.bestConn == nil {
+		return s.bestConnToPeer(p)
+	}
+	s.conns.RLock()
+	defer s.conns.RUnlock()
+	return s.bestConn.BestConnFallback(p, s.conns.m[p])
+}
+
+// Wrapper for BestDest Interface
+func (s *Swarm) bestDestSelectWrapper(id peer.ID, addrs []ma.Multiaddr) []ma.Multiaddr {
+	if s.bestDest == nil {
+		return addrs
+	}
+	return s.bestDest.BestDestSelect(id, addrs)
 }
 
 // Connectedness returns our "connectedness" state with the given peer.
