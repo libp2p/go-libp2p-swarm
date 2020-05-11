@@ -614,6 +614,10 @@ func (s *Swarm) dialAddr(ctx context.Context, p peer.ID, addr ma.Multiaddr) (tra
 
 // TODO We should have a `IsFdConsuming() bool` method on the `Transport` interface in go-libp2p-core/transport.
 // This function checks if any of the transport protocols in the address requires a file descriptor.
+// For now:
+// For a non-proxy address, TCP & WS addresses are deemed as FD consuming and the others aren't.
+// For a proxy(only circuit-relays for now) address, we look at the address of the relay server/proxy
+// and use the same logic as above to decide.
 func (s *Swarm) IsFdConsumingAddr(addr ma.Multiaddr) bool {
 	noProxyAddrFnc := func(addr ma.Multiaddr) bool {
 		tpt := s.TransportForDialing(addr)
