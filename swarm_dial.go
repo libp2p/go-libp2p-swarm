@@ -354,22 +354,12 @@ func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 		return nil, &DialError{Peer: p, Cause: ErrNoGoodAddresses}
 	}
 
-	///////// Partition and rank addresses
-	// Partition into Fd and non-Fd consuming addresses as we first we want
-	// to try dialling ALL Non-Fd consuming addresses.
-	nonBackoff := false
-	var fdAddrs []ma.Multiaddr
-	var nonFdAddrs []ma.Multiaddr
-
+	/////// Check backoff andnRank addresses
+	var nonBackoff bool
 	for _, a := range goodAddrs {
 		// skip addresses in back-off
 		if !s.backf.Backoff(p, a) {
 			nonBackoff = true
-			if s.IsFdConsumingAddr(a) {
-				fdAddrs = append(fdAddrs, a)
-			} else {
-				nonFdAddrs = append(nonFdAddrs, a)
-			}
 		}
 	}
 	if !nonBackoff {
@@ -377,52 +367,52 @@ func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 	}
 
 	// sorts addresses in descending order of preference for dialing
-	// local addrs > non-relay public addrs > relay-addrs
+	// Private UDP > Private TCP > Public UDP > Public TCP > UDP Relay server > TCP Relay server
 	sortAddrs := func(addrs []ma.Multiaddr) {
 		sort.Slice(addrs, func(i, j int) bool {
 			first := addrs[i]
 			second := addrs[j]
 
-			// first preferred if it is private.
-			if manet.IsPrivateAddr(first) {
-				return true
+			firstPriv := manet.IsPrivateAddr(first)
+			secondPriv := manet.IsPrivateAddr(second)
+			secondFd := s.IsFdConsumingAddr(second)
+
+			// First is private
+			if firstPriv {
+				// true if second is not private OR second is fd consuming.
+				return !secondPriv || secondFd
 			}
 
-			// second preferred if first is non-private and second is private.
-			if manet.IsPrivateAddr(second) {
+			// Second is private
+			if secondPriv {
 				return false
 			}
 
-			// first preferred if first is non-relay and second is not private.
-			if _, err := first.ValueForProtocol(ma.P_CIRCUIT); err != nil {
-				return true
+			_, err := first.ValueForProtocol(ma.P_CIRCUIT)
+			firstNonRelay := err != nil
+			_, err = second.ValueForProtocol(ma.P_CIRCUIT)
+			secondNonRelay := err != nil
+
+			// First is NOT a relay address.
+			if firstNonRelay {
+				// true if second is relay OR second is fd consuming.
+				return !secondNonRelay || secondFd
 			}
 
-			// second preferred if first is a relay address.
-			// we don't need this sort to be stable.
-			return false
+			// second is NOT a relay
+			if secondNonRelay {
+				return false
+			}
+
+			// both are relays
+			return secondFd
 		})
 	}
 
 	// Sort/Rank by preference
-	sortAddrs(nonFdAddrs)
-	sortAddrs(fdAddrs)
+	sortAddrs(goodAddrs)
 
-	/////////
-	// first try to get a connection to a non-fd consuming addr and if that fails,
-	// try to get a connection to a fd consuming addr.
-	var connC transport.CapableConn
-	var errNonFd *DialError
-	var dialErr *DialError
-
-	connC, errNonFd = s.dialAddrs(ctx, p, nonFdAddrs)
-	if errNonFd != nil {
-		var errFd *DialError
-		connC, errFd = s.dialAddrs(ctx, p, fdAddrs)
-		if errFd != nil {
-			dialErr = errNonFd.combine(errFd)
-		}
-	}
+	connC, dialErr := s.dialAddrs(ctx, p, goodAddrs)
 
 	if dialErr != nil {
 		logdial["error"] = dialErr.Cause.Error()

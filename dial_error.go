@@ -21,23 +21,6 @@ type DialError struct {
 	Skipped    int
 }
 
-// e.Peer should be equal to d.Peer for this to make sense.
-func (first *DialError) combine(second *DialError) *DialError {
-	cbd := &DialError{Peer: first.Peer, Cause: second.Cause, Skipped: first.Skipped + second.Skipped}
-	cbd.DialErrors = make([]TransportError, 0, maxDialDialErrors)
-	cbd.DialErrors = append(cbd.DialErrors[:0], first.DialErrors...)
-	remSpace := maxDialDialErrors - len(cbd.DialErrors)
-
-	if len(second.DialErrors) > remSpace {
-		cbd.DialErrors = append(cbd.DialErrors[:len(cbd.DialErrors)], second.DialErrors[:remSpace]...)
-		cbd.Skipped = cbd.Skipped + len(second.DialErrors) - remSpace
-	} else {
-		cbd.DialErrors = append(cbd.DialErrors[:len(cbd.DialErrors)], second.DialErrors...)
-	}
-
-	return cbd
-}
-
 func (e *DialError) Timeout() bool {
 	return os.IsTimeout(e.Cause)
 }
