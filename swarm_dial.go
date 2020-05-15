@@ -221,7 +221,7 @@ func (db *DialBackoff) cleanup() {
 // This allows us to use various transport protocols, do NAT traversal/relay,
 // etc. to achieve connection.
 func (s *Swarm) DialPeer(ctx context.Context, p peer.ID) (network.Conn, error) {
-	if s.ConnGater != nil && !s.ConnGater.InterceptPeerDial(p) {
+	if s.gater != nil && !s.gater.InterceptPeerDial(p) {
 		log.Debugf("gater disallowed outbound connection to peer %s", p.Pretty())
 		return nil, &DialError{Peer: p, Cause: ErrConnectionAttemptGated}
 	}
@@ -418,7 +418,7 @@ func (s *Swarm) filterKnownUndialables(p peer.ID, addrs []ma.Multiaddr) []ma.Mul
 		// TODO: Consider allowing link-local addresses
 		addrutil.AddrOverNonLocalIP,
 		func(addr ma.Multiaddr) bool {
-			return s.ConnGater == nil || s.ConnGater.InterceptAddrDial(p, addr)
+			return s.gater == nil || s.gater.InterceptAddrDial(p, addr)
 		},
 	)
 }

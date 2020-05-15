@@ -86,16 +86,20 @@ type Swarm struct {
 	dsync   *DialSync
 	backf   DialBackoff
 	limiter *dialLimiter
-
-	ConnGater connmgr.ConnectionGater
+	gater   connmgr.ConnectionGater
 
 	proc goprocess.Process
 	ctx  context.Context
 	bwc  metrics.Reporter
 }
 
-// NewSwarm constructs a Swarm
-func NewSwarm(ctx context.Context, local peer.ID, peers peerstore.Peerstore, bwc metrics.Reporter) *Swarm {
+// NewSwarm constructs a Swarm.
+//
+// NOTE: go-libp2p will be moving to dependency injection soon. The variadic
+// `extra` interface{} parameter facilitates the future migration. Supported
+// elements are:
+//  - connmgr.ConnectionGater
+func NewSwarm(ctx context.Context, local peer.ID, peers peerstore.Peerstore, bwc metrics.Reporter, extra ...interface{}) *Swarm {
 	s := &Swarm{
 		local: local,
 		peers: peers,
@@ -106,6 +110,13 @@ func NewSwarm(ctx context.Context, local peer.ID, peers peerstore.Peerstore, bwc
 	s.listeners.m = make(map[transport.Listener]struct{})
 	s.transports.m = make(map[int]transport.Transport)
 	s.notifs.m = make(map[network.Notifiee]struct{})
+
+	for _, i := range extra {
+		switch v := i.(type) {
+		case connmgr.ConnectionGater:
+			s.gater = v
+		}
+	}
 
 	s.dsync = NewDialSync(s.doDial)
 	s.limiter = newDialLimiter(s.dialAddr)
@@ -181,8 +192,8 @@ func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (*Conn,
 
 	// we ONLY check upgraded connections here so we can send them a Disconnect message.
 	// If we do this in the Upgrader, we will not be able to do this.
-	if s.ConnGater != nil {
-		if allow, _ := s.ConnGater.InterceptUpgraded(c); !allow {
+	if s.gater != nil {
+		if allow, _ := s.gater.InterceptUpgraded(c); !allow {
 			// TODO Send disconnect with reason here
 			if err := tc.Close(); err != nil {
 				log.Errorf("failed to close connection with peer %s and addr %s; err: %s",

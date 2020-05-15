@@ -65,9 +65,8 @@ func GenUpgrader(n *swarm.Swarm) *tptu.Upgrader {
 	stMuxer.AddTransport("/yamux/1.0.0", yamux.DefaultTransport)
 
 	return &tptu.Upgrader{
-		Secure:    secMuxer,
-		Muxer:     stMuxer,
-		ConnGater: n.ConnGater,
+		Secure: secMuxer,
+		Muxer:  stMuxer,
 	}
 
 }
@@ -84,13 +83,16 @@ func GenSwarm(t *testing.T, ctx context.Context, opts ...Option) *swarm.Swarm {
 	ps := pstoremem.NewPeerstore()
 	ps.AddPubKey(p.ID, p.PubKey)
 	ps.AddPrivKey(p.ID, p.PrivKey)
-	s := swarm.NewSwarm(ctx, p.ID, ps, metrics.NewBandwidthCounter())
+
+	s := swarm.NewSwarm(ctx, p.ID, ps, metrics.NewBandwidthCounter(), cfg.connectionGater)
+
 	// Call AddChildNoWait because we can't call AddChild after the process
 	// may have been closed (e.g., if the context was canceled).
 	s.Process().AddChildNoWait(goprocess.WithTeardown(ps.Close))
-	s.ConnGater = cfg.connectionGater
 
-	tcpTransport := tcp.NewTCPTransport(GenUpgrader(s))
+	upgrader := GenUpgrader(s)
+	upgrader.ConnGater = cfg.connectionGater
+	tcpTransport := tcp.NewTCPTransport(upgrader)
 	tcpTransport.DisableReuseport = cfg.disableReuseport
 
 	if err := s.AddTransport(tcpTransport); err != nil {
