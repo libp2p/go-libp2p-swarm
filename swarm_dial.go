@@ -50,6 +50,10 @@ var (
 	// ErrNoGoodAddresses is returned when we find addresses for a peer but
 	// can't use any of them.
 	ErrNoGoodAddresses = errors.New("no good addresses")
+
+	// ErrGaterDisallowedConnection is returned when the gater prevents us from
+	// forming a connection with a peer.
+	ErrGaterDisallowedConnection = errors.New("gater disallows connection to peer")
 )
 
 // DialAttempts governs how many times a goroutine will try to dial a given peer.
@@ -218,6 +222,11 @@ func (db *DialBackoff) cleanup() {
 // This allows us to use various transport protocols, do NAT traversal/relay,
 // etc. to achieve connection.
 func (s *Swarm) DialPeer(ctx context.Context, p peer.ID) (network.Conn, error) {
+	if s.gater != nil && !s.gater.InterceptPeerDial(p) {
+		log.Debugf("gater disallowed outbound connection to peer %s", p.Pretty())
+		return nil, &DialError{Peer: p, Cause: ErrGaterDisallowedConnection}
+	}
+
 	return s.dialPeer(ctx, p)
 }
 
@@ -339,7 +348,7 @@ func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 	if len(peerAddrs) == 0 {
 		return nil, &DialError{Peer: p, Cause: ErrNoAddresses}
 	}
-	goodAddrs := s.filterKnownUndialables(peerAddrs)
+	goodAddrs := s.filterKnownUndialables(p, peerAddrs)
 	if len(goodAddrs) == 0 {
 		return nil, &DialError{Peer: p, Cause: ErrNoGoodAddresses}
 	}
@@ -393,7 +402,7 @@ func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 // IPv6 link-local addresses, addresses without a dial-capable transport,
 // and addresses that we know to be our own.
 // This is an optimization to avoid wasting time on dials that we know are going to fail.
-func (s *Swarm) filterKnownUndialables(addrs []ma.Multiaddr) []ma.Multiaddr {
+func (s *Swarm) filterKnownUndialables(p peer.ID, addrs []ma.Multiaddr) []ma.Multiaddr {
 	lisAddrs, _ := s.InterfaceListenAddresses()
 	var ourAddrs []ma.Multiaddr
 	for _, addr := range lisAddrs {
@@ -409,7 +418,9 @@ func (s *Swarm) filterKnownUndialables(addrs []ma.Multiaddr) []ma.Multiaddr {
 		s.canDial,
 		// TODO: Consider allowing link-local addresses
 		addrutil.AddrOverNonLocalIP,
-		addrutil.FilterNeg(s.Filters.AddrBlocked),
+		func(addr ma.Multiaddr) bool {
+			return s.gater == nil || s.gater.InterceptAddrDial(p, addr)
+		},
 	)
 }
 
