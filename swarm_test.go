@@ -13,7 +13,6 @@ import (
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/peerstore"
-	"github.com/libp2p/go-libp2p-core/transport"
 
 	. "github.com/libp2p/go-libp2p-swarm"
 	. "github.com/libp2p/go-libp2p-swarm/testing"
@@ -335,7 +334,7 @@ func TestConnectionGating(t *testing.T) {
 		},
 		"p2 gates inbound peer dial after upgrading": {
 			p1Gater: func(c *MockConnectionGater) *MockConnectionGater {
-				c.Upgraded = func(p transport.CapableConn) (bool, control.DisconnectReason) { return false, 0 }
+				c.Upgraded = func(c network.Conn) (bool, control.DisconnectReason) { return false, 0 }
 				return c
 			},
 			p1ConnectednessToP2: network.NotConnected,
@@ -354,30 +353,33 @@ func TestConnectionGating(t *testing.T) {
 	}
 
 	for n, tc := range tcs {
-		p1Gater := DefaultMockConnectionGater()
-		p2Gater := DefaultMockConnectionGater()
-		if tc.p1Gater != nil {
-			p1Gater = tc.p1Gater(p1Gater)
-		}
-		if tc.p2Gater != nil {
-			p2Gater = tc.p2Gater(p2Gater)
-		}
+		t.Run(n, func(t *testing.T) {
+			p1Gater := DefaultMockConnectionGater()
+			p2Gater := DefaultMockConnectionGater()
+			if tc.p1Gater != nil {
+				p1Gater = tc.p1Gater(p1Gater)
+			}
+			if tc.p2Gater != nil {
+				p2Gater = tc.p2Gater(p2Gater)
+			}
 
-		sw1 := GenSwarm(t, ctx, OptConnGater(p1Gater))
-		sw2 := GenSwarm(t, ctx, OptConnGater(p2Gater))
+			sw1 := GenSwarm(t, ctx, OptConnGater(p1Gater))
+			sw2 := GenSwarm(t, ctx, OptConnGater(p2Gater))
 
-		p1 := sw1.LocalPeer()
-		p2 := sw2.LocalPeer()
-		sw1.Peerstore().AddAddr(p2, sw2.ListenAddresses()[0], peerstore.PermanentAddrTTL)
-		// 1 -> 2
-		_, err := sw1.DialPeer(ctx, p2)
+			p1 := sw1.LocalPeer()
+			p2 := sw2.LocalPeer()
+			sw1.Peerstore().AddAddr(p2, sw2.ListenAddresses()[0], peerstore.PermanentAddrTTL)
+			// 1 -> 2
+			_, err := sw1.DialPeer(ctx, p2)
 
-		require.Equal(t, tc.isP1OutboundErr, err != nil, n)
-		require.Equal(t, tc.p1ConnectednessToP2, sw1.Connectedness(p2), n)
+			require.Equal(t, tc.isP1OutboundErr, err != nil, n)
+			require.Equal(t, tc.p1ConnectednessToP2, sw1.Connectedness(p2), n)
 
-		require.Eventually(t, func() bool {
-			return tc.p2ConnectednessToP1 == sw2.Connectedness(p1)
-		}, 2*time.Second, 100*time.Millisecond, n)
+			require.Eventually(t, func() bool {
+				return tc.p2ConnectednessToP1 == sw2.Connectedness(p1)
+			}, 2*time.Second, 100*time.Millisecond, n)
+		})
+
 	}
 }
 

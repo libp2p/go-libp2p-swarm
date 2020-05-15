@@ -172,38 +172,24 @@ func (s *Swarm) Process() goprocess.Process {
 
 func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (*Conn, error) {
 	p := tc.RemotePeer()
-	// last fallback check for gating connections
-	var rejectConnection bool
-	if s.ConnGater != nil {
-		switch dir {
-		case network.DirInbound:
-			if !s.ConnGater.InterceptAccept(tc) {
-				rejectConnection = true
-			}
-		case network.DirOutbound:
-			if !s.ConnGater.InterceptPeerAddrDial(p, tc.RemoteMultiaddr()) || !s.ConnGater.InterceptPeerDial(p) {
-				rejectConnection = true
-			}
-		}
-
-		if !s.ConnGater.InterceptSecured(dir, p, tc) {
-			rejectConnection = true
-		}
-
-		// we ONLY check upgraded connections here so we can send them a Disconnect message.
-		// If we do this in the Upgrader, we will not be able to do this.
-		if ac, _ := s.ConnGater.InterceptUpgraded(tc); !ac {
-			// TODO Send disconnect with reason here
-			rejectConnection = true
-		}
+	stat := network.Stat{Direction: dir}
+	c := &Conn{
+		conn:  tc,
+		swarm: s,
+		stat:  stat,
 	}
 
-	if rejectConnection {
-		if err := tc.Close(); err != nil {
-			log.Errorf("failed to close connection with %s, err=%s", p.Pretty(), err)
+	// we ONLY check upgraded connections here so we can send them a Disconnect message.
+	// If we do this in the Upgrader, we will not be able to do this.
+	if s.ConnGater != nil {
+		if allow, _ := s.ConnGater.InterceptUpgraded(c); !allow {
+			// TODO Send disconnect with reason here
+			if err := tc.Close(); err != nil {
+				log.Errorf("failed to close connection with peer %s and addr %s; err: %s",
+					p.Pretty(), tc.RemoteMultiaddr(), err)
+			}
+			return nil, ErrConnectionAttemptGated
 		}
-		log.Debugf("gater disallowed connection with peer %s", p)
-		return nil, ErrConnectionAttemptGated
 	}
 
 	// Add the public key.
@@ -224,12 +210,6 @@ func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (*Conn,
 	}
 
 	// Wrap and register the connection.
-	stat := network.Stat{Direction: dir}
-	c := &Conn{
-		conn:  tc,
-		swarm: s,
-		stat:  stat,
-	}
 	c.streams.m = make(map[*Stream]struct{})
 	s.conns.m[p] = append(s.conns.m[p], c)
 

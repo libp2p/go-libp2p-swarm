@@ -221,6 +221,11 @@ func (db *DialBackoff) cleanup() {
 // This allows us to use various transport protocols, do NAT traversal/relay,
 // etc. to achieve connection.
 func (s *Swarm) DialPeer(ctx context.Context, p peer.ID) (network.Conn, error) {
+	if s.ConnGater != nil && !s.ConnGater.InterceptPeerDial(p) {
+		log.Debugf("gater disallowed outbound connection to peer %s", p.Pretty())
+		return nil, &DialError{Peer: p, Cause: ErrConnectionAttemptGated}
+	}
+
 	return s.dialPeer(ctx, p)
 }
 
@@ -315,12 +320,6 @@ func (s *Swarm) canDial(addr ma.Multiaddr) bool {
 
 // dial is the actual swarm's dial logic, gated by Dial.
 func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
-	// should we allow the connection to this peer at all ?
-	if s.ConnGater != nil && !s.ConnGater.InterceptPeerDial(p) {
-		log.Debugf("gater disallowed outbound connection to peer %s", p)
-		return nil, &DialError{Peer: p, Cause: ErrConnectionAttemptGated}
-	}
-
 	var logdial = lgbl.Dial("swarm", s.LocalPeer(), p, nil, nil)
 	if p == s.local {
 		log.Event(ctx, "swarmDialDoDialSelf", logdial)
@@ -419,7 +418,7 @@ func (s *Swarm) filterKnownUndialables(p peer.ID, addrs []ma.Multiaddr) []ma.Mul
 		// TODO: Consider allowing link-local addresses
 		addrutil.AddrOverNonLocalIP,
 		func(addr ma.Multiaddr) bool {
-			return s.ConnGater == nil || s.ConnGater.InterceptPeerAddrDial(p, addr)
+			return s.ConnGater == nil || s.ConnGater.InterceptAddrDial(p, addr)
 		},
 	)
 }
