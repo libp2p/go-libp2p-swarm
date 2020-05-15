@@ -10,7 +10,7 @@ require (
 	github.com/libp2p/go-libp2p-peerstore v0.2.3
 	github.com/libp2p/go-libp2p-secio v0.2.2
 	github.com/libp2p/go-libp2p-testing v0.1.1
-	github.com/libp2p/go-libp2p-transport-upgrader v0.2.1-0.20200513191341-03eaee6978e2
+	github.com/libp2p/go-libp2p-transport-upgrader v0.3.0
 	github.com/libp2p/go-libp2p-yamux v0.2.7
 	github.com/libp2p/go-stream-muxer-multistream v0.3.0
 	github.com/libp2p/go-tcp-transport v0.2.0
