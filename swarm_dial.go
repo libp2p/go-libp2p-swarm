@@ -367,45 +367,44 @@ func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 	}
 
 	// sorts addresses in descending order of preference for dialing
-	// Private UDP > Private TCP > Public UDP > Public TCP > UDP Relay server > TCP Relay server
+	// Private UDP > Public UDP > Private TCP > Public TCP > UDP Relay server > TCP Relay server
 	sortAddrs := func(addrs []ma.Multiaddr) {
+		scoreFnc := func(addr ma.Multiaddr) int {
+			isPrivate := manet.IsPrivateAddr(addr)
+			isFdConsuming := s.IsFdConsumingAddr(addr)
+			_, err := addr.ValueForProtocol(ma.P_CIRCUIT)
+			relay := err == nil
+
+			// UDP
+			if !isFdConsuming {
+				// private UDP
+				if isPrivate {
+					return 1
+				}
+				// public udp
+				if !relay {
+					return 2
+				}
+				// Relay UDP
+				return 5
+			}
+			// It's all TCP now
+			// private TCP
+			if isPrivate {
+				return 3
+			}
+			// public tcp
+			if !relay {
+				return 4
+			}
+			return 6
+		}
+
 		sort.Slice(addrs, func(i, j int) bool {
 			first := addrs[i]
 			second := addrs[j]
 
-			firstPriv := manet.IsPrivateAddr(first)
-			secondPriv := manet.IsPrivateAddr(second)
-			secondFd := s.IsFdConsumingAddr(second)
-
-			// First is private
-			if firstPriv {
-				// true if second is not private OR second is fd consuming.
-				return !secondPriv || secondFd
-			}
-
-			// Second is private
-			if secondPriv {
-				return false
-			}
-
-			_, err := first.ValueForProtocol(ma.P_CIRCUIT)
-			firstNonRelay := err != nil
-			_, err = second.ValueForProtocol(ma.P_CIRCUIT)
-			secondNonRelay := err != nil
-
-			// First is NOT a relay address.
-			if firstNonRelay {
-				// true if second is relay OR second is fd consuming.
-				return !secondNonRelay || secondFd
-			}
-
-			// second is NOT a relay
-			if secondNonRelay {
-				return false
-			}
-
-			// both are relays
-			return secondFd
+			return scoreFnc(first) <= scoreFnc(second)
 		})
 	}
 
