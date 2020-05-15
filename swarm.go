@@ -182,7 +182,21 @@ func (s *Swarm) Process() goprocess.Process {
 }
 
 func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (*Conn, error) {
-	p := tc.RemotePeer()
+	var (
+		p    = tc.RemotePeer()
+		addr = tc.RemoteMultiaddr()
+	)
+
+	if s.gater != nil {
+		if allow := s.gater.InterceptAddrDial(p, addr); !allow {
+			err := tc.Close()
+			if err != nil {
+				log.Warnf("failed to close connection with peer %s and addr %s; err: %s", p.Pretty(), addr, err)
+			}
+			return nil, ErrAddrFiltered
+		}
+	}
+
 	stat := network.Stat{Direction: dir}
 	c := &Conn{
 		conn:  tc,
@@ -195,11 +209,11 @@ func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (*Conn,
 	if s.gater != nil {
 		if allow, _ := s.gater.InterceptUpgraded(c); !allow {
 			// TODO Send disconnect with reason here
-			if err := tc.Close(); err != nil {
-				log.Errorf("failed to close connection with peer %s and addr %s; err: %s",
-					p.Pretty(), tc.RemoteMultiaddr(), err)
+			err := tc.Close()
+			if err != nil {
+				log.Warnf("failed to close connection with peer %s and addr %s; err: %s", p.Pretty(), addr, err)
 			}
-			return nil, ErrConnectionAttemptGated
+			return nil, ErrGaterDisallowedConnection
 		}
 	}
 

@@ -51,8 +51,9 @@ var (
 	// can't use any of them.
 	ErrNoGoodAddresses = errors.New("no good addresses")
 
-	// ErrConnectionAttemptGated is returned when the gater prevents us from forming a connection with a peer.
-	ErrConnectionAttemptGated = errors.New("gater prevented connection to peer")
+	// ErrGaterDisallowedConnection is returned when the gater prevents us from
+	// forming a connection with a peer.
+	ErrGaterDisallowedConnection = errors.New("gater disallows connection to peer")
 )
 
 // DialAttempts governs how many times a goroutine will try to dial a given peer.
@@ -223,7 +224,7 @@ func (db *DialBackoff) cleanup() {
 func (s *Swarm) DialPeer(ctx context.Context, p peer.ID) (network.Conn, error) {
 	if s.gater != nil && !s.gater.InterceptPeerDial(p) {
 		log.Debugf("gater disallowed outbound connection to peer %s", p.Pretty())
-		return nil, &DialError{Peer: p, Cause: ErrConnectionAttemptGated}
+		return nil, &DialError{Peer: p, Cause: ErrGaterDisallowedConnection}
 	}
 
 	return s.dialPeer(ctx, p)
