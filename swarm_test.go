@@ -13,7 +13,10 @@ import (
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/peerstore"
+	"github.com/libp2p/go-libp2p-core/test"
 
+	circuit "github.com/libp2p/go-libp2p-circuit"
+	qc "github.com/libp2p/go-libp2p-quic-transport"
 	. "github.com/libp2p/go-libp2p-swarm"
 	. "github.com/libp2p/go-libp2p-swarm/testing"
 
@@ -380,6 +383,57 @@ func TestConnectionGating(t *testing.T) {
 			}, 2*time.Second, 100*time.Millisecond, n)
 		})
 
+	}
+}
+
+func TestIsFdConsuming(t *testing.T) {
+	tcs := map[string]struct {
+		addr          string
+		isFdConsuming bool
+	}{
+		"tcp": {
+			addr:          "/ip4/127.0.0.1/tcp/20",
+			isFdConsuming: true,
+		},
+		"quic": {
+			addr:          "/ip4/127.0.0.1/udp/0/quic",
+			isFdConsuming: false,
+		},
+		"addr-without-registered-transport": {
+			addr:          "/ip4/127.0.0.1/tcp/20/ws",
+			isFdConsuming: true,
+		},
+		"relay-tcp": {
+			addr:          fmt.Sprintf("/ip4/127.0.0.1/tcp/20/p2p-circuit/p2p/%s", test.RandPeerIDFatal(t)),
+			isFdConsuming: true,
+		},
+		"relay-quic": {
+			addr:          fmt.Sprintf("/ip4/127.0.0.1/udp/20/quic/p2p-circuit/p2p/%s", test.RandPeerIDFatal(t)),
+			isFdConsuming: false,
+		},
+		"relay-without-serveraddr": {
+			addr:          fmt.Sprintf("/p2p-circuit/p2p/%s", test.RandPeerIDFatal(t)),
+			isFdConsuming: true,
+		},
+		"relay-without-registered-transport-server": {
+			addr:          fmt.Sprintf("/ip4/127.0.0.1/tcp/20/ws/p2p-circuit/p2p/%s", test.RandPeerIDFatal(t)),
+			isFdConsuming: true,
+		},
+	}
+
+	ctx := context.Background()
+	sw := GenSwarm(t, ctx)
+	sk := sw.Peerstore().PrivKey(sw.LocalPeer())
+	require.NotNil(t, sk)
+	qtpt, err := qc.NewTransport(sk, nil, nil)
+	require.NoError(t, err)
+	require.NoError(t, sw.AddTransport(qtpt))
+	require.NoError(t, sw.AddTransport(&circuit.RelayTransport{}))
+
+	for name := range tcs {
+		maddr, err := ma.NewMultiaddr(tcs[name].addr)
+		require.NoError(t, err, name)
+		require.Equal(t, tcs[name].isFdConsuming, sw.IsFdConsumingAddr(maddr), name)
 	}
 }
 
