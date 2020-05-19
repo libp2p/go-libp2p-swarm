@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sort"
 	"sync"
 	"time"
 
@@ -58,11 +57,6 @@ var (
 	// forming a connection with a peer.
 	ErrGaterDisallowedConnection = errors.New("gater disallows connection to peer")
 )
-
-var fdConsumingTptProtos = map[int]struct{}{
-	ma.P_WS:  struct{}{},
-	ma.P_TCP: struct{}{},
-}
 
 // DialAttempts governs how many times a goroutine will try to dial a given peer.
 // Note: this is down to one, as we have _too many dials_ atm. To add back in,
@@ -366,52 +360,46 @@ func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 		return nil, ErrDialBackoff
 	}
 
-	// sorts addresses in descending order of preference for dialing
+	// ranks addresses in descending order of preference for dialing
 	// Private UDP > Public UDP > Private TCP > Public TCP > UDP Relay server > TCP Relay server
-	sortAddrs := func(addrs []ma.Multiaddr) {
-		scoreFnc := func(addr ma.Multiaddr) int {
-			isPrivate := manet.IsPrivateAddr(addr)
-			isFdConsuming := s.IsFdConsumingAddr(addr)
-			_, err := addr.ValueForProtocol(ma.P_CIRCUIT)
-			relay := err == nil
+	rankAddrsFnc := func(addrs []ma.Multiaddr) []ma.Multiaddr {
+		var localUdpAddrs []ma.Multiaddr // private udp
+		var relayUdpAddrs []ma.Multiaddr // relay udp
+		var othersUdp []ma.Multiaddr     // public udp
 
-			// UDP
-			if !isFdConsuming {
-				// private UDP
-				if isPrivate {
-					return 1
+		var localFdAddrs []ma.Multiaddr // private fd consuming
+		var relayFdAddrs []ma.Multiaddr //  relay fd consuming
+		var othersFd []ma.Multiaddr     // public fd consuming
+
+		for _, a := range addrs {
+			if manet.IsPrivateAddr(a) {
+				if s.IsFdConsumingAddr(a) {
+					localFdAddrs = append(localFdAddrs, a)
+					continue
 				}
-				// public udp
-				if !relay {
-					return 2
+				localUdpAddrs = append(localUdpAddrs, a)
+			} else if _, err := a.ValueForProtocol(ma.P_CIRCUIT); err == nil {
+				if s.IsFdConsumingAddr(a) {
+					relayFdAddrs = append(relayFdAddrs, a)
+					continue
 				}
-				// Relay UDP
-				return 5
+				relayUdpAddrs = append(relayUdpAddrs, a)
+			} else {
+				if s.IsFdConsumingAddr(a) {
+					othersFd = append(othersFd, a)
+					continue
+				}
+				othersUdp = append(othersUdp, a)
 			}
-			// It's all TCP now
-			// private TCP
-			if isPrivate {
-				return 3
-			}
-			// public tcp
-			if !relay {
-				return 4
-			}
-			return 6
 		}
 
-		sort.Slice(addrs, func(i, j int) bool {
-			first := addrs[i]
-			second := addrs[j]
+		relays := append(relayUdpAddrs, relayFdAddrs...)
+		fds := append(localFdAddrs, othersFd...)
 
-			return scoreFnc(first) <= scoreFnc(second)
-		})
+		return append(append(append(localUdpAddrs, othersUdp...), fds...), relays...)
 	}
 
-	// Sort/Rank by preference
-	sortAddrs(goodAddrs)
-
-	connC, dialErr := s.dialAddrs(ctx, p, goodAddrs)
+	connC, dialErr := s.dialAddrs(ctx, p, rankAddrsFnc(goodAddrs))
 
 	if dialErr != nil {
 		logdial["error"] = dialErr.Cause.Error()
@@ -604,48 +592,20 @@ func (s *Swarm) dialAddr(ctx context.Context, p peer.ID, addr ma.Multiaddr) (tra
 // TODO We should have a `IsFdConsuming() bool` method on the `Transport` interface in go-libp2p-core/transport.
 // This function checks if any of the transport protocols in the address requires a file descriptor.
 // For now:
-// For a non-proxy address, TCP & WS addresses are deemed as FD consuming and the others aren't.
-// For a proxy(only circuit-relays for now) address, we look at the address of the relay server/proxy
+// A Non-circuit address which has the TCP/UNIX protocol is deemed FD consuming.
+// For a circuit-relay address, we look at the address of the relay server/proxy
 // and use the same logic as above to decide.
 func (s *Swarm) IsFdConsumingAddr(addr ma.Multiaddr) bool {
-	noProxyAddrFnc := func(addr ma.Multiaddr) bool {
-		tpt := s.TransportForDialing(addr)
-		if tpt == nil {
-			// let's return true to be safe
-			log.Debugf("no transport registered for address %s, so marking it as Fd consuming for safety", addr.String())
-			return true
-		}
-		protos := tpt.Protocols()
-		// is a fd consuming transport present in the list of protocols that the transport supports ?
-		for i := range protos {
-			if _, ok := fdConsumingTptProtos[protos[i]]; ok {
-				return true
-			}
-		}
-		return false
-	}
+	first, _ := ma.SplitFunc(addr, func(c ma.Component) bool {
+		return c.Protocol().Code == ma.P_CIRCUIT
+	})
 
-	tpt := s.TransportForDialing(addr)
-	if tpt == nil {
-		// let's return true to be safe
-		log.Debugf("no transport registered for address %s, so marking it as Fd consuming for safety", addr.String())
+	// for safety
+	if first == nil {
 		return true
 	}
 
-	if tpt.Proxy() {
-		// check the address of the relay server we will be "directly" dialling.
-		relayaddr, _ := ma.SplitFunc(addr, func(c ma.Component) bool {
-			return c.Protocol().Code == ma.P_CIRCUIT
-		})
-		if relayaddr == nil {
-			log.Debugf("proxy address %s did not have a Circuit Component,"+
-				"so marking it as FD Consuming for safety", addr.String())
-			return true
-		}
-		return noProxyAddrFnc(relayaddr)
-	}
-
-	// For non-relay transports i.e. "direct dials", we can directly verify
-	// if the transport needs a Fd.
-	return noProxyAddrFnc(addr)
+	_, err1 := first.ValueForProtocol(ma.P_TCP)
+	_, err2 := first.ValueForProtocol(ma.P_UNIX)
+	return err1 == nil || err2 == nil
 }
