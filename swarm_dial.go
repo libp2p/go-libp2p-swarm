@@ -372,18 +372,18 @@ func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 		var othersFd []ma.Multiaddr     // public fd consuming
 
 		for _, a := range addrs {
-			if manet.IsPrivateAddr(a) {
-				if s.IsFdConsumingAddr(a) {
-					localFdAddrs = append(localFdAddrs, a)
-					continue
-				}
-				localUdpAddrs = append(localUdpAddrs, a)
-			} else if _, err := a.ValueForProtocol(ma.P_CIRCUIT); err == nil {
+			if _, err := a.ValueForProtocol(ma.P_CIRCUIT); err == nil {
 				if s.IsFdConsumingAddr(a) {
 					relayFdAddrs = append(relayFdAddrs, a)
 					continue
 				}
 				relayUdpAddrs = append(relayUdpAddrs, a)
+			} else if manet.IsPrivateAddr(a) {
+				if s.IsFdConsumingAddr(a) {
+					localFdAddrs = append(localFdAddrs, a)
+					continue
+				}
+				localUdpAddrs = append(localUdpAddrs, a)
 			} else {
 				if s.IsFdConsumingAddr(a) {
 					othersFd = append(othersFd, a)
