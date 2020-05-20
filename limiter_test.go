@@ -10,10 +10,25 @@ import (
 	"time"
 
 	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p-core/test"
 	"github.com/libp2p/go-libp2p-core/transport"
+
 	ma "github.com/multiformats/go-multiaddr"
 	mafmt "github.com/multiformats/go-multiaddr-fmt"
 )
+
+var isFdConsuming = func(addr ma.Multiaddr) bool {
+	res := false
+
+	ma.ForEach(addr, func(c ma.Component) bool {
+		if c.Protocol().Code == ma.P_TCP {
+			res = true
+			return false
+		}
+		return true
+	})
+	return res
+}
 
 func mustAddr(t *testing.T, s string) ma.Multiaddr {
 	a, err := ma.NewMultiaddr(s)
@@ -61,6 +76,11 @@ func hangDialFunc(hang chan struct{}) dialfunc {
 			return transport.CapableConn(nil), nil
 		}
 
+		_, err := a.ValueForProtocol(ma.P_CIRCUIT)
+		if err == nil {
+			return transport.CapableConn(nil), nil
+		}
+
 		if tcpPortOver(a, 10) {
 			return transport.CapableConn(nil), nil
 		}
@@ -74,7 +94,7 @@ func TestLimiterBasicDials(t *testing.T) {
 	hang := make(chan struct{})
 	defer close(hang)
 
-	l := newDialLimiterWithParams(hangDialFunc(hang), ConcurrentFdDials, 4)
+	l := newDialLimiterWithParams(isFdConsuming, hangDialFunc(hang), ConcurrentFdDials, 4)
 
 	bads := []ma.Multiaddr{addrWithPort(t, 1), addrWithPort(t, 2), addrWithPort(t, 3), addrWithPort(t, 4)}
 	good := addrWithPort(t, 20)
@@ -123,7 +143,7 @@ func TestLimiterBasicDials(t *testing.T) {
 func TestFDLimiting(t *testing.T) {
 	hang := make(chan struct{})
 	defer close(hang)
-	l := newDialLimiterWithParams(hangDialFunc(hang), 16, 5)
+	l := newDialLimiterWithParams(isFdConsuming, hangDialFunc(hang), 16, 5)
 
 	bads := []ma.Multiaddr{addrWithPort(t, 1), addrWithPort(t, 2), addrWithPort(t, 3), addrWithPort(t, 4)}
 	pids := []peer.ID{"testpeer1", "testpeer2", "testpeer3", "testpeer4"}
@@ -168,6 +188,21 @@ func TestFDLimiting(t *testing.T) {
 	case <-time.After(time.Second * 5):
 		t.Fatal("timeout waiting for utp addr success")
 	}
+
+	// A relay address with tcp transport will complete because we do not consume fds for dials
+	// with relay addresses as the fd will be consumed when we actually dial the relay server.
+	pid6 := test.RandPeerIDFatal(t)
+	relayAddr := mustAddr(t, fmt.Sprintf("/ip4/127.0.0.1/tcp/20/p2p-circuit/p2p/%s", pid6))
+	l.AddDialJob(&dialJob{ctx: ctx, peer: pid6, addr: relayAddr, resp: resch})
+
+	select {
+	case res := <-resch:
+		if res.Err != nil {
+			t.Fatal("should have gotten successful response")
+		}
+	case <-time.After(time.Second * 5):
+		t.Fatal("timeout waiting for relay addr success")
+	}
 }
 
 func TestTokenRedistribution(t *testing.T) {
@@ -184,7 +219,7 @@ func TestTokenRedistribution(t *testing.T) {
 		<-ch
 		return nil, fmt.Errorf("test bad dial")
 	}
-	l := newDialLimiterWithParams(df, 8, 4)
+	l := newDialLimiterWithParams(isFdConsuming, df, 8, 4)
 
 	bads := []ma.Multiaddr{addrWithPort(t, 1), addrWithPort(t, 2), addrWithPort(t, 3), addrWithPort(t, 4)}
 	pids := []peer.ID{"testpeer1", "testpeer2"}
@@ -277,7 +312,7 @@ func TestStressLimiter(t *testing.T) {
 		return nil, fmt.Errorf("test bad dial")
 	}
 
-	l := newDialLimiterWithParams(df, 20, 5)
+	l := newDialLimiterWithParams(isFdConsuming, df, 20, 5)
 
 	var bads []ma.Multiaddr
 	for i := 0; i < 100; i++ {
@@ -337,7 +372,7 @@ func TestFDLimitUnderflow(t *testing.T) {
 		return nil, fmt.Errorf("df timed out")
 	}
 
-	l := newDialLimiterWithParams(df, 20, 3)
+	l := newDialLimiterWithParams(isFdConsuming, df, 20, 3)
 
 	var addrs []ma.Multiaddr
 	for i := 0; i <= 1000; i++ {
