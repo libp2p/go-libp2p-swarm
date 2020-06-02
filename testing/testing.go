@@ -6,6 +6,7 @@ import (
 
 	"github.com/libp2p/go-libp2p-core/connmgr"
 	"github.com/libp2p/go-libp2p-core/control"
+	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/metrics"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -29,6 +30,7 @@ type config struct {
 	disableReuseport bool
 	dialOnly         bool
 	connectionGater  connmgr.ConnectionGater
+	sk               crypto.PrivKey
 }
 
 // Option is an option that can be passed when constructing a test swarm.
@@ -48,6 +50,13 @@ var OptDialOnly Option = func(_ *testing.T, c *config) {
 func OptConnGater(cg connmgr.ConnectionGater) Option {
 	return func(_ *testing.T, c *config) {
 		c.connectionGater = cg
+	}
+}
+
+// OptPeerPrivateKey configures the peer private key which is then used to derive the public key and peer ID.
+func OptPeerPrivateKey(sk crypto.PrivKey) Option {
+	return func(_ *testing.T, c *config) {
+		c.sk = sk
 	}
 }
 
@@ -78,12 +87,24 @@ func GenSwarm(t *testing.T, ctx context.Context, opts ...Option) *swarm.Swarm {
 		o(t, &cfg)
 	}
 
-	p := tnet.RandPeerNetParamsOrFatal(t)
+	var p tnet.PeerNetParams
+	if cfg.sk == nil {
+		p = tnet.RandPeerNetParamsOrFatal(t)
+	} else {
+		pk := cfg.sk.GetPublic()
+		id, err := peer.IDFromPublicKey(pk)
+		if err != nil {
+			t.Fatal(err)
+		}
+		p.PrivKey = cfg.sk
+		p.PubKey = pk
+		p.ID = id
+		p.Addr = tnet.ZeroLocalTCPAddress
+	}
 
 	ps := pstoremem.NewPeerstore()
 	ps.AddPubKey(p.ID, p.PubKey)
 	ps.AddPrivKey(p.ID, p.PrivKey)
-
 	s := swarm.NewSwarm(ctx, p.ID, ps, metrics.NewBandwidthCounter(), cfg.connectionGater)
 
 	// Call AddChildNoWait because we can't call AddChild after the process
