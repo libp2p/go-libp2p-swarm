@@ -46,7 +46,8 @@ type Stream struct {
 }
 
 func (s *Stream) ID() string {
-	return fmt.Sprintf("%d-%d", s.conn.id, s.id)
+	// format: <first 10 chars of peer id>-<global conn ordinal>-<global stream ordinal>
+	return fmt.Sprintf("%s-%d", s.conn.ID(), s.id)
 }
 
 func (s *Stream) String() string {

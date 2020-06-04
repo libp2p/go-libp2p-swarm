@@ -3,7 +3,6 @@ package swarm
 import (
 	"errors"
 	"fmt"
-	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -43,7 +42,8 @@ type Conn struct {
 }
 
 func (c *Conn) ID() string {
-	return strconv.FormatUint(uint64(c.id), 10)
+	// format: <first 10 chars of peer id>-<global conn ordinal>
+	return fmt.Sprintf("%s-%d", c.RemotePeer().Pretty()[0:10], c.id)
 }
 
 // Close closes this connection.
