@@ -54,6 +54,9 @@ type Swarm struct {
 	local peer.ID
 	peers peerstore.Peerstore
 
+	nextConnID   uint32 // guarded by atomic
+	nextStreamID uint32 // guarded by atomic
+
 	conns struct {
 		sync.RWMutex
 		m map[peer.ID][]*Conn
@@ -197,11 +200,13 @@ func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (*Conn,
 		}
 	}
 
-	stat := network.Stat{Direction: dir}
+	// Wrap and register the connection.
+	stat := network.Stat{Direction: dir, Opened: time.Now()}
 	c := &Conn{
 		conn:  tc,
 		swarm: s,
 		stat:  stat,
+		id:    atomic.AddUint32(&s.nextConnID, 1),
 	}
 
 	// we ONLY check upgraded connections here so we can send them a Disconnect message.
@@ -234,7 +239,6 @@ func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (*Conn,
 		return nil, ErrSwarmClosed
 	}
 
-	// Wrap and register the connection.
 	c.streams.m = make(map[*Stream]struct{})
 	s.conns.m[p] = append(s.conns.m[p], c)
 
