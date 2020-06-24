@@ -15,8 +15,6 @@ import (
 	"github.com/libp2p/go-libp2p-core/peerstore"
 	"github.com/libp2p/go-libp2p-core/test"
 
-	circuit "github.com/libp2p/go-libp2p-circuit"
-	qc "github.com/libp2p/go-libp2p-quic-transport"
 	. "github.com/libp2p/go-libp2p-swarm"
 	. "github.com/libp2p/go-libp2p-swarm/testing"
 
@@ -425,10 +423,6 @@ func TestIsFdConsuming(t *testing.T) {
 	sw := GenSwarm(t, ctx)
 	sk := sw.Peerstore().PrivKey(sw.LocalPeer())
 	require.NotNil(t, sk)
-	qtpt, err := qc.NewTransport(sk, nil, nil)
-	require.NoError(t, err)
-	require.NoError(t, sw.AddTransport(qtpt))
-	require.NoError(t, sw.AddTransport(&circuit.RelayTransport{}))
 
 	for name := range tcs {
 		maddr, err := ma.NewMultiaddr(tcs[name].addr)
