@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -175,6 +176,27 @@ func (s *Swarm) teardown() error {
 
 	// Wait for everything to finish.
 	s.refs.Wait()
+
+	// Now close out any transports (if necessary). Do this after closing
+	// all connections/listeners.
+	s.transports.Lock()
+	transports := s.transports.m
+	s.transports.m = nil
+	s.transports.Unlock()
+
+	var wg sync.WaitGroup
+	for _, t := range transports {
+		if closer, ok := t.(io.Closer); ok {
+			wg.Add(1)
+			go func(c io.Closer) {
+				defer wg.Done()
+				if err := closer.Close(); err != nil {
+					log.Errorf("error when closing down transport %T: %s", c, err)
+				}
+			}(closer)
+		}
+	}
+	wg.Wait()
 
 	return nil
 }
