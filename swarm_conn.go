@@ -87,10 +87,12 @@ func (c *Conn) doClose() {
 	}()
 }
 
-func (c *Conn) removeStream(s *Stream) {
+func (c *Conn) removeStream(s *Stream) bool {
 	c.streams.Lock()
+	_, has := c.streams.m[s]
 	delete(c.streams.m, s)
 	c.streams.Unlock()
+	return has
 }
 
 // listens for new streams.
