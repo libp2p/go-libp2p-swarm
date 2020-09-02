@@ -440,3 +440,20 @@ func TestNoDial(t *testing.T) {
 		t.Fatal("should have failed with ErrNoConn")
 	}
 }
+
+func TestCloseWithOpenStreams(t *testing.T) {
+	ctx := context.Background()
+	swarms := makeSwarms(ctx, t, 2)
+	connectSwarms(t, ctx, swarms)
+
+	s, err := swarms[0].NewStream(ctx, swarms[1].LocalPeer())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	// close swarm before stream.
+	err = swarms[0].Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+}

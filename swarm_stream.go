@@ -22,6 +22,8 @@ type Stream struct {
 	stream mux.MuxedStream
 	conn   *Conn
 
+	closeOnce sync.Once
+
 	notifyLk sync.Mutex
 
 	protocol atomic.Value
@@ -76,7 +78,7 @@ func (s *Stream) Write(p []byte) (int, error) {
 // resources.
 func (s *Stream) Close() error {
 	err := s.stream.Close()
-	s.remove()
+	s.closeOnce.Do(s.remove)
 	return err
 }
 
@@ -84,7 +86,7 @@ func (s *Stream) Close() error {
 // associated resources.
 func (s *Stream) Reset() error {
 	err := s.stream.Reset()
-	s.remove()
+	s.closeOnce.Do(s.remove)
 	return err
 }
 
@@ -102,9 +104,7 @@ func (s *Stream) CloseRead() error {
 }
 
 func (s *Stream) remove() {
-	if !s.conn.removeStream(s) {
-		return
-	}
+	s.conn.removeStream(s)
 
 	// We *must* do this in a goroutine. This can be called during a
 	// an open notification and will block until that notification is done.
