@@ -12,11 +12,12 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/peerstore"
 	"github.com/libp2p/go-libp2p-core/sec/insecure"
+	quic "github.com/libp2p/go-libp2p-quic-transport"
 
 	csms "github.com/libp2p/go-conn-security-multistream"
 	pstoremem "github.com/libp2p/go-libp2p-peerstore/pstoremem"
 	swarm "github.com/libp2p/go-libp2p-swarm"
-	"github.com/libp2p/go-libp2p-testing/net"
+	tnet "github.com/libp2p/go-libp2p-testing/net"
 	tptu "github.com/libp2p/go-libp2p-transport-upgrader"
 	yamux "github.com/libp2p/go-libp2p-yamux"
 	msmux "github.com/libp2p/go-stream-muxer-multistream"
@@ -114,6 +115,14 @@ func GenSwarm(t *testing.T, ctx context.Context, opts ...Option) *swarm.Swarm {
 	tcpTransport.DisableReuseport = cfg.disableReuseport
 
 	if err := s.AddTransport(tcpTransport); err != nil {
+		t.Fatal(err)
+	}
+
+	quicTransport, err := quic.NewTransport(p.PrivKey, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.AddTransport(quicTransport); err != nil {
 		t.Fatal(err)
 	}
 
