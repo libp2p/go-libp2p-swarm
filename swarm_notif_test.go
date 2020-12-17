@@ -145,7 +145,7 @@ func TestNotifications(t *testing.T) {
 		for _, c := range s.Conns() {
 			_, n2, _ := complement(c)
 
-			st1, err := c.NewStream()
+			st1, err := c.NewStream(context.Background())
 			if err != nil {
 				t.Error(err)
 			} else {

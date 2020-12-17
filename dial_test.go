@@ -49,7 +49,7 @@ func TestBasicDialPeer(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s, err := c.NewStream()
+	s, err := c.NewStream(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +74,7 @@ func TestDialWithNoListeners(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s, err := c.NewStream()
+	s, err := c.NewStream(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
