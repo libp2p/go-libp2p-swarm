@@ -251,17 +251,25 @@ func (s *Swarm) dialPeer(ctx context.Context, p peer.ID) (*Conn, error) {
 
 	defer log.EventBegin(ctx, "swarmDialAttemptSync", p).Done()
 
-	// check if we already have an open connection first
-	conn := s.bestConnToPeer(p)
-	if conn != nil {
-		return conn, nil
+	forceDirect, _ := network.GetForceDirectDial(ctx)
+	if forceDirect {
+		conn := s.directConnectionToPeer(p)
+		if conn != nil {
+			return conn, nil
+		}
+	} else {
+		// check if we already have an open connection first
+		conn := s.bestConnToPeer(p)
+		if conn != nil {
+			return conn, nil
+		}
 	}
 
 	// apply the DialPeer timeout
 	ctx, cancel := context.WithTimeout(ctx, network.GetDialPeerTimeout(ctx))
 	defer cancel()
 
-	conn, err = s.dsync.DialLock(ctx, p)
+	conn, err := s.dsync.DialLock(ctx, p)
 	if err == nil {
 		return conn, nil
 	}
@@ -287,9 +295,17 @@ func (s *Swarm) doDial(ctx context.Context, p peer.ID) (*Conn, error) {
 	// Short circuit.
 	// By the time we take the dial lock, we may already *have* a connection
 	// to the peer.
-	c := s.bestConnToPeer(p)
-	if c != nil {
-		return c, nil
+	forceDirect, _ := network.GetForceDirectDial(ctx)
+	if forceDirect {
+		c := s.directConnectionToPeer(p)
+		if c != nil {
+			return c, nil
+		}
+	} else {
+		c := s.bestConnToPeer(p)
+		if c != nil {
+			return c, nil
+		}
 	}
 
 	logdial := lgbl.Dial("swarm", s.LocalPeer(), p, nil, nil)
@@ -300,16 +316,23 @@ func (s *Swarm) doDial(ctx context.Context, p peer.ID) (*Conn, error) {
 
 	conn, err := s.dial(ctx, p)
 	if err != nil {
-		conn = s.bestConnToPeer(p)
-		if conn != nil {
-			// Hm? What error?
-			// Could have canceled the dial because we received a
-			// connection or some other random reason.
-			// Just ignore the error and return the connection.
-			log.Debugf("ignoring dial error because we have a connection: %s", err)
-			return conn, nil
+		if forceDirect {
+			conn = s.directConnectionToPeer(p)
+			if conn != nil {
+				log.Debugf("ignoring dial error because we have a connection: %s", err)
+				return conn, nil
+			}
+		} else {
+			conn = s.bestConnToPeer(p)
+			if conn != nil {
+				// Hm? What error?
+				// Could have canceled the dial because we received a
+				// connection or some other random reason.
+				// Just ignore the error and return the connection.
+				log.Debugf("ignoring dial error because we have a connection: %s", err)
+				return conn, nil
+			}
 		}
-
 		// ok, we failed.
 		return nil, err
 	}
@@ -321,8 +344,14 @@ func (s *Swarm) canDial(addr ma.Multiaddr) bool {
 	return t != nil && t.CanDial(addr)
 }
 
+func (s *Swarm) nonProxyAddr(addr ma.Multiaddr) bool {
+	t := s.TransportForDialing(addr)
+	return !t.Proxy()
+}
+
 // dial is the actual swarm's dial logic, gated by Dial.
 func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
+	forceDirect, _ := network.GetForceDirectDial(ctx)
 	var logdial = lgbl.Dial("swarm", s.LocalPeer(), p, nil, nil)
 	if p == s.local {
 		log.Event(ctx, "swarmDialDoDialSelf", logdial)
@@ -347,17 +376,25 @@ func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 	if len(goodAddrs) == 0 {
 		return nil, &DialError{Peer: p, Cause: ErrNoGoodAddresses}
 	}
-
-	/////// Check backoff andnRank addresses
-	var nonBackoff bool
-	for _, a := range goodAddrs {
-		// skip addresses in back-off
-		if !s.backf.Backoff(p, a) {
-			nonBackoff = true
-		}
+	// TODO Considering dialing private addresses as well
+	// See https://github.com/libp2p/specs/pull/173/files#r288784559
+	if forceDirect {
+		goodAddrs = addrutil.FilterAddrs(goodAddrs, s.nonProxyAddr, manet.IsPublicAddr)
 	}
-	if !nonBackoff {
-		return nil, ErrDialBackoff
+
+	// TODO How do we do backoff for forcedirect
+	if !forceDirect {
+		/////// Check backoff andnRank addresses
+		var nonBackoff bool
+		for _, a := range goodAddrs {
+			// skip addresses in back-off
+			if !s.backf.Backoff(p, a) {
+				nonBackoff = true
+			}
+		}
+		if !nonBackoff {
+			return nil, ErrDialBackoff
+		}
 	}
 
 	// ranks addresses in descending order of preference for dialing

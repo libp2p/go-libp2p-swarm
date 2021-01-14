@@ -334,6 +334,7 @@ func (s *Swarm) NewStream(ctx context.Context, p peer.ID) (network.Stream, error
 	// a non-closed connection.
 	dials := 0
 	for {
+		// TODO How would this work with forece direct ?
 		c := s.bestConnToPeer(p)
 		if c == nil {
 			if nodial, _ := network.GetNoDial(ctx); nodial {
@@ -402,6 +403,25 @@ func (s *Swarm) bestConnToPeer(p peer.ID) *Conn {
 
 	}
 	return best
+}
+
+// directConnectionToPeer returns a direct non proxied connection to the peer if one exists.
+func (s *Swarm) directConnectionToPeer(p peer.ID) *Conn {
+	s.conns.RLock()
+	defer s.conns.RUnlock()
+
+	for _, c := range s.conns.m[p] {
+		if c.conn.IsClosed() {
+			// We *will* garbage collect this soon anyways.
+			continue
+		}
+
+		if !c.conn.Transport().Proxy() {
+			return c
+		}
+	}
+
+	return nil
 }
 
 // Connectedness returns our "connectedness" state with the given peer.
