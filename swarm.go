@@ -334,8 +334,11 @@ func (s *Swarm) NewStream(ctx context.Context, p peer.ID) (network.Stream, error
 	// a non-closed connection.
 	dials := 0
 	for {
-		// TODO How would this work with forece direct ?
-		c := s.bestConnToPeer(p)
+		// if we have a direct connection to the peer, open the stream over it rather than using a proxied connection.
+		c := s.directConnectionToPeer(p)
+		if c == nil {
+			c = s.bestConnToPeer(p)
+		}
 		if c == nil {
 			if nodial, _ := network.GetNoDial(ctx); nodial {
 				return nil, network.ErrNoConn

@@ -373,13 +373,13 @@ func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 		return nil, &DialError{Peer: p, Cause: ErrNoAddresses}
 	}
 	goodAddrs := s.filterKnownUndialables(p, peerAddrs)
-	if len(goodAddrs) == 0 {
-		return nil, &DialError{Peer: p, Cause: ErrNoGoodAddresses}
-	}
 	// TODO Considering dialing private addresses as well
 	// See https://github.com/libp2p/specs/pull/173/files#r288784559
 	if forceDirect {
 		goodAddrs = addrutil.FilterAddrs(goodAddrs, s.nonProxyAddr, manet.IsPublicAddr)
+	}
+	if len(goodAddrs) == 0 {
+		return nil, &DialError{Peer: p, Cause: ErrNoGoodAddresses}
 	}
 
 	// TODO How do we do backoff for forcedirect
