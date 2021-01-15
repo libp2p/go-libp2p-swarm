@@ -373,10 +373,10 @@ func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 		return nil, &DialError{Peer: p, Cause: ErrNoAddresses}
 	}
 	goodAddrs := s.filterKnownUndialables(p, peerAddrs)
-	// TODO Consider NOT dialing private addresses as well
+	// TODO Consider dialing private addresses as well
 	// See https://github.com/libp2p/specs/pull/173/files#r288784559
 	if forceDirect {
-		goodAddrs = addrutil.FilterAddrs(goodAddrs, s.nonProxyAddr)
+		goodAddrs = addrutil.FilterAddrs(goodAddrs, manet.IsPublicAddr, s.nonProxyAddr)
 	}
 	if len(goodAddrs) == 0 {
 		return nil, &DialError{Peer: p, Cause: ErrNoGoodAddresses}
@@ -554,7 +554,6 @@ dialLoop:
 				remoteAddrChan = nil
 				continue
 			}
-
 			s.limitedDial(ctx, p, addr, respch)
 			active++
 		case <-ctx.Done():
