@@ -334,11 +334,8 @@ func (s *Swarm) NewStream(ctx context.Context, p peer.ID) (network.Stream, error
 	// a non-closed connection.
 	dials := 0
 	for {
-		// if we have a direct connection to the peer, open the stream over it rather than using a proxied connection.
-		c := s.directConnectionToPeer(p)
-		if c == nil {
-			c = s.bestConnToPeer(p)
-		}
+		// will prefer direct connections over relayed connections for opening streams
+		c := s.bestConnToPeer(p)
 		if c == nil {
 			if nodial, _ := network.GetNoDial(ctx); nodial {
 				return nil, network.ErrNoConn
@@ -382,9 +379,10 @@ func (s *Swarm) ConnsToPeer(p peer.ID) []network.Conn {
 
 // bestConnToPeer returns the best connection to peer.
 func (s *Swarm) bestConnToPeer(p peer.ID) *Conn {
+
 	// Selects the best connection we have to the peer.
-	// TODO: Prefer some transports over others. Currently, we just select
-	// the newest non-closed connection with the most streams.
+	// Prefers direct connections over Relayed connections.
+	// For tie-breaking, select the newest non-closed connection with the most streams.
 	s.conns.RLock()
 	defer s.conns.RUnlock()
 
@@ -399,32 +397,30 @@ func (s *Swarm) bestConnToPeer(p peer.ID) *Conn {
 		cLen := len(c.streams.m)
 		c.streams.Unlock()
 
-		if cLen >= bestLen {
-			best = c
-			bestLen = cLen
+		if isDirectConn(best) {
+			// Since the best connection we have till now is a direct connection,
+			// we will ONLY replace it with a direct connection
+			if !isDirectConn(c) {
+				continue
+			}
+			if cLen >= bestLen {
+				best = c
+				bestLen = cLen
+			}
+		} else {
+			// Since the best connection we have till now is a Relayed connection,
+			// we will simply replace with a newer connection if it has atleast as many streams.
+			if cLen >= bestLen {
+				best = c
+				bestLen = cLen
+			}
 		}
-
 	}
 	return best
 }
 
-// directConnectionToPeer returns a direct non proxied connection to the peer if one exists.
-func (s *Swarm) directConnectionToPeer(p peer.ID) *Conn {
-	s.conns.RLock()
-	defer s.conns.RUnlock()
-
-	for _, c := range s.conns.m[p] {
-		if c.conn.IsClosed() {
-			// We *will* garbage collect this soon anyways.
-			continue
-		}
-
-		if !c.conn.Transport().Proxy() {
-			return c
-		}
-	}
-
-	return nil
+func isDirectConn(c *Conn) bool {
+	return c != nil && !c.conn.Transport().Proxy()
 }
 
 // Connectedness returns our "connectedness" state with the given peer.

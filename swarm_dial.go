@@ -251,25 +251,22 @@ func (s *Swarm) dialPeer(ctx context.Context, p peer.ID) (*Conn, error) {
 
 	defer log.EventBegin(ctx, "swarmDialAttemptSync", p).Done()
 
+	conn := s.bestConnToPeer(p)
 	forceDirect, _ := network.GetForceDirectDial(ctx)
 	if forceDirect {
-		conn := s.directConnectionToPeer(p)
-		if conn != nil {
+		if isDirectConn(conn) {
 			return conn, nil
 		}
-	} else {
+	} else if conn != nil {
 		// check if we already have an open connection first
-		conn := s.bestConnToPeer(p)
-		if conn != nil {
-			return conn, nil
-		}
+		return conn, nil
 	}
 
 	// apply the DialPeer timeout
 	ctx, cancel := context.WithTimeout(ctx, network.GetDialPeerTimeout(ctx))
 	defer cancel()
 
-	conn, err := s.dsync.DialLock(ctx, p)
+	conn, err = s.dsync.DialLock(ctx, p)
 	if err == nil {
 		return conn, nil
 	}
@@ -296,16 +293,13 @@ func (s *Swarm) doDial(ctx context.Context, p peer.ID) (*Conn, error) {
 	// By the time we take the dial lock, we may already *have* a connection
 	// to the peer.
 	forceDirect, _ := network.GetForceDirectDial(ctx)
+	c := s.bestConnToPeer(p)
 	if forceDirect {
-		c := s.directConnectionToPeer(p)
-		if c != nil {
+		if isDirectConn(c) {
 			return c, nil
 		}
-	} else {
-		c := s.bestConnToPeer(p)
-		if c != nil {
-			return c, nil
-		}
+	} else if c != nil {
+		return c, nil
 	}
 
 	logdial := lgbl.Dial("swarm", s.LocalPeer(), p, nil, nil)
@@ -316,22 +310,19 @@ func (s *Swarm) doDial(ctx context.Context, p peer.ID) (*Conn, error) {
 
 	conn, err := s.dial(ctx, p)
 	if err != nil {
+		conn = s.bestConnToPeer(p)
 		if forceDirect {
-			conn = s.directConnectionToPeer(p)
-			if conn != nil {
+			if isDirectConn(conn) {
 				log.Debugf("ignoring dial error because we have a connection: %s", err)
 				return conn, nil
 			}
-		} else {
-			conn = s.bestConnToPeer(p)
-			if conn != nil {
-				// Hm? What error?
-				// Could have canceled the dial because we received a
-				// connection or some other random reason.
-				// Just ignore the error and return the connection.
-				log.Debugf("ignoring dial error because we have a connection: %s", err)
-				return conn, nil
-			}
+		} else if conn != nil {
+			// Hm? What error?
+			// Could have canceled the dial because we received a
+			// connection or some other random reason.
+			// Just ignore the error and return the connection.
+			log.Debugf("ignoring dial error because we have a connection: %s", err)
+			return conn, nil
 		}
 		// ok, we failed.
 		return nil, err
