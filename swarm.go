@@ -351,6 +351,13 @@ func (s *Swarm) NewStream(ctx context.Context, p peer.ID) (network.Stream, error
 				return nil, err
 			}
 		}
+
+		if c.Stat().Transient {
+			if !network.GetUseTransient(ctx) {
+				return nil, network.ErrTransientConn
+			}
+		}
+
 		s, err := c.NewStream(ctx)
 		if err != nil {
 			if c.conn.IsClosed() {
