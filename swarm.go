@@ -202,8 +202,7 @@ func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (*Conn,
 
 	// create the Stat object, initializing with the underlying connection Stat if available
 	var stat network.Stat
-	cs, ok := tc.(network.ConnStat)
-	if ok {
+	if cs, ok := tc.(network.ConnStat); ok {
 		stat = cs.Stat()
 	}
 	stat.Direction = dir
