@@ -200,8 +200,16 @@ func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (*Conn,
 		}
 	}
 
+	// create the Stat object, initializing with the underlying connection Stat if available
+	var stat network.Stat
+	cs, ok := tc.(network.ConnStat)
+	if ok {
+		stat = cs.Stat()
+	}
+	stat.Direction = dir
+	stat.Opened = time.Now()
+
 	// Wrap and register the connection.
-	stat := network.Stat{Direction: dir, Opened: time.Now()}
 	c := &Conn{
 		conn:  tc,
 		swarm: s,
