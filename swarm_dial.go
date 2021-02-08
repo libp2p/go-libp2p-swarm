@@ -440,7 +440,7 @@ func (s *Swarm) filterKnownUndialables(p peer.ID, addrs []ma.Multiaddr) []ma.Mul
 	for _, addr := range lisAddrs {
 		protos := addr.Protocols()
 		// we're only sure about filtering out /ip4 and /ip6 addresses, so far
-		if len(protos) == 2 && (protos[0].Code == ma.P_IP4 || protos[0].Code == ma.P_IP6) {
+		if protos[0].Code == ma.P_IP4 || protos[0].Code == ma.P_IP6 {
 			ourAddrs = append(ourAddrs, addr)
 		}
 	}

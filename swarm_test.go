@@ -3,8 +3,10 @@ package swarm_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -20,6 +22,7 @@ import (
 
 	logging "github.com/ipfs/go-log"
 	ma "github.com/multiformats/go-multiaddr"
+	manet "github.com/multiformats/go-multiaddr/net"
 	"github.com/stretchr/testify/require"
 )
 
@@ -455,5 +458,33 @@ func TestCloseWithOpenStreams(t *testing.T) {
 	err = swarms[0].Close()
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestPreventDialListenAddr(t *testing.T) {
+	s := GenSwarm(t, context.Background(), OptDialOnly)
+	if err := s.Listen(ma.StringCast("/ip4/0.0.0.0/udp/0/quic")); err != nil {
+		t.Fatal(err)
+	}
+	addrs, err := s.InterfaceListenAddresses()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var addr ma.Multiaddr
+	for _, a := range addrs {
+		_, s, err := manet.DialArgs(a)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Split(s, ":")[0] == "127.0.0.1" {
+			addr = a
+			break
+		}
+	}
+	remote := peer.ID("foobar")
+	s.Peerstore().AddAddr(remote, addr, time.Hour)
+	_, err = s.DialPeer(context.Background(), remote)
+	if !errors.Is(err, ErrNoGoodAddresses) {
+		t.Fatal("expected dial to fail: %w", err)
 	}
 }
