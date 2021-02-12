@@ -321,6 +321,45 @@ func (s *Swarm) canDial(addr ma.Multiaddr) bool {
 	return t != nil && t.CanDial(addr)
 }
 
+// ranks addresses in descending order of preference for dialing
+// Private UDP > Public UDP > Private TCP > Public TCP > UDP Relay server > TCP Relay server
+func (s *Swarm) rankAddrs(addrs []ma.Multiaddr) []ma.Multiaddr {
+	var localUdpAddrs []ma.Multiaddr // private udp
+	var relayUdpAddrs []ma.Multiaddr // relay udp
+	var othersUdp []ma.Multiaddr     // public udp
+
+	var localFdAddrs []ma.Multiaddr // private fd consuming
+	var relayFdAddrs []ma.Multiaddr //  relay fd consuming
+	var othersFd []ma.Multiaddr     // public fd consuming
+
+	for _, a := range addrs {
+		if _, err := a.ValueForProtocol(ma.P_CIRCUIT); err == nil {
+			if s.IsFdConsumingAddr(a) {
+				relayFdAddrs = append(relayFdAddrs, a)
+				continue
+			}
+			relayUdpAddrs = append(relayUdpAddrs, a)
+		} else if manet.IsPrivateAddr(a) {
+			if s.IsFdConsumingAddr(a) {
+				localFdAddrs = append(localFdAddrs, a)
+				continue
+			}
+			localUdpAddrs = append(localUdpAddrs, a)
+		} else {
+			if s.IsFdConsumingAddr(a) {
+				othersFd = append(othersFd, a)
+				continue
+			}
+			othersUdp = append(othersUdp, a)
+		}
+	}
+
+	relays := append(relayUdpAddrs, relayFdAddrs...)
+	fds := append(localFdAddrs, othersFd...)
+
+	return append(append(append(localUdpAddrs, othersUdp...), fds...), relays...)
+}
+
 // dial is the actual swarm's dial logic, gated by Dial.
 func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 	var logdial = lgbl.Dial("swarm", s.LocalPeer(), p, nil, nil)
@@ -360,47 +399,7 @@ func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 		return nil, ErrDialBackoff
 	}
 
-	// ranks addresses in descending order of preference for dialing
-	// Private UDP > Public UDP > Private TCP > Public TCP > UDP Relay server > TCP Relay server
-	rankAddrsFnc := func(addrs []ma.Multiaddr) []ma.Multiaddr {
-		var localUdpAddrs []ma.Multiaddr // private udp
-		var relayUdpAddrs []ma.Multiaddr // relay udp
-		var othersUdp []ma.Multiaddr     // public udp
-
-		var localFdAddrs []ma.Multiaddr // private fd consuming
-		var relayFdAddrs []ma.Multiaddr //  relay fd consuming
-		var othersFd []ma.Multiaddr     // public fd consuming
-
-		for _, a := range addrs {
-			if _, err := a.ValueForProtocol(ma.P_CIRCUIT); err == nil {
-				if s.IsFdConsumingAddr(a) {
-					relayFdAddrs = append(relayFdAddrs, a)
-					continue
-				}
-				relayUdpAddrs = append(relayUdpAddrs, a)
-			} else if manet.IsPrivateAddr(a) {
-				if s.IsFdConsumingAddr(a) {
-					localFdAddrs = append(localFdAddrs, a)
-					continue
-				}
-				localUdpAddrs = append(localUdpAddrs, a)
-			} else {
-				if s.IsFdConsumingAddr(a) {
-					othersFd = append(othersFd, a)
-					continue
-				}
-				othersUdp = append(othersUdp, a)
-			}
-		}
-
-		relays := append(relayUdpAddrs, relayFdAddrs...)
-		fds := append(localFdAddrs, othersFd...)
-
-		return append(append(append(localUdpAddrs, othersUdp...), fds...), relays...)
-	}
-
-	connC, dialErr := s.dialAddrs(ctx, p, rankAddrsFnc(goodAddrs))
-
+	connC, dialErr := s.dialAddrs(ctx, p, s.rankAddrs(goodAddrs))
 	if dialErr != nil {
 		logdial["error"] = dialErr.Cause.Error()
 		switch dialErr.Cause {
