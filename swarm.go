@@ -200,8 +200,15 @@ func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (*Conn,
 		}
 	}
 
+	// create the Stat object, initializing with the underlying connection Stat if available
+	var stat network.Stat
+	if cs, ok := tc.(network.ConnStat); ok {
+		stat = cs.Stat()
+	}
+	stat.Direction = dir
+	stat.Opened = time.Now()
+
 	// Wrap and register the connection.
-	stat := network.Stat{Direction: dir, Opened: time.Now()}
 	c := &Conn{
 		conn:  tc,
 		swarm: s,
@@ -351,6 +358,13 @@ func (s *Swarm) NewStream(ctx context.Context, p peer.ID) (network.Stream, error
 				return nil, err
 			}
 		}
+
+		if c.Stat().Transient {
+			if useTransient, _ := network.GetUseTransient(ctx); !useTransient {
+				return nil, network.ErrTransientConn
+			}
+		}
+
 		s, err := c.NewStream(ctx)
 		if err != nil {
 			if c.conn.IsClosed() {
