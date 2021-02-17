@@ -335,11 +335,10 @@ func (s *Swarm) canDial(addr ma.Multiaddr) bool {
 	return t != nil && t.CanDial(addr)
 }
 
-
 func (s *Swarm) nonProxyAddr(addr ma.Multiaddr) bool {
 	t := s.TransportForDialing(addr)
 	return !t.Proxy()
-} 
+}
 
 // ranks addresses in descending order of preference for dialing
 // Private UDP > Public UDP > Private TCP > Public TCP > UDP Relay server > TCP Relay server
