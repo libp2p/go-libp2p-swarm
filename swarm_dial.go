@@ -542,6 +542,7 @@ dialLoop:
 				remoteAddrChan = nil
 				continue
 			}
+
 			s.limitedDial(ctx, p, addr, respch)
 			active++
 		case <-ctx.Done():
