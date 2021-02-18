@@ -313,7 +313,7 @@ func (s *Swarm) doDial(ctx context.Context, p peer.ID) (*Conn, error) {
 		conn = s.bestConnToPeer(p)
 		if forceDirect {
 			if isDirectConn(conn) {
-				log.Debugf("ignoring dial error because we have a connection: %s", err)
+				log.Debugf("ignoring dial error because we already have a direct connection: %s", err)
 				return conn, nil
 			}
 		} else if conn != nil {
@@ -321,9 +321,10 @@ func (s *Swarm) doDial(ctx context.Context, p peer.ID) (*Conn, error) {
 			// Could have canceled the dial because we received a
 			// connection or some other random reason.
 			// Just ignore the error and return the connection.
-			log.Debugf("ignoring dial error because we have a connection: %s", err)
+			log.Debugf("ignoring dial error because we already have a connection: %s", err)
 			return conn, nil
 		}
+
 		// ok, we failed.
 		return nil, err
 	}
@@ -410,7 +411,6 @@ func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 		return nil, &DialError{Peer: p, Cause: ErrNoGoodAddresses}
 	}
 
-	// TODO How do we do backoff for forcedirect
 	if !forceDirect {
 		/////// Check backoff andnRank addresses
 		var nonBackoff bool
