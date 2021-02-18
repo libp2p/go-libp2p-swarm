@@ -341,6 +341,7 @@ func (s *Swarm) NewStream(ctx context.Context, p peer.ID) (network.Stream, error
 	// a non-closed connection.
 	dials := 0
 	for {
+		// will prefer direct connections over relayed connections for opening streams
 		c := s.bestConnToPeer(p)
 		if c == nil {
 			if nodial, _ := network.GetNoDial(ctx); nodial {
@@ -392,9 +393,10 @@ func (s *Swarm) ConnsToPeer(p peer.ID) []network.Conn {
 
 // bestConnToPeer returns the best connection to peer.
 func (s *Swarm) bestConnToPeer(p peer.ID) *Conn {
-	// Selects the best connection we have to the peer.
-	// TODO: Prefer some transports over others. Currently, we just select
-	// the newest non-closed connection with the most streams.
+
+	// TODO: Prefer some transports over others.
+	// For now, prefers direct connections over Relayed connections.
+	// For tie-breaking, select the newest non-closed connection with the most streams.
 	s.conns.RLock()
 	defer s.conns.RUnlock()
 
@@ -409,13 +411,23 @@ func (s *Swarm) bestConnToPeer(p peer.ID) *Conn {
 		cLen := len(c.streams.m)
 		c.streams.Unlock()
 
-		if cLen >= bestLen {
+		// We will never prefer a Relayed connection over a direct connection.
+		if isDirectConn(best) && !isDirectConn(c) {
+			continue
+		}
+
+		// 1. Always prefer a direct connection over a relayed connection.
+		// 2. If both conns are direct or relayed, pick the one with as many or more streams.
+		if (!isDirectConn(best) && isDirectConn(c)) || (cLen >= bestLen) {
 			best = c
 			bestLen = cLen
 		}
-
 	}
 	return best
+}
+
+func isDirectConn(c *Conn) bool {
+	return c != nil && !c.conn.Transport().Proxy()
 }
 
 // Connectedness returns our "connectedness" state with the given peer.
