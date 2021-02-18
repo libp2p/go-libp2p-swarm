@@ -402,8 +402,7 @@ func (s *Swarm) bestConnToPeer(p peer.ID) *Conn {
 
 	var best *Conn
 	bestLen := 0
-	for i := range s.conns.m[p] {
-		c := s.conns.m[p][i]
+	for _, c := range s.conns.m[p] {
 		if c.conn.IsClosed() {
 			// We *will* garbage collect this soon anyways.
 			continue
