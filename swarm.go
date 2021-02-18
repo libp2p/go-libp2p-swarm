@@ -380,15 +380,16 @@ func (s *Swarm) ConnsToPeer(p peer.ID) []network.Conn {
 // bestConnToPeer returns the best connection to peer.
 func (s *Swarm) bestConnToPeer(p peer.ID) *Conn {
 
-	// Selects the best connection we have to the peer.
-	// Prefers direct connections over Relayed connections.
+	// TODO: Prefer some transports over others.
+	// For now, prefers direct connections over Relayed connections.
 	// For tie-breaking, select the newest non-closed connection with the most streams.
 	s.conns.RLock()
 	defer s.conns.RUnlock()
 
 	var best *Conn
 	bestLen := 0
-	for _, c := range s.conns.m[p] {
+	for i := range s.conns.m[p] {
+		c := s.conns.m[p][i]
 		if c.conn.IsClosed() {
 			// We *will* garbage collect this soon anyways.
 			continue
@@ -397,23 +398,16 @@ func (s *Swarm) bestConnToPeer(p peer.ID) *Conn {
 		cLen := len(c.streams.m)
 		c.streams.Unlock()
 
-		if isDirectConn(best) {
-			// Since the best connection we have till now is a direct connection,
-			// we will ONLY replace it with a direct connection
-			if !isDirectConn(c) {
-				continue
-			}
-			if cLen >= bestLen {
-				best = c
-				bestLen = cLen
-			}
-		} else {
-			// Since the best connection we have till now is a Relayed connection,
-			// we will simply replace with a newer connection if it has atleast as many streams.
-			if cLen >= bestLen {
-				best = c
-				bestLen = cLen
-			}
+		// We will never prefer a Relayed connection over a direct connection.
+		if isDirectConn(best) && !isDirectConn(c) {
+			continue
+		}
+
+		// 1. Always prefer a direct connection over a relayed connection.
+		// 2. If both conns are direct or relayed, pick the one with as many or more streams.
+		if (!isDirectConn(best) && isDirectConn(c)) || (cLen >= bestLen) {
+			best = c
+			bestLen = cLen
 		}
 	}
 	return best
