@@ -82,6 +82,15 @@ func (s *Swarm) AddListenAddr(a ma.Multiaddr) error {
 		}()
 		for {
 			c, err := list.Accept()
+
+			var stat network.Stat
+			if cs, ok := c.(network.ConnStat); ok {
+				stat = cs.Stat()
+				if _, ok = stat.Extra["hpcancel"]; ok {
+					fmt.Printf("\n accepted quic-dial cancelled connction %v", c)
+				}
+			}
+
 			if err != nil {
 				if s.ctx.Err() == nil {
 					// only log if the swarm is still running.
