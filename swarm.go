@@ -439,6 +439,17 @@ func (s *Swarm) bestConnToPeer(p peer.ID) *Conn {
 	return best
 }
 
+func (s *Swarm) bestAcceptableConnToPeer(ctx context.Context, p peer.ID) *Conn {
+	conn := s.bestConnToPeer(p)
+	if conn != nil {
+		forceDirect, _ := network.GetForceDirectDial(ctx)
+		if !forceDirect || isDirectConn(conn) {
+			return conn
+		}
+	}
+	return nil
+}
+
 func isDirectConn(c *Conn) bool {
 	return c != nil && !c.conn.Transport().Proxy()
 }

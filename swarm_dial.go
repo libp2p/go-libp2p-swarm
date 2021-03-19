@@ -251,14 +251,9 @@ func (s *Swarm) dialPeer(ctx context.Context, p peer.ID) (*Conn, error) {
 
 	defer log.EventBegin(ctx, "swarmDialAttemptSync", p).Done()
 
-	conn := s.bestConnToPeer(p)
-	forceDirect, _ := network.GetForceDirectDial(ctx)
-	if forceDirect {
-		if isDirectConn(conn) {
-			return conn, nil
-		}
-	} else if conn != nil {
-		// check if we already have an open connection first
+	// check if we already have an open (usable) connection first
+	conn := s.bestAcceptableConnToPeer(ctx, p)
+	if conn != nil {
 		return conn, nil
 	}
 
@@ -292,13 +287,8 @@ func (s *Swarm) doDial(ctx context.Context, p peer.ID) (*Conn, error) {
 	// Short circuit.
 	// By the time we take the dial lock, we may already *have* a connection
 	// to the peer.
-	forceDirect, _ := network.GetForceDirectDial(ctx)
-	c := s.bestConnToPeer(p)
-	if forceDirect {
-		if isDirectConn(c) {
-			return c, nil
-		}
-	} else if c != nil {
+	c := s.bestAcceptableConnToPeer(ctx, p)
+	if c != nil {
 		return c, nil
 	}
 
@@ -310,13 +300,8 @@ func (s *Swarm) doDial(ctx context.Context, p peer.ID) (*Conn, error) {
 
 	conn, err := s.dial(ctx, p)
 	if err != nil {
-		conn = s.bestConnToPeer(p)
-		if forceDirect {
-			if isDirectConn(conn) {
-				log.Debugf("ignoring dial error because we already have a direct connection: %s", err)
-				return conn, nil
-			}
-		} else if conn != nil {
+		conn := s.bestAcceptableConnToPeer(ctx, p)
+		if conn != nil {
 			// Hm? What error?
 			// Could have canceled the dial because we received a
 			// connection or some other random reason.
