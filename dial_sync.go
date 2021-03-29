@@ -77,8 +77,6 @@ func (ad *activeDial) dial(ctx context.Context) (*Conn, error) {
 		select {
 		case ad.connch <- c:
 		case <-ad.waitch:
-			log.Debugf("active dial complete; closing connection %+v", c)
-			_ = c.Close()
 		}
 	}()
 
