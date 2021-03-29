@@ -32,43 +32,38 @@ func getMockDialFunc() (DialFunc, func(), context.Context, <-chan struct{}) {
 	return f, func() { o.Do(func() { close(ch) }) }, dialctx, dfcalls
 }
 
-// func TestBasicDialSync(t *testing.T) {
-// 	df, done, _, callsch := getMockDialFunc()
+func TestBasicDialSync(t *testing.T) {
+	df, done, _, _ := getMockDialFunc()
 
-// 	dsync := NewDialSync(df)
+	dsync := NewDialSync(df)
 
-// 	p := peer.ID("testpeer")
+	p := peer.ID("testpeer")
 
-// 	ctx := context.Background()
+	ctx := context.Background()
 
-// 	finished := make(chan struct{})
-// 	go func() {
-// 		_, err := dsync.DialLock(ctx, p)
-// 		if err != nil {
-// 			t.Error(err)
-// 		}
-// 		finished <- struct{}{}
-// 	}()
+	finished := make(chan *Conn)
+	doDial := func() {
+		c, err := dsync.DialLock(ctx, p)
+		if err != nil {
+			t.Error(err)
+		}
+		finished <- c
+	}
 
-// 	go func() {
-// 		_, err := dsync.DialLock(ctx, p)
-// 		if err != nil {
-// 			t.Error(err)
-// 		}
-// 		finished <- struct{}{}
-// 	}()
+	go doDial()
+	go doDial()
 
-// 	// short sleep just to make sure we've moved around in the scheduler
-// 	time.Sleep(time.Millisecond * 20)
-// 	done()
+	// short sleep just to make sure we've moved around in the scheduler
+	time.Sleep(time.Millisecond * 20)
+	done()
 
-// 	<-finished
-// 	<-finished
+	c1 := <-finished
+	c2 := <-finished
 
-// 	if len(callsch) > 1 {
-// 		t.Fatal("should only have called dial func once!")
-// 	}
-// }
+	if c1 != c2 {
+		t.Fatal("should have gotten the same connection")
+	}
+}
 
 func TestDialSyncCancel(t *testing.T) {
 	df, done, _, dcall := getMockDialFunc()
