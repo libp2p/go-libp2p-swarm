@@ -9,7 +9,12 @@ import (
 
 	. "github.com/libp2p/go-libp2p-swarm"
 
+	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p-core/peerstore"
+	"github.com/libp2p/go-libp2p-peerstore/pstoremem"
+
+	ma "github.com/multiformats/go-multiaddr"
 )
 
 func getMockDialFunc() (DialFunc, func(), context.Context, <-chan struct{}) {
@@ -32,12 +37,41 @@ func getMockDialFunc() (DialFunc, func(), context.Context, <-chan struct{}) {
 	return f, func() { o.Do(func() { close(ch) }) }, dialctx, dfcalls
 }
 
+func getMockDialFuncWithPeerstore(ps peerstore.Peerstore) (DialFunc, func(), context.Context, <-chan *Conn) {
+	dfcalls := make(chan *Conn, 512) // buffer it large enough that we won't care
+	dialctx, cancel := context.WithCancel(context.Background())
+	ch := make(chan struct{})
+	f := func(ctx context.Context, p peer.ID, dedup DialDedupFunc) (*Conn, error) {
+		defer cancel()
+
+		addrs := dedup(ps.Addrs(p))
+		if len(addrs) == 0 {
+			return nil, ErrNoNewAddresses
+		}
+
+		select {
+		case <-ch:
+			c := new(Conn)
+			dfcalls <- c
+			return c, nil
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+
+	o := new(sync.Once)
+
+	return f, func() { o.Do(func() { close(ch) }) }, dialctx, dfcalls
+}
+
 func TestBasicDialSync(t *testing.T) {
-	df, done, _, _ := getMockDialFunc()
+	ps := pstoremem.NewPeerstore()
+	df, done, _, dfcalls := getMockDialFuncWithPeerstore(ps)
 
 	dsync := NewDialSync(df)
 
 	p := peer.ID("testpeer")
+	ps.AddAddr(p, ma.StringCast("/ip4/1.2.3.4/tcp/5678"), peerstore.PermanentAddrTTL)
 
 	ctx := context.Background()
 
@@ -62,6 +96,48 @@ func TestBasicDialSync(t *testing.T) {
 
 	if c1 != c2 {
 		t.Fatal("should have gotten the same connection")
+	}
+
+	if len(dfcalls) != 1 {
+		t.Fatal("expected a single dial call")
+	}
+}
+
+func TestBasicDialSync2(t *testing.T) {
+	ps := pstoremem.NewPeerstore()
+	df, done, _, dfcalls := getMockDialFuncWithPeerstore(ps)
+
+	dsync := NewDialSync(df)
+
+	p := peer.ID("testpeer")
+
+	ctx := context.Background()
+
+	finished := make(chan *Conn)
+	doDial := func(ctx context.Context, a ma.Multiaddr) {
+		ps.AddAddr(p, a, peerstore.PermanentAddrTTL)
+		c, err := dsync.DialLock(ctx, p)
+		if err != nil {
+			t.Error(err)
+		}
+		finished <- c
+	}
+
+	go doDial(ctx, ma.StringCast("/ip4/1.2.3.4/tcp/5678/p2p-circuit"))
+	time.Sleep(10 * time.Millisecond)
+	go doDial(network.WithForceDirectDial(ctx, "test"), ma.StringCast("/ip4/4.3.2.1/tcp/5678"))
+	time.Sleep(10 * time.Millisecond)
+
+	done()
+	c1 := <-finished
+	c2 := <-finished
+
+	if c1 == c2 {
+		t.Fatal("should have gotten different connections")
+	}
+
+	if len(dfcalls) != 2 {
+		t.Fatal("expected two dial calls")
 	}
 }
 
