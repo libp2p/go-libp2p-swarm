@@ -56,6 +56,8 @@ var (
 	// ErrGaterDisallowedConnection is returned when the gater prevents us from
 	// forming a connection with a peer.
 	ErrGaterDisallowedConnection = errors.New("gater disallows connection to peer")
+
+	errNoNewAddresses = errors.New("no new addresses")
 )
 
 // DialAttempts governs how many times a goroutine will try to dial a given peer.
@@ -283,7 +285,7 @@ func (s *Swarm) dialPeer(ctx context.Context, p peer.ID) (*Conn, error) {
 
 // doDial is an ugly shim method to retain all the logging and backoff logic
 // of the old dialsync code
-func (s *Swarm) doDial(ctx context.Context, p peer.ID) (*Conn, error) {
+func (s *Swarm) doDial(ctx context.Context, p peer.ID, filter DialFilterFunc) (*Conn, error) {
 	// Short circuit.
 	// By the time we take the dial lock, we may already *have* a connection
 	// to the peer.
@@ -298,7 +300,7 @@ func (s *Swarm) doDial(ctx context.Context, p peer.ID) (*Conn, error) {
 	// if it succeeds, dial will add the conn to the swarm itself.
 	defer log.EventBegin(ctx, "swarmDialAttemptStart", logdial).Done()
 
-	conn, err := s.dial(ctx, p)
+	conn, err := s.dial(ctx, p, filter)
 	if err != nil {
 		conn := s.bestAcceptableConnToPeer(ctx, p)
 		if conn != nil {
@@ -366,7 +368,7 @@ func (s *Swarm) rankAddrs(addrs []ma.Multiaddr) []ma.Multiaddr {
 }
 
 // dial is the actual swarm's dial logic, gated by Dial.
-func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
+func (s *Swarm) dial(ctx context.Context, p peer.ID, filter DialFilterFunc) (*Conn, error) {
 	forceDirect, _ := network.GetForceDirectDial(ctx)
 	var logdial = lgbl.Dial("swarm", s.LocalPeer(), p, nil, nil)
 	if p == s.local {
@@ -410,7 +412,12 @@ func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 		}
 	}
 
-	connC, dialErr := s.dialAddrs(ctx, p, s.rankAddrs(goodAddrs))
+	dialAddrs := filter(goodAddrs)
+	if len(dialAddrs) == 0 {
+		return nil, errNoNewAddresses
+	}
+
+	connC, dialErr := s.dialAddrs(ctx, p, s.rankAddrs(dialAddrs))
 	if dialErr != nil {
 		logdial["error"] = dialErr.Cause.Error()
 		switch dialErr.Cause {
