@@ -40,7 +40,17 @@ func (s *Swarm) Listen(addrs ...ma.Multiaddr) error {
 func (s *Swarm) AddListenAddr(a ma.Multiaddr) error {
 	tpt := s.TransportForListening(a)
 	if tpt == nil {
-		return ErrNoTransport
+		// TransportForListening will return nil if either:
+		// 1. No transport has been registered.
+		// 2. We're closed (so we've nulled out the transport map.
+		//
+		// Distinguish between these two cases to avoid confusing users.
+		select {
+		case <-s.proc.Closing():
+			return ErrSwarmClosed
+		default:
+			return ErrNoTransport
+		}
 	}
 
 	list, err := tpt.Listen(a)
