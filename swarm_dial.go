@@ -285,7 +285,7 @@ func (s *Swarm) dialPeer(ctx context.Context, p peer.ID) (*Conn, error) {
 
 // doDial is an ugly shim method to retain all the logging and backoff logic
 // of the old dialsync code
-func (s *Swarm) doDial(ctx context.Context, p peer.ID, filter DialFilterFunc) (*Conn, error) {
+func (s *Swarm) doDial(ctx context.Context, p peer.ID, dedup DialDedupFunc) (*Conn, error) {
 	// Short circuit.
 	// By the time we take the dial lock, we may already *have* a connection
 	// to the peer.
@@ -300,7 +300,7 @@ func (s *Swarm) doDial(ctx context.Context, p peer.ID, filter DialFilterFunc) (*
 	// if it succeeds, dial will add the conn to the swarm itself.
 	defer log.EventBegin(ctx, "swarmDialAttemptStart", logdial).Done()
 
-	conn, err := s.dial(ctx, p, filter)
+	conn, err := s.dial(ctx, p, dedup)
 	if err != nil {
 		conn := s.bestAcceptableConnToPeer(ctx, p)
 		if conn != nil {
@@ -368,7 +368,7 @@ func (s *Swarm) rankAddrs(addrs []ma.Multiaddr) []ma.Multiaddr {
 }
 
 // dial is the actual swarm's dial logic, gated by Dial.
-func (s *Swarm) dial(ctx context.Context, p peer.ID, filter DialFilterFunc) (*Conn, error) {
+func (s *Swarm) dial(ctx context.Context, p peer.ID, dedup DialDedupFunc) (*Conn, error) {
 	forceDirect, _ := network.GetForceDirectDial(ctx)
 	var logdial = lgbl.Dial("swarm", s.LocalPeer(), p, nil, nil)
 	if p == s.local {
@@ -412,7 +412,7 @@ func (s *Swarm) dial(ctx context.Context, p peer.ID, filter DialFilterFunc) (*Co
 		}
 	}
 
-	dialAddrs := filter(goodAddrs)
+	dialAddrs := dedup(goodAddrs)
 	if len(dialAddrs) == 0 {
 		return nil, errNoNewAddresses
 	}

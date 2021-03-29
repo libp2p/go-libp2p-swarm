@@ -16,7 +16,7 @@ func getMockDialFunc() (DialFunc, func(), context.Context, <-chan struct{}) {
 	dfcalls := make(chan struct{}, 512) // buffer it large enough that we won't care
 	dialctx, cancel := context.WithCancel(context.Background())
 	ch := make(chan struct{})
-	f := func(ctx context.Context, p peer.ID, _ DialFilterFunc) (*Conn, error) {
+	f := func(ctx context.Context, p peer.ID, _ DialDedupFunc) (*Conn, error) {
 		dfcalls <- struct{}{}
 		defer cancel()
 		select {
@@ -174,7 +174,7 @@ func TestDialSyncAllCancel(t *testing.T) {
 
 func TestFailFirst(t *testing.T) {
 	var count int
-	f := func(ctx context.Context, p peer.ID, _ DialFilterFunc) (*Conn, error) {
+	f := func(ctx context.Context, p peer.ID, _ DialDedupFunc) (*Conn, error) {
 		if count > 0 {
 			return new(Conn), nil
 		}
@@ -205,7 +205,7 @@ func TestFailFirst(t *testing.T) {
 }
 
 func TestStressActiveDial(t *testing.T) {
-	ds := NewDialSync(func(ctx context.Context, p peer.ID, _ DialFilterFunc) (*Conn, error) {
+	ds := NewDialSync(func(ctx context.Context, p peer.ID, _ DialDedupFunc) (*Conn, error) {
 		return nil, nil
 	})
 

@@ -16,10 +16,10 @@ import (
 var errDialFailed = errors.New("dial failed")
 
 // DialFunc is the type of function expected by DialSync.
-type DialFunc func(context.Context, peer.ID, DialFilterFunc) (*Conn, error)
+type DialFunc func(context.Context, peer.ID, DialDedupFunc) (*Conn, error)
 
-// DialFilterFunc is a function that filters a set of multiaddrs to trigger a new dial
-type DialFilterFunc func([]ma.Multiaddr) []ma.Multiaddr
+// DialDedupFunc is a function that deduplicates a set of multiaddrs from active dials
+type DialDedupFunc func([]ma.Multiaddr) []ma.Multiaddr
 
 // NewDialSync constructs a new DialSync
 func NewDialSync(dfn DialFunc) *DialSync {
@@ -63,7 +63,7 @@ func (ad *activeDial) dial(ctx context.Context) (*Conn, error) {
 
 	dialCtx := ad.dialContext(ctx)
 	go func() {
-		c, err := ad.ds.dialFunc(dialCtx, ad.id, ad.filter)
+		c, err := ad.ds.dialFunc(dialCtx, ad.id, ad.dedup)
 
 		if err != nil {
 			select {
@@ -106,7 +106,7 @@ func (ad *activeDial) dialContext(ctx context.Context) context.Context {
 	return dialCtx
 }
 
-func (ad *activeDial) filter(addrs []ma.Multiaddr) (result []ma.Multiaddr) {
+func (ad *activeDial) dedup(addrs []ma.Multiaddr) (result []ma.Multiaddr) {
 	ad.addrsLk.Lock()
 	defer ad.addrsLk.Unlock()
 
