@@ -154,6 +154,7 @@ func (ad *activeDial) start(ctx context.Context) {
 			dialCnt++
 
 		case ad.conn = <-ad.connch:
+			ad.err = nil
 			return
 
 		case err := <-ad.errch:
