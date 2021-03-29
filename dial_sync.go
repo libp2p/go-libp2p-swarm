@@ -192,10 +192,6 @@ func (ds *DialSync) getActiveDial(p peer.ID) *activeDial {
 
 	actd, ok := ds.dials[p]
 	if !ok {
-		// This code intentionally uses the background context. Otherwise, if the first call
-		// to Dial is canceled, subsequent dial calls will also be canceled.
-		// XXX: this also breaks direct connection logic. We will need to pipe the
-		// information through some other way.
 		adctx, cancel := context.WithCancel(context.Background())
 		actd = &activeDial{
 			id:     p,
