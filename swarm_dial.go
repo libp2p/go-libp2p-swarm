@@ -57,7 +57,9 @@ var (
 	// forming a connection with a peer.
 	ErrGaterDisallowedConnection = errors.New("gater disallows connection to peer")
 
-	errNoNewAddresses = errors.New("no new addresses")
+	// ErrNoNewAddresses is used internally to signal that deduplication didn't produce
+	// any usable addresses for simultaneous dials
+	ErrNoNewAddresses = errors.New("no new addresses")
 )
 
 // DialAttempts governs how many times a goroutine will try to dial a given peer.
@@ -414,7 +416,7 @@ func (s *Swarm) dial(ctx context.Context, p peer.ID, dedup DialDedupFunc) (*Conn
 
 	dialAddrs := dedup(goodAddrs)
 	if len(dialAddrs) == 0 {
-		return nil, errNoNewAddresses
+		return nil, ErrNoNewAddresses
 	}
 
 	connC, dialErr := s.dialAddrs(ctx, p, s.rankAddrs(dialAddrs))

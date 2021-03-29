@@ -62,7 +62,10 @@ func (ad *activeDial) dial(ctx context.Context) (*Conn, error) {
 	defer ad.decref()
 
 	dialCtx := ad.dialContext(ctx)
+	res := make(chan *Conn, 1)
 	go func() {
+		defer close(res)
+
 		c, err := ad.ds.dialFunc(dialCtx, ad.id, ad.dedup)
 
 		if err != nil {
@@ -74,12 +77,25 @@ func (ad *activeDial) dial(ctx context.Context) (*Conn, error) {
 			return
 		}
 
+		res <- c
+
 		select {
 		case ad.connch <- c:
 		case <-ad.waitch:
 		}
 	}()
 
+	// first try to get the context specific connection, if any
+	select {
+	case c := <-res:
+		if c != nil {
+			return c, nil
+		}
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+
+	// we don't have a context-specific connection, join the other dials
 	select {
 	case <-ad.waitch:
 		return ad.conn, ad.err
@@ -158,7 +174,7 @@ func (ad *activeDial) start(ctx context.Context) {
 			return
 
 		case err := <-ad.errch:
-			if err != errNoNewAddresses {
+			if err != ErrNoNewAddresses {
 				ad.err = multierror.Append(ad.err, err)
 			}
 
