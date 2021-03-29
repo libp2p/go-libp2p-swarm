@@ -48,15 +48,15 @@ var ErrDialTimeout = errors.New("dial timed out")
 // communication. The Chan sends/receives Messages, which note the
 // destination or source Peer.
 type Swarm struct {
+	nextConnID   uint64 // guarded by atomic
+	nextStreamID uint64 // guarded by atomic
+
 	// Close refcount. This allows us to fully wait for the swarm to be torn
 	// down before continuing.
 	refs sync.WaitGroup
 
 	local peer.ID
 	peers peerstore.Peerstore
-
-	nextConnID   uint32 // guarded by atomic
-	nextStreamID uint32 // guarded by atomic
 
 	conns struct {
 		sync.RWMutex
@@ -235,7 +235,7 @@ func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (*Conn,
 		conn:  tc,
 		swarm: s,
 		stat:  stat,
-		id:    atomic.AddUint32(&s.nextConnID, 1),
+		id:    atomic.AddUint64(&s.nextConnID, 1),
 	}
 
 	// we ONLY check upgraded connections here so we can send them a Disconnect message.
