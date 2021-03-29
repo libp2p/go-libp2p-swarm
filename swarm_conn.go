@@ -54,6 +54,11 @@ func (c *Conn) ID() string {
 // open notifications must finish before we can fire off the close
 // notifications).
 func (c *Conn) Close() error {
+	// for mock tests
+	if c == nil || c.conn == nil {
+		return nil
+	}
+
 	c.closeOnce.Do(c.doClose)
 	return c.err
 }

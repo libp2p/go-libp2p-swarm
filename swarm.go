@@ -259,12 +259,6 @@ func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (*Conn,
 	c.notifyLk.Lock()
 	s.conns.Unlock()
 
-	// We have a connection now. Cancel all other in-progress dials.
-	// This should be fast, no reason to wait till later.
-	if dir == network.DirOutbound {
-		s.dsync.CancelDial(p)
-	}
-
 	s.notifyAll(func(f network.Notifiee) {
 		f.Connected(s, c)
 	})

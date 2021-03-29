@@ -44,7 +44,7 @@ type activeDial struct {
 	ctx      context.Context
 	cancel   func()
 
-	addrs   map[ma.Multiaddr]struct{}
+	addrs   map[string]struct{}
 	addrsLk sync.Mutex
 
 	err    error
@@ -68,7 +68,7 @@ func (ad *activeDial) dial(ctx context.Context) (*Conn, error) {
 		if err != nil {
 			select {
 			case ad.errch <- err:
-			case <-ad.ctx.Done():
+			case <-ad.waitch:
 			}
 
 			return
@@ -76,8 +76,8 @@ func (ad *activeDial) dial(ctx context.Context) (*Conn, error) {
 
 		select {
 		case ad.connch <- c:
-		case <-ad.ctx.Done():
-			log.Debugf("dial context done; closing connection %+v", c)
+		case <-ad.waitch:
+			log.Debugf("active dial complete; closing connection %+v", c)
 			_ = c.Close()
 		}
 	}()
@@ -111,13 +111,15 @@ func (ad *activeDial) filter(addrs []ma.Multiaddr) (result []ma.Multiaddr) {
 	defer ad.addrsLk.Unlock()
 
 	for _, a := range addrs {
-		_, active := ad.addrs[a]
+		key := a.String()
+
+		_, active := ad.addrs[key]
 		if active {
 			continue
 		}
 
 		result = append(result, a)
-		ad.addrs[a] = struct{}{}
+		ad.addrs[key] = struct{}{}
 	}
 
 	return result
@@ -130,25 +132,17 @@ func (ad *activeDial) incref() {
 }
 
 func (ad *activeDial) decref() {
+	// make sure to always take locks in correct order.
+	ad.ds.dialsLk.Lock()
 	ad.refCntLk.Lock()
 	ad.refCnt--
-	maybeZero := (ad.refCnt <= 0)
-	ad.refCntLk.Unlock()
-
-	// make sure to always take locks in correct order.
-	if maybeZero {
-		ad.ds.dialsLk.Lock()
-		ad.refCntLk.Lock()
-		// check again after lock swap drop to make sure nobody else called incref
-		// in between locks
-		if ad.refCnt <= 0 {
-			ad.cancel()
-			close(ad.donech)
-			delete(ad.ds.dials, ad.id)
-		}
-		ad.refCntLk.Unlock()
-		ad.ds.dialsLk.Unlock()
+	if ad.refCnt == 0 {
+		ad.cancel()
+		close(ad.donech)
+		delete(ad.ds.dials, ad.id)
 	}
+	ad.refCntLk.Unlock()
+	ad.ds.dialsLk.Unlock()
 }
 
 func (ad *activeDial) start(ctx context.Context) {
@@ -163,6 +157,7 @@ func (ad *activeDial) start(ctx context.Context) {
 
 		case ad.conn = <-ad.connch:
 			return
+
 		case err := <-ad.errch:
 			if err != errNoNewAddresses {
 				ad.err = multierror.Append(ad.err, err)
@@ -197,7 +192,7 @@ func (ds *DialSync) getActiveDial(p peer.ID) *activeDial {
 			id:     p,
 			ctx:    adctx,
 			cancel: cancel,
-			addrs:  make(map[ma.Multiaddr]struct{}),
+			addrs:  make(map[string]struct{}),
 			waitch: make(chan struct{}),
 			connch: make(chan *Conn),
 			errch:  make(chan error),
@@ -242,13 +237,4 @@ startDial:
 	}
 
 	return ad.dial(ctx)
-}
-
-// CancelDial cancels all in-progress dials to the given peer.
-func (ds *DialSync) CancelDial(p peer.ID) {
-	ds.dialsLk.Lock()
-	defer ds.dialsLk.Unlock()
-	if ad, ok := ds.dials[p]; ok {
-		ad.cancel()
-	}
 }

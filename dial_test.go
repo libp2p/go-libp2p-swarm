@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
+
 	addrutil "github.com/libp2p/go-addr-util"
 
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -515,12 +517,20 @@ func TestDialPeerFailed(t *testing.T) {
 	//   * [/ip4/127.0.0.1/tcp/34881] failed to negotiate security protocol: context deadline exceeded
 	// ...
 
-	dialErr, ok := err.(*DialError)
+	merr, ok := err.(*multierror.Error)
 	if !ok {
-		t.Fatalf("expected *DialError, got %T", err)
+		t.Fatalf("expected *multierror.Error, got %T", err)
 	}
 
-	if len(dialErr.DialErrors) != expectedErrorsCount {
-		t.Errorf("expected %d errors, got %d", expectedErrorsCount, len(dialErr.DialErrors))
+	for _, err := range merr.WrappedErrors() {
+
+		dialErr, ok := err.(*DialError)
+		if !ok {
+			t.Fatalf("expected *DialError, got %T", err)
+		}
+
+		if len(dialErr.DialErrors) != expectedErrorsCount {
+			t.Errorf("expected %d errors, got %d", expectedErrorsCount, len(dialErr.DialErrors))
+		}
 	}
 }
