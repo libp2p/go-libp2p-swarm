@@ -252,9 +252,11 @@ func (s *Swarm) dialPeer(ctx context.Context, p peer.ID) (*Conn, error) {
 	defer log.EventBegin(ctx, "swarmDialAttemptSync", p).Done()
 
 	conn := s.bestConnToPeer(p)
+
 	forceDirect, _ := network.GetForceDirectDial(ctx)
 	if forceDirect {
 		if isDirectConn(conn) {
+			fmt.Printf("\n returning since we already have direct conn %v", conn)
 			return conn, nil
 		}
 	} else if conn != nil {
