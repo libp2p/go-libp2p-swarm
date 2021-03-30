@@ -517,6 +517,11 @@ loop:
 					delete(requests, reqno)
 				}
 			}
+
+			// if it was a backoff, clear the address dial so that it doesn't inhibit new dial requests
+			if res.err == ErrDialBackoff {
+				delete(pending, res.addr)
+			}
 		}
 	}
 }
