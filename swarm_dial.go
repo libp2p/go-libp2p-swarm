@@ -59,8 +59,8 @@ var (
 
 var (
 	DelayDialPrivateAddr = 5 * time.Millisecond
-	DelayDialPublicAddr  = 50 * time.Millisecond
-	DelayDialRelayAddr   = 100 * time.Millisecond
+	DelayDialPublicAddr  = 25 * time.Millisecond
+	DelayDialRelayAddr   = 50 * time.Millisecond
 )
 
 // DialAttempts governs how many times a goroutine will try to dial a given peer.
