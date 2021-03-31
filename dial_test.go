@@ -651,3 +651,23 @@ func TestDialSimultaneousJoin(t *testing.T) {
 		t.Fatal("no connection from first dial")
 	}
 }
+
+func TestDialSelf(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	swarms := makeSwarms(ctx, t, 2)
+	s1 := swarms[0]
+	defer s1.Close()
+
+	_, err := s1.DialPeer(ctx, s1.LocalPeer())
+	if err != ErrDialToSelf {
+		t.Fatal("expected error from self dial")
+	}
+
+	// do it twice to make sure we get a new active dial object that fails again
+	_, err = s1.DialPeer(ctx, s1.LocalPeer())
+	if err != ErrDialToSelf {
+		t.Fatal("expected error from self dial")
+	}
+}
