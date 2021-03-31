@@ -97,13 +97,14 @@ func (ds *DialSync) getActiveDial(p peer.ID) (*activeDial, error) {
 			reqch:  make(chan DialRequest),
 			ds:     ds,
 		}
-		ds.dials[p] = actd
 
 		err := ds.dialWorker(adctx, p, actd.reqch)
 		if err != nil {
 			cancel()
 			return nil, err
 		}
+
+		ds.dials[p] = actd
 	}
 
 	// increase ref count before dropping dialsLk
