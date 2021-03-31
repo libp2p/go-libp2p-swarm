@@ -368,7 +368,8 @@ func (s *Swarm) dialWorkerLoop(ctx context.Context, p peer.ID, reqch <-chan Dial
 
 	var nextDial []ma.Multiaddr
 	active := 0
-	done := false
+	done := false      // true when the request channel has been closed
+	connected := false // true when a connection has been successfully established
 
 	resch := make(chan dialResult)
 
@@ -509,6 +510,10 @@ loop:
 		case res := <-resch:
 			active--
 
+			if res.Conn != nil {
+				connected = true
+			}
+
 			if done && active == 0 {
 				if res.Conn != nil {
 					// we got an actual connection, but the dial has been cancelled
@@ -556,7 +561,9 @@ loop:
 			}
 
 			// it must be an error -- add backoff if applicable and dispatch
-			if res.Err != context.Canceled {
+			if res.Err != context.Canceled && !connected {
+				// we only add backoff if there has not been a successful connection
+				// for consistency with the old dialer behavior.
 				s.backf.AddBackoff(p, res.Addr)
 			}
 
