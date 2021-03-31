@@ -9,6 +9,7 @@ import (
 
 	addrutil "github.com/libp2p/go-addr-util"
 
+	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/peerstore"
 	"github.com/libp2p/go-libp2p-core/transport"
@@ -548,5 +549,105 @@ func TestDialExistingConnection(t *testing.T) {
 	if c1 != c2 {
 		t.Fatal("expecting the same connection from both dials")
 	}
+}
 
+func newSilentListener(t *testing.T) ([]ma.Multiaddr, net.Listener) {
+	lst, err := net.Listen("tcp4", "localhost:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	addr, err := manet.FromNetAddr(lst.Addr())
+	if err != nil {
+		t.Fatal(err)
+	}
+	addrs := []ma.Multiaddr{addr}
+	addrs, err = addrutil.ResolveUnspecifiedAddresses(addrs, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return addrs, lst
+
+}
+
+func TestDialSimultaneousJoin(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	swarms := makeSwarms(ctx, t, 2)
+	s1 := swarms[0]
+	s2 := swarms[1]
+	defer s1.Close()
+	defer s2.Close()
+
+	s2silentAddrs, s2silentListener := newSilentListener(t)
+	go acceptAndHang(s2silentListener)
+
+	connch := make(chan network.Conn, 512)
+
+	// start a dial to s2 through the silent addr
+	go func() {
+		s1.Peerstore().AddAddrs(s2.LocalPeer(), s2silentAddrs, peerstore.PermanentAddrTTL)
+
+		c, err := s1.DialPeer(ctx, s2.LocalPeer())
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		t.Logf("first dial succedded; conn: %+v", c)
+
+		connch <- c
+	}()
+
+	// wait a bit for the dial to take hold
+	time.Sleep(100 * time.Millisecond)
+
+	// start a second dial to s2 that uses the real s2 addrs
+	go func() {
+		s2addrs, err := s2.InterfaceListenAddresses()
+		if err != nil {
+			t.Fatal(err)
+		}
+		s1.Peerstore().AddAddrs(s2.LocalPeer(), s2addrs[:1], peerstore.PermanentAddrTTL)
+
+		c, err := s1.DialPeer(ctx, s2.LocalPeer())
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		t.Logf("second dial succedded; conn: %+v", c)
+
+		connch <- c
+	}()
+
+	// wait for the second dial to finish
+	c2 := <-connch
+
+	// start a third dial to s2, this should get the existing connection from the successful dial
+	go func() {
+		c, err := s1.DialPeer(ctx, s2.LocalPeer())
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		t.Logf("third dial succedded; conn: %+v", c)
+
+		connch <- c
+	}()
+
+	c3 := <-connch
+
+	if c2 != c3 {
+		t.Fatal("expected c2 and c3 to be the same")
+	}
+
+	// next, the first dial to s2, using the silent addr should timeout; at this point the dial
+	// will error but the last chance check will see the existing connection and return it
+	select {
+	case c1 := <-connch:
+		if c1 != c2 {
+			t.Fatal("expected c1 and c2 to be the same")
+		}
+	case <-time.After(2 * transport.DialTimeout):
+		t.Fatal("no connection from first dial")
+	}
 }
