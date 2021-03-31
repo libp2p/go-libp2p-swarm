@@ -361,8 +361,15 @@ func (s *Swarm) dialWorkerLoop(ctx context.Context, p peer.ID, reqch <-chan Dial
 	}
 
 	var triggerDial <-chan time.Time
+	var triggerTimer *time.Timer
 	triggerNow := make(chan time.Time)
 	close(triggerNow)
+
+	defer func() {
+		if triggerTimer != nil {
+			triggerTimer.Stop()
+		}
+	}()
 
 	var nextDial []ma.Multiaddr
 	active := 0
@@ -504,7 +511,15 @@ loop:
 
 			// select an appropriate delay for the next dial batch
 			delay := s.delayForNextDial(lastDial)
-			triggerDial = time.After(delay)
+			if triggerTimer == nil {
+				triggerTimer = time.NewTimer(delay)
+			} else {
+				if !triggerTimer.Stop() && triggerDial != triggerTimer.C {
+					<-triggerTimer.C
+				}
+				triggerTimer.Reset(delay)
+			}
+			triggerDial = triggerTimer.C
 
 		case res := <-resch:
 			active--
