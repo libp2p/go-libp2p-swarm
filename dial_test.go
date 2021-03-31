@@ -524,3 +524,29 @@ func TestDialPeerFailed(t *testing.T) {
 		t.Errorf("expected %d errors, got %d", expectedErrorsCount, len(dialErr.DialErrors))
 	}
 }
+
+func TestDialExistingConnection(t *testing.T) {
+	ctx := context.Background()
+
+	swarms := makeSwarms(ctx, t, 2)
+	defer closeSwarms(swarms)
+	s1 := swarms[0]
+	s2 := swarms[1]
+
+	s1.Peerstore().AddAddrs(s2.LocalPeer(), s2.ListenAddresses(), peerstore.PermanentAddrTTL)
+
+	c1, err := s1.DialPeer(ctx, s2.LocalPeer())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	c2, err := s1.DialPeer(ctx, s2.LocalPeer())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if c1 != c2 {
+		t.Fatal("expecting the same connection from both dials")
+	}
+
+}
