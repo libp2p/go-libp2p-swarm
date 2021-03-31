@@ -341,7 +341,14 @@ func (s *Swarm) dialWorkerLoop(ctx context.Context, p peer.ID, reqch <-chan Dial
 			delete(pr.addrs, ad.addr)
 			if len(pr.addrs) == 0 {
 				// all addrs have erred, dispatch dial error
-				pr.req.Resch <- DialResponse{Err: pr.err}
+				// but first do a last one check in case an acceptable connection has landed from
+				// a simultaneous dial that started later and added new acceptable addrs
+				c := s.bestAcceptableConnToPeer(pr.req.Ctx, p)
+				if c != nil {
+					pr.req.Resch <- DialResponse{Conn: c}
+				} else {
+					pr.req.Resch <- DialResponse{Err: pr.err}
+				}
 				delete(requests, reqno)
 			}
 		}
