@@ -58,9 +58,9 @@ var (
 )
 
 var (
-	DelayDialPrivateAddr = 5 * time.Millisecond
-	DelayDialPublicAddr  = 25 * time.Millisecond
-	DelayDialRelayAddr   = 50 * time.Millisecond
+	delayDialPrivateAddr = 5 * time.Millisecond
+	delayDialPublicAddr  = 25 * time.Millisecond
+	delayDialRelayAddr   = 50 * time.Millisecond
 )
 
 // DialAttempts governs how many times a goroutine will try to dial a given peer.
@@ -361,6 +361,9 @@ func (s *Swarm) dialWorkerLoop(ctx context.Context, p peer.ID, reqch <-chan Dial
 	}
 
 	var triggerDial <-chan time.Time
+	triggerNow := make(chan time.Time)
+	close(triggerNow)
+
 	var nextDial []ma.Multiaddr
 	active := 0
 	done := false
@@ -461,34 +464,46 @@ loop:
 				nextDial = append(nextDial, todial...)
 				nextDial = s.rankAddrs(nextDial)
 
-				if triggerDial == nil {
-					trigger := make(chan time.Time)
-					close(trigger)
-					triggerDial = trigger
-				}
+				// trigger a new dial now to account for the new addrs we added
+				triggerDial = triggerNow
 			}
 
 		case <-triggerDial:
-			if len(nextDial) == 0 {
+			// we dial batches of addresses together, logically belonging to the same batch
+			// after a batch of addresses has been dialed, we add a delay before initiating the next batch
+			dialed := false
+			last := 0
+			next := 0
+			for i, addr := range nextDial {
+				if dialed && !s.sameAddrBatch(nextDial[last], addr) {
+					break
+				}
+
+				next = i + 1
+
+				// spawn the dial
+				ad := pending[addr]
+				err := s.dialNextAddr(ad.ctx, p, addr, resch)
+				if err != nil {
+					dispatchError(ad, err)
+					continue
+				}
+
+				dialed = true
+				last = i
+				active++
+			}
+
+			lastDial := nextDial[last]
+			nextDial = nextDial[next:]
+			if !dialed || len(nextDial) == 0 {
+				// we didn't dial anything because of backoff or we don't have any more addresses
 				triggerDial = nil
 				continue loop
 			}
 
-			next := nextDial[0]
-			nextDial = nextDial[1:]
-
-			// spawn the next dial
-			ad := pending[next]
-			err := s.dialNextAddr(ad.ctx, p, next, resch)
-			if err != nil {
-				dispatchError(ad, err)
-				continue loop
-			}
-
-			active++
-
-			// select an appropriate delay for the next dial trigger
-			delay := s.delayForNextDial(next)
+			// select an appropriate delay for the next dial batch
+			delay := s.delayForNextDial(lastDial)
 			triggerDial = time.After(delay)
 
 		case res := <-resch:
@@ -516,6 +531,9 @@ loop:
 					// oops no, we failed to add it to the swarm
 					res.Conn.Close()
 					dispatchError(ad, err)
+					if active == 0 && len(nextDial) > 0 {
+						triggerDial = triggerNow
+					}
 					continue loop
 				}
 
@@ -543,6 +561,9 @@ loop:
 			}
 
 			dispatchError(ad, res.Err)
+			if active == 0 && len(nextDial) > 0 {
+				triggerDial = triggerNow
+			}
 		}
 	}
 }
@@ -579,16 +600,37 @@ func (s *Swarm) dialNextAddr(ctx context.Context, p peer.ID, addr ma.Multiaddr, 
 	return nil
 }
 
+func (s *Swarm) sameAddrBatch(a, b ma.Multiaddr) bool {
+	// is it a relay addr?
+	if s.IsRelayAddr(a) {
+		return s.IsRelayAddr(b)
+	}
+
+	// is it an expensive addr?
+	if s.IsExpensiveAddr(a) {
+		return s.IsExpensiveAddr(b)
+	}
+
+	// is it a public addr?
+	if !manet.IsPrivateAddr(a) {
+		return !manet.IsPrivateAddr(b) &&
+			s.IsFdConsumingAddr(a) == s.IsFdConsumingAddr(b)
+	}
+
+	// it's a private addr
+	return manet.IsPrivateAddr(b)
+}
+
 func (s *Swarm) delayForNextDial(addr ma.Multiaddr) time.Duration {
 	if _, err := addr.ValueForProtocol(ma.P_CIRCUIT); err == nil {
-		return DelayDialRelayAddr
+		return delayDialRelayAddr
 	}
 
 	if manet.IsPrivateAddr(addr) {
-		return DelayDialPrivateAddr
+		return delayDialPrivateAddr
 	}
 
-	return DelayDialPublicAddr
+	return delayDialPublicAddr
 }
 
 func (s *Swarm) canDial(addr ma.Multiaddr) bool {
@@ -601,43 +643,41 @@ func (s *Swarm) nonProxyAddr(addr ma.Multiaddr) bool {
 	return !t.Proxy()
 }
 
-// ranks addresses in descending order of preference for dialing
-// Private UDP > Public UDP > Private TCP > Public TCP > UDP Relay server > TCP Relay server
+// ranks addresses in descending order of preference for dialing, with the following rules:
+// NonRelay > Relay
+// NonWS > WS
+// Private > Public
+// UDP > TCP
 func (s *Swarm) rankAddrs(addrs []ma.Multiaddr) []ma.Multiaddr {
-	var localUdpAddrs []ma.Multiaddr // private udp
-	var relayUdpAddrs []ma.Multiaddr // relay udp
-	var othersUdp []ma.Multiaddr     // public udp
-
-	var localFdAddrs []ma.Multiaddr // private fd consuming
-	var relayFdAddrs []ma.Multiaddr //  relay fd consuming
-	var othersFd []ma.Multiaddr     // public fd consuming
-
-	for _, a := range addrs {
-		if _, err := a.ValueForProtocol(ma.P_CIRCUIT); err == nil {
-			if s.IsFdConsumingAddr(a) {
-				relayFdAddrs = append(relayFdAddrs, a)
-				continue
-			}
-			relayUdpAddrs = append(relayUdpAddrs, a)
-		} else if manet.IsPrivateAddr(a) {
-			if s.IsFdConsumingAddr(a) {
-				localFdAddrs = append(localFdAddrs, a)
-				continue
-			}
-			localUdpAddrs = append(localUdpAddrs, a)
-		} else {
-			if s.IsFdConsumingAddr(a) {
-				othersFd = append(othersFd, a)
-				continue
-			}
-			othersUdp = append(othersUdp, a)
+	addrTier := func(a ma.Multiaddr) (tier int) {
+		if s.IsRelayAddr(a) {
+			tier |= 0b1000
 		}
+		if s.IsExpensiveAddr(a) {
+			tier |= 0b0100
+		}
+		if !manet.IsPrivateAddr(a) {
+			tier |= 0b0010
+		}
+		if s.IsFdConsumingAddr(a) {
+			tier |= 0b0001
+		}
+
+		return tier
 	}
 
-	relays := append(relayUdpAddrs, relayFdAddrs...)
-	fds := append(localFdAddrs, othersFd...)
+	tiers := make([][]ma.Multiaddr, 16)
+	for _, a := range addrs {
+		tier := addrTier(a)
+		tiers[tier] = append(tiers[tier], a)
+	}
 
-	return append(append(append(localUdpAddrs, othersUdp...), fds...), relays...)
+	result := make([]ma.Multiaddr, 0, len(addrs))
+	for _, tier := range tiers {
+		result = append(result, tier...)
+	}
+
+	return result
 }
 
 // filterKnownUndialables takes a list of multiaddrs, and removes those
@@ -728,4 +768,15 @@ func (s *Swarm) IsFdConsumingAddr(addr ma.Multiaddr) bool {
 	_, err1 := first.ValueForProtocol(ma.P_TCP)
 	_, err2 := first.ValueForProtocol(ma.P_UNIX)
 	return err1 == nil || err2 == nil
+}
+
+func (s *Swarm) IsExpensiveAddr(addr ma.Multiaddr) bool {
+	_, err1 := addr.ValueForProtocol(ma.P_WS)
+	_, err2 := addr.ValueForProtocol(ma.P_WSS)
+	return err1 == nil || err2 == nil
+}
+
+func (s *Swarm) IsRelayAddr(addr ma.Multiaddr) bool {
+	_, err := addr.ValueForProtocol(ma.P_CIRCUIT)
+	return err == nil
 }
