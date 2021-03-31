@@ -43,10 +43,6 @@ type activeDial struct {
 	ds *DialSync
 }
 
-func (ad *activeDial) incref() {
-	ad.refCnt++
-}
-
 func (ad *activeDial) decref() {
 	ad.ds.dialsLk.Lock()
 	ad.refCnt--
@@ -107,7 +103,7 @@ func (ds *DialSync) getActiveDial(p peer.ID) *activeDial {
 	}
 
 	// increase ref count before dropping dialsLk
-	actd.incref()
+	actd.refCnt++
 
 	return actd
 }
