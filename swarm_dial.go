@@ -320,6 +320,7 @@ func (s *Swarm) dialWorkerLoop(ctx context.Context, p peer.ID, reqch <-chan Dial
 		conn     *Conn
 		err      error
 		requests []int
+		dialed   bool
 	}
 
 	reqno := 0
@@ -454,6 +455,9 @@ loop:
 			requests[reqno] = pr
 
 			for _, ad := range tojoin {
+				if !ad.dialed {
+					ad.ctx = s.mergeDialContexts(ad.ctx, req.Ctx)
+				}
 				ad.requests = append(ad.requests, reqno)
 			}
 
@@ -490,6 +494,7 @@ loop:
 					continue
 				}
 
+				ad.dialed = true
 				dialed = true
 				last = i
 				active++
@@ -579,6 +584,18 @@ func (s *Swarm) addrsForDial(ctx context.Context, p peer.ID) ([]ma.Multiaddr, er
 	}
 
 	return goodAddrs, nil
+}
+
+func (s *Swarm) mergeDialContexts(a, b context.Context) context.Context {
+	dialCtx := a
+
+	if simConnect, reason := network.GetSimultaneousConnect(b); simConnect {
+		if simConnect, _ := network.GetSimultaneousConnect(a); !simConnect {
+			dialCtx = network.WithSimultaneousConnect(dialCtx, reason)
+		}
+	}
+
+	return dialCtx
 }
 
 func (s *Swarm) dialNextAddr(ctx context.Context, p peer.ID, addr ma.Multiaddr, resch chan dialResult) error {
