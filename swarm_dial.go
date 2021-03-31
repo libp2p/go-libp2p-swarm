@@ -57,12 +57,6 @@ var (
 	ErrGaterDisallowedConnection = errors.New("gater disallows connection to peer")
 )
 
-var (
-	delayDialPrivateAddr = 1 * time.Millisecond
-	delayDialPublicAddr  = 5 * time.Millisecond
-	delayDialRelayAddr   = 10 * time.Millisecond
-)
-
 // DialAttempts governs how many times a goroutine will try to dial a given peer.
 // Note: this is down to one, as we have _too many dials_ atm. To add back in,
 // add loop back in Dial(.)
@@ -360,16 +354,9 @@ func (s *Swarm) dialWorkerLoop(ctx context.Context, p peer.ID, reqch <-chan Dial
 		}
 	}
 
-	var triggerDial <-chan time.Time
-	var triggerTimer *time.Timer
-	triggerNow := make(chan time.Time)
+	var triggerDial <-chan struct{}
+	triggerNow := make(chan struct{})
 	close(triggerNow)
-
-	defer func() {
-		if triggerTimer != nil {
-			triggerTimer.Stop()
-		}
-	}()
 
 	var nextDial []ma.Multiaddr
 	active := 0
@@ -501,25 +488,11 @@ loop:
 				active++
 			}
 
-			lastDial := nextDial[last]
 			nextDial = nextDial[next:]
 			if !dialed || len(nextDial) == 0 {
 				// we didn't dial anything because of backoff or we don't have any more addresses
 				triggerDial = nil
-				continue loop
 			}
-
-			// select an appropriate delay for the next dial batch
-			delay := s.delayForNextDial(lastDial)
-			if triggerTimer == nil {
-				triggerTimer = time.NewTimer(delay)
-			} else {
-				if !triggerTimer.Stop() && triggerDial != triggerTimer.C {
-					<-triggerTimer.C
-				}
-				triggerTimer.Reset(delay)
-			}
-			triggerDial = triggerTimer.C
 
 		case res := <-resch:
 			active--
@@ -634,18 +607,6 @@ func (s *Swarm) sameAddrBatch(a, b ma.Multiaddr) bool {
 
 	// it's a private addr
 	return manet.IsPrivateAddr(b)
-}
-
-func (s *Swarm) delayForNextDial(addr ma.Multiaddr) time.Duration {
-	if _, err := addr.ValueForProtocol(ma.P_CIRCUIT); err == nil {
-		return delayDialRelayAddr
-	}
-
-	if manet.IsPrivateAddr(addr) {
-		return delayDialPrivateAddr
-	}
-
-	return delayDialPublicAddr
 }
 
 func (s *Swarm) canDial(addr ma.Multiaddr) bool {
