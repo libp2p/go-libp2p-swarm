@@ -16,7 +16,7 @@ func getMockDialFunc() (DialWorkerFunc, func(), context.Context, <-chan struct{}
 	dfcalls := make(chan struct{}, 512) // buffer it large enough that we won't care
 	dialctx, cancel := context.WithCancel(context.Background())
 	ch := make(chan struct{})
-	f := func(ctx context.Context, p peer.ID, reqch <-chan DialRequest) {
+	f := func(ctx context.Context, p peer.ID, reqch <-chan DialRequest) error {
 		dfcalls <- struct{}{}
 		go func() {
 			defer cancel()
@@ -39,6 +39,7 @@ func getMockDialFunc() (DialWorkerFunc, func(), context.Context, <-chan struct{}
 				}
 			}
 		}()
+		return nil
 	}
 
 	o := new(sync.Once)
@@ -188,25 +189,28 @@ func TestDialSyncAllCancel(t *testing.T) {
 
 func TestFailFirst(t *testing.T) {
 	var count int
-	f := func(ctx context.Context, p peer.ID, reqch <-chan DialRequest) {
-		for {
-			select {
-			case req, ok := <-reqch:
-				if !ok {
+	f := func(ctx context.Context, p peer.ID, reqch <-chan DialRequest) error {
+		go func() {
+			for {
+				select {
+				case req, ok := <-reqch:
+					if !ok {
+						return
+					}
+
+					if count > 0 {
+						req.Resch <- DialResponse{Conn: new(Conn)}
+					} else {
+						req.Resch <- DialResponse{Err: fmt.Errorf("gophers ate the modem")}
+					}
+					count++
+
+				case <-ctx.Done():
 					return
 				}
-
-				if count > 0 {
-					req.Resch <- DialResponse{Conn: new(Conn)}
-				} else {
-					req.Resch <- DialResponse{Err: fmt.Errorf("gophers ate the modem")}
-				}
-				count++
-
-			case <-ctx.Done():
-				return
 			}
-		}
+		}()
+		return nil
 	}
 
 	ds := NewDialSync(f)
@@ -232,19 +236,22 @@ func TestFailFirst(t *testing.T) {
 }
 
 func TestStressActiveDial(t *testing.T) {
-	ds := NewDialSync(func(ctx context.Context, p peer.ID, reqch <-chan DialRequest) {
-		for {
-			select {
-			case req, ok := <-reqch:
-				if !ok {
+	ds := NewDialSync(func(ctx context.Context, p peer.ID, reqch <-chan DialRequest) error {
+		go func() {
+			for {
+				select {
+				case req, ok := <-reqch:
+					if !ok {
+						return
+					}
+
+					req.Resch <- DialResponse{}
+				case <-ctx.Done():
 					return
 				}
-
-				req.Resch <- DialResponse{}
-			case <-ctx.Done():
-				return
 			}
-		}
+		}()
+		return nil
 	})
 
 	wg := sync.WaitGroup{}

@@ -13,7 +13,7 @@ import (
 var errDialCanceled = errors.New("dial was aborted internally, likely due to https://git.io/Je2wW")
 
 // DialFunc is the type of function expected by DialSync.
-type DialWorkerFunc func(context.Context, peer.ID, <-chan DialRequest)
+type DialWorkerFunc func(context.Context, peer.ID, <-chan DialRequest) error
 
 // NewDialSync constructs a new DialSync
 func NewDialSync(worker DialWorkerFunc) *DialSync {
@@ -79,7 +79,7 @@ func (ad *activeDial) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 	}
 }
 
-func (ds *DialSync) getActiveDial(p peer.ID) *activeDial {
+func (ds *DialSync) getActiveDial(p peer.ID) (*activeDial, error) {
 	ds.dialsLk.Lock()
 	defer ds.dialsLk.Unlock()
 
@@ -99,20 +99,27 @@ func (ds *DialSync) getActiveDial(p peer.ID) *activeDial {
 		}
 		ds.dials[p] = actd
 
-		go ds.dialWorker(adctx, p, actd.reqch)
+		err := ds.dialWorker(adctx, p, actd.reqch)
+		if err != nil {
+			cancel()
+			return nil, err
+		}
 	}
 
 	// increase ref count before dropping dialsLk
 	actd.refCnt++
 
-	return actd
+	return actd, nil
 }
 
 // DialLock initiates a dial to the given peer if there are none in progress
 // then waits for the dial to that peer to complete.
 func (ds *DialSync) DialLock(ctx context.Context, p peer.ID) (*Conn, error) {
-	ad := ds.getActiveDial(p)
-	defer ad.decref()
+	ad, err := ds.getActiveDial(p)
+	if err != nil {
+		return nil, err
+	}
 
+	defer ad.decref()
 	return ad.dial(ctx, p)
 }

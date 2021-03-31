@@ -307,21 +307,13 @@ type dialComplete struct {
 }
 
 // dialWorker is an active dial goroutine that synchronizes and executes concurrent dials
-func (s *Swarm) dialWorker(ctx context.Context, p peer.ID, reqch <-chan DialRequest) {
+func (s *Swarm) dialWorker(ctx context.Context, p peer.ID, reqch <-chan DialRequest) error {
 	if p == s.local {
-		for {
-			select {
-			case req, ok := <-reqch:
-				if !ok {
-					return
-				}
-
-				req.Resch <- DialResponse{Err: ErrDialToSelf}
-			}
-		}
+		return ErrDialToSelf
 	}
 
-	s.dialWorkerLoop(ctx, p, reqch)
+	go s.dialWorkerLoop(ctx, p, reqch)
+	return nil
 }
 
 func (s *Swarm) dialWorkerLoop(ctx context.Context, p peer.ID, reqch <-chan DialRequest) {
