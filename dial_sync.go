@@ -13,10 +13,10 @@ import (
 var errDialCanceled = errors.New("dial was aborted internally, likely due to https://git.io/Je2wW")
 
 // DialWorerFunc is used by DialSync to spawn a new dial worker
-type DialWorkerFunc func(context.Context, peer.ID, <-chan dialRequest) error
+type dialWorkerFunc func(context.Context, peer.ID, <-chan dialRequest) error
 
-// NewDialSync constructs a new DialSync
-func NewDialSync(worker DialWorkerFunc) *DialSync {
+// newDialSync constructs a new DialSync
+func newDialSync(worker dialWorkerFunc) *DialSync {
 	return &DialSync{
 		dials:      make(map[peer.ID]*activeDial),
 		dialWorker: worker,
@@ -28,7 +28,7 @@ func NewDialSync(worker DialWorkerFunc) *DialSync {
 type DialSync struct {
 	dials      map[peer.ID]*activeDial
 	dialsLk    sync.Mutex
-	dialWorker DialWorkerFunc
+	dialWorker dialWorkerFunc
 }
 
 type activeDial struct {

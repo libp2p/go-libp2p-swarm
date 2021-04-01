@@ -10,7 +10,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 )
 
-func getMockDialFunc() (DialWorkerFunc, func(), context.Context, <-chan struct{}) {
+func getMockDialFunc() (dialWorkerFunc, func(), context.Context, <-chan struct{}) {
 	dfcalls := make(chan struct{}, 512) // buffer it large enough that we won't care
 	dialctx, cancel := context.WithCancel(context.Background())
 	ch := make(chan struct{})
@@ -48,7 +48,7 @@ func getMockDialFunc() (DialWorkerFunc, func(), context.Context, <-chan struct{}
 func TestBasicDialSync(t *testing.T) {
 	df, done, _, callsch := getMockDialFunc()
 
-	dsync := NewDialSync(df)
+	dsync := newDialSync(df)
 
 	p := peer.ID("testpeer")
 
@@ -86,7 +86,7 @@ func TestBasicDialSync(t *testing.T) {
 func TestDialSyncCancel(t *testing.T) {
 	df, done, _, dcall := getMockDialFunc()
 
-	dsync := NewDialSync(df)
+	dsync := newDialSync(df)
 
 	p := peer.ID("testpeer")
 
@@ -137,7 +137,7 @@ func TestDialSyncCancel(t *testing.T) {
 func TestDialSyncAllCancel(t *testing.T) {
 	df, done, dctx, _ := getMockDialFunc()
 
-	dsync := NewDialSync(df)
+	dsync := newDialSync(df)
 
 	p := peer.ID("testpeer")
 
@@ -211,7 +211,7 @@ func TestFailFirst(t *testing.T) {
 		return nil
 	}
 
-	ds := NewDialSync(f)
+	ds := newDialSync(f)
 
 	p := peer.ID("testing")
 
@@ -234,7 +234,7 @@ func TestFailFirst(t *testing.T) {
 }
 
 func TestStressActiveDial(t *testing.T) {
-	ds := NewDialSync(func(ctx context.Context, p peer.ID, reqch <-chan dialRequest) error {
+	ds := newDialSync(func(ctx context.Context, p peer.ID, reqch <-chan dialRequest) error {
 		go func() {
 			for {
 				select {
@@ -279,16 +279,14 @@ func TestDialSelf(t *testing.T) {
 	s := NewSwarm(ctx, self, nil, nil)
 	defer s.Close()
 
-	ds := NewDialSync(s.dialWorker)
-
 	// this should fail
-	_, err := ds.DialLock(ctx, self)
+	_, err := s.dsync.DialLock(ctx, self)
 	if err != ErrDialToSelf {
 		t.Fatal("expected error from self dial")
 	}
 
 	// do it twice to make sure we get a new active dial object that fails again
-	_, err = ds.DialLock(ctx, self)
+	_, err = s.dsync.DialLock(ctx, self)
 	if err != ErrDialToSelf {
 		t.Fatal("expected error from self dial")
 	}
