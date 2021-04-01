@@ -1,4 +1,4 @@
-package swarm_test
+package swarm
 
 import (
 	"context"
@@ -7,24 +7,37 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/libp2p/go-libp2p-swarm"
-
 	"github.com/libp2p/go-libp2p-core/peer"
 )
 
-func getMockDialFunc() (DialFunc, func(), context.Context, <-chan struct{}) {
+func getMockDialFunc() (dialWorkerFunc, func(), context.Context, <-chan struct{}) {
 	dfcalls := make(chan struct{}, 512) // buffer it large enough that we won't care
 	dialctx, cancel := context.WithCancel(context.Background())
 	ch := make(chan struct{})
-	f := func(ctx context.Context, p peer.ID) (*Conn, error) {
+	f := func(ctx context.Context, p peer.ID, reqch <-chan dialRequest) error {
 		dfcalls <- struct{}{}
-		defer cancel()
-		select {
-		case <-ch:
-			return new(Conn), nil
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		}
+		go func() {
+			defer cancel()
+			for {
+				select {
+				case req, ok := <-reqch:
+					if !ok {
+						return
+					}
+
+					select {
+					case <-ch:
+						req.resch <- dialResponse{conn: new(Conn)}
+					case <-ctx.Done():
+						req.resch <- dialResponse{err: ctx.Err()}
+						return
+					}
+				case <-ctx.Done():
+					return
+				}
+			}
+		}()
+		return nil
 	}
 
 	o := new(sync.Once)
@@ -35,7 +48,7 @@ func getMockDialFunc() (DialFunc, func(), context.Context, <-chan struct{}) {
 func TestBasicDialSync(t *testing.T) {
 	df, done, _, callsch := getMockDialFunc()
 
-	dsync := NewDialSync(df)
+	dsync := newDialSync(df)
 
 	p := peer.ID("testpeer")
 
@@ -73,7 +86,7 @@ func TestBasicDialSync(t *testing.T) {
 func TestDialSyncCancel(t *testing.T) {
 	df, done, _, dcall := getMockDialFunc()
 
-	dsync := NewDialSync(df)
+	dsync := newDialSync(df)
 
 	p := peer.ID("testpeer")
 
@@ -124,7 +137,7 @@ func TestDialSyncCancel(t *testing.T) {
 func TestDialSyncAllCancel(t *testing.T) {
 	df, done, dctx, _ := getMockDialFunc()
 
-	dsync := NewDialSync(df)
+	dsync := newDialSync(df)
 
 	p := peer.ID("testpeer")
 
@@ -174,15 +187,31 @@ func TestDialSyncAllCancel(t *testing.T) {
 
 func TestFailFirst(t *testing.T) {
 	var count int
-	f := func(ctx context.Context, p peer.ID) (*Conn, error) {
-		if count > 0 {
-			return new(Conn), nil
-		}
-		count++
-		return nil, fmt.Errorf("gophers ate the modem")
+	f := func(ctx context.Context, p peer.ID, reqch <-chan dialRequest) error {
+		go func() {
+			for {
+				select {
+				case req, ok := <-reqch:
+					if !ok {
+						return
+					}
+
+					if count > 0 {
+						req.resch <- dialResponse{conn: new(Conn)}
+					} else {
+						req.resch <- dialResponse{err: fmt.Errorf("gophers ate the modem")}
+					}
+					count++
+
+				case <-ctx.Done():
+					return
+				}
+			}
+		}()
+		return nil
 	}
 
-	ds := NewDialSync(f)
+	ds := newDialSync(f)
 
 	p := peer.ID("testing")
 
@@ -205,8 +234,22 @@ func TestFailFirst(t *testing.T) {
 }
 
 func TestStressActiveDial(t *testing.T) {
-	ds := NewDialSync(func(ctx context.Context, p peer.ID) (*Conn, error) {
-		return nil, nil
+	ds := newDialSync(func(ctx context.Context, p peer.ID, reqch <-chan dialRequest) error {
+		go func() {
+			for {
+				select {
+				case req, ok := <-reqch:
+					if !ok {
+						return
+					}
+
+					req.resch <- dialResponse{}
+				case <-ctx.Done():
+					return
+				}
+			}
+		}()
+		return nil
 	})
 
 	wg := sync.WaitGroup{}
@@ -226,4 +269,25 @@ func TestStressActiveDial(t *testing.T) {
 	}
 
 	wg.Wait()
+}
+
+func TestDialSelf(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	self := peer.ID("ABC")
+	s := NewSwarm(ctx, self, nil, nil)
+	defer s.Close()
+
+	// this should fail
+	_, err := s.dsync.DialLock(ctx, self)
+	if err != ErrDialToSelf {
+		t.Fatal("expected error from self dial")
+	}
+
+	// do it twice to make sure we get a new active dial object that fails again
+	_, err = s.dsync.DialLock(ctx, self)
+	if err != ErrDialToSelf {
+		t.Fatal("expected error from self dial")
+	}
 }

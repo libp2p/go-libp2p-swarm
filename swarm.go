@@ -122,8 +122,8 @@ func NewSwarm(ctx context.Context, local peer.ID, peers peerstore.Peerstore, bwc
 		}
 	}
 
-	s.dsync = NewDialSync(s.doDial)
-	s.limiter = newDialLimiter(s.dialAddr, s.IsFdConsumingAddr)
+	s.dsync = newDialSync(s.startDialWorker)
+	s.limiter = newDialLimiter(s.dialAddr, isFdConsumingAddr)
 	s.proc = goprocessctx.WithContext(ctx)
 	s.ctx = goprocessctx.OnClosingContext(s.proc)
 	s.backf.init(s.ctx)
@@ -281,12 +281,6 @@ func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (*Conn,
 	c.notifyLk.Lock()
 	s.conns.Unlock()
 
-	// We have a connection now. Cancel all other in-progress dials.
-	// This should be fast, no reason to wait till later.
-	if dir == network.DirOutbound {
-		s.dsync.CancelDial(p)
-	}
-
 	s.notifyAll(func(f network.Notifiee) {
 		f.Connected(s, c)
 	})
@@ -407,6 +401,38 @@ func (s *Swarm) ConnsToPeer(p peer.ID) []network.Conn {
 	return output
 }
 
+func isBetterConn(a, b *Conn) bool {
+	// If one is transient and not the other, prefer the non-transient connection.
+	aTransient := a.Stat().Transient
+	bTransient := b.Stat().Transient
+	if aTransient != bTransient {
+		return !aTransient
+	}
+
+	// If one is direct and not the other, prefer the direct connection.
+	aDirect := isDirectConn(a)
+	bDirect := isDirectConn(b)
+	if aDirect != bDirect {
+		return aDirect
+	}
+
+	// Otherwise, prefer the connection with more open streams.
+	a.streams.Lock()
+	aLen := len(a.streams.m)
+	a.streams.Unlock()
+
+	b.streams.Lock()
+	bLen := len(b.streams.m)
+	b.streams.Unlock()
+
+	if aLen != bLen {
+		return aLen > bLen
+	}
+
+	// finally, pick the last connection.
+	return true
+}
+
 // bestConnToPeer returns the best connection to peer.
 func (s *Swarm) bestConnToPeer(p peer.ID) *Conn {
 
@@ -417,29 +443,27 @@ func (s *Swarm) bestConnToPeer(p peer.ID) *Conn {
 	defer s.conns.RUnlock()
 
 	var best *Conn
-	bestLen := 0
 	for _, c := range s.conns.m[p] {
 		if c.conn.IsClosed() {
 			// We *will* garbage collect this soon anyways.
 			continue
 		}
-		c.streams.Lock()
-		cLen := len(c.streams.m)
-		c.streams.Unlock()
-
-		// We will never prefer a Relayed connection over a direct connection.
-		if isDirectConn(best) && !isDirectConn(c) {
-			continue
-		}
-
-		// 1. Always prefer a direct connection over a relayed connection.
-		// 2. If both conns are direct or relayed, pick the one with as many or more streams.
-		if (!isDirectConn(best) && isDirectConn(c)) || (cLen >= bestLen) {
+		if best == nil || isBetterConn(c, best) {
 			best = c
-			bestLen = cLen
 		}
 	}
 	return best
+}
+
+func (s *Swarm) bestAcceptableConnToPeer(ctx context.Context, p peer.ID) *Conn {
+	conn := s.bestConnToPeer(p)
+	if conn != nil {
+		forceDirect, _ := network.GetForceDirectDial(ctx)
+		if !forceDirect || isDirectConn(conn) {
+			return conn
+		}
+	}
+	return nil
 }
 
 func isDirectConn(c *Conn) bool {
