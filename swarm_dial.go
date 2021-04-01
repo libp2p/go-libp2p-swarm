@@ -480,37 +480,17 @@ loop:
 			}
 
 		case <-triggerDial:
-			// we dial batches of addresses together, logically belonging to the same batch
-			// after a batch of addresses has been dialed, we add a delay before initiating the next batch
-			dialed := false
-			last := 0
-			next := 0
-			for i, addr := range nextDial {
-				if dialed && !s.sameAddrBatch(nextDial[last], addr) {
-					break
-				}
-
-				next = i + 1
-
+			for _, addr := range nextDial {
 				// spawn the dial
 				ad := pending[addr]
 				err := s.dialNextAddr(ad.ctx, p, addr, resch)
 				if err != nil {
 					dispatchError(ad, err)
-					continue
 				}
-
-				ad.dialed = true
-				dialed = true
-				last = i
-				active++
 			}
 
-			nextDial = nextDial[next:]
-			if !dialed || len(nextDial) == 0 {
-				// we didn't dial anything because of backoff or we don't have any more addresses
-				triggerDial = nil
-			}
+			nextDial = nil
+			triggerDial = nil
 
 		case res := <-resch:
 			active--
@@ -622,27 +602,6 @@ func (s *Swarm) dialNextAddr(ctx context.Context, p peer.ID, addr ma.Multiaddr, 
 	s.limitedDial(ctx, p, addr, resch)
 
 	return nil
-}
-
-func (s *Swarm) sameAddrBatch(a, b ma.Multiaddr) bool {
-	// is it a relay addr?
-	if s.IsRelayAddr(a) {
-		return s.IsRelayAddr(b)
-	}
-
-	// is it an expensive addr?
-	if s.IsExpensiveAddr(a) {
-		return s.IsExpensiveAddr(b)
-	}
-
-	// is it a public addr?
-	if !manet.IsPrivateAddr(a) {
-		return !manet.IsPrivateAddr(b) &&
-			s.IsFdConsumingAddr(a) == s.IsFdConsumingAddr(b)
-	}
-
-	// it's a private addr
-	return manet.IsPrivateAddr(b)
 }
 
 func (s *Swarm) canDial(addr ma.Multiaddr) bool {
