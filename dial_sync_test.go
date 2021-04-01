@@ -270,3 +270,26 @@ func TestStressActiveDial(t *testing.T) {
 
 	wg.Wait()
 }
+
+func TestDialSelf(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	self := peer.ID("ABC")
+	s := NewSwarm(ctx, self, nil, nil)
+	defer s.Close()
+
+	ds := NewDialSync(s.dialWorker)
+
+	// this should fail
+	_, err := ds.DialLock(ctx, self)
+	if err != ErrDialToSelf {
+		t.Fatal("expected error from self dial")
+	}
+
+	// do it twice to make sure we get a new active dial object that fails again
+	_, err = ds.DialLock(ctx, self)
+	if err != ErrDialToSelf {
+		t.Fatal("expected error from self dial")
+	}
+}
