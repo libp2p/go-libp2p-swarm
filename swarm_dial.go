@@ -295,8 +295,8 @@ type dialResponse struct {
 	err  error
 }
 
-// dialWorker is an active dial goroutine that synchronizes and executes concurrent dials
-func (s *Swarm) dialWorker(ctx context.Context, p peer.ID, reqch <-chan dialRequest) error {
+// startDialWorker starts an active dial goroutine that synchronizes and executes concurrent dials
+func (s *Swarm) startDialWorker(ctx context.Context, p peer.ID, reqch <-chan dialRequest) error {
 	if p == s.local {
 		return ErrDialToSelf
 	}
