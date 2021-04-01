@@ -356,7 +356,12 @@ func (s *Swarm) dialWorkerLoop(ctx context.Context, p peer.ID, reqch <-chan dial
 
 		ad.requests = nil
 
-		// if it was a backoff, clear the address dial so that it doesn't inhibit new dial requests
+		// if it was a backoff, clear the address dial so that it doesn't inhibit new dial requests.
+		// this is necessary to support active listen scenarios, where a new dial comes in while
+		// another dial is in progress, and needs to do a direct connection without inhibitions from
+		// dial backoff.
+		// it is also necessary to preserve consisent behaviour with the old dialer -- TestDialBackoff
+		// regresses without this.
 		if err == ErrDialBackoff {
 			delete(pending, ad.addr)
 		}
