@@ -12,8 +12,8 @@ import (
 // TODO: change this text when we fix the bug
 var errDialCanceled = errors.New("dial was aborted internally, likely due to https://git.io/Je2wW")
 
-// DialFunc is the type of function expected by DialSync.
-type DialWorkerFunc func(context.Context, peer.ID, <-chan DialRequest) error
+// DialWorerFunc is used by DialSync to spawn a new dial worker
+type DialWorkerFunc func(context.Context, peer.ID, <-chan dialRequest) error
 
 // NewDialSync constructs a new DialSync
 func NewDialSync(worker DialWorkerFunc) *DialSync {
@@ -38,7 +38,7 @@ type activeDial struct {
 	ctx    context.Context
 	cancel func()
 
-	reqch chan DialRequest
+	reqch chan dialRequest
 
 	ds *DialSync
 }
@@ -64,16 +64,16 @@ func (ad *activeDial) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 		dialCtx = network.WithSimultaneousConnect(dialCtx, reason)
 	}
 
-	resch := make(chan DialResponse, 1)
+	resch := make(chan dialResponse, 1)
 	select {
-	case ad.reqch <- DialRequest{Ctx: dialCtx, Resch: resch}:
+	case ad.reqch <- dialRequest{ctx: dialCtx, resch: resch}:
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
 
 	select {
 	case res := <-resch:
-		return res.Conn, res.Err
+		return res.conn, res.err
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
@@ -94,7 +94,7 @@ func (ds *DialSync) getActiveDial(p peer.ID) (*activeDial, error) {
 			id:     p,
 			ctx:    adctx,
 			cancel: cancel,
-			reqch:  make(chan DialRequest),
+			reqch:  make(chan dialRequest),
 			ds:     ds,
 		}
 

@@ -285,18 +285,18 @@ func (s *Swarm) dialPeer(ctx context.Context, p peer.ID) (*Conn, error) {
 // TODO explain how all this works
 //////////////////////////////////////////////////////////////////////////////////
 
-type DialRequest struct {
-	Ctx   context.Context
-	Resch chan DialResponse
+type dialRequest struct {
+	ctx   context.Context
+	resch chan dialResponse
 }
 
-type DialResponse struct {
-	Conn *Conn
-	Err  error
+type dialResponse struct {
+	conn *Conn
+	err  error
 }
 
 // dialWorker is an active dial goroutine that synchronizes and executes concurrent dials
-func (s *Swarm) dialWorker(ctx context.Context, p peer.ID, reqch <-chan DialRequest) error {
+func (s *Swarm) dialWorker(ctx context.Context, p peer.ID, reqch <-chan dialRequest) error {
 	if p == s.local {
 		return ErrDialToSelf
 	}
@@ -305,11 +305,11 @@ func (s *Swarm) dialWorker(ctx context.Context, p peer.ID, reqch <-chan DialRequ
 	return nil
 }
 
-func (s *Swarm) dialWorkerLoop(ctx context.Context, p peer.ID, reqch <-chan DialRequest) {
+func (s *Swarm) dialWorkerLoop(ctx context.Context, p peer.ID, reqch <-chan dialRequest) {
 	defer s.limiter.clearAllPeerDials(p)
 
 	type pendRequest struct {
-		req   DialRequest               // the original request
+		req   dialRequest               // the original request
 		err   *DialError                // dial error accumulator
 		addrs map[ma.Multiaddr]struct{} // pending addr dials
 	}
@@ -344,11 +344,11 @@ func (s *Swarm) dialWorkerLoop(ctx context.Context, p peer.ID, reqch <-chan Dial
 				// all addrs have erred, dispatch dial error
 				// but first do a last one check in case an acceptable connection has landed from
 				// a simultaneous dial that started later and added new acceptable addrs
-				c := s.bestAcceptableConnToPeer(pr.req.Ctx, p)
+				c := s.bestAcceptableConnToPeer(pr.req.ctx, p)
 				if c != nil {
-					pr.req.Resch <- DialResponse{Conn: c}
+					pr.req.resch <- dialResponse{conn: c}
 				} else {
-					pr.req.Resch <- DialResponse{Err: pr.err}
+					pr.req.resch <- dialResponse{err: pr.err}
 				}
 				delete(requests, reqno)
 			}
@@ -390,15 +390,15 @@ loop:
 				return
 			}
 
-			c := s.bestAcceptableConnToPeer(req.Ctx, p)
+			c := s.bestAcceptableConnToPeer(req.ctx, p)
 			if c != nil {
-				req.Resch <- DialResponse{Conn: c}
+				req.resch <- dialResponse{conn: c}
 				continue loop
 			}
 
-			addrs, err := s.addrsForDial(req.Ctx, p)
+			addrs, err := s.addrsForDial(req.ctx, p)
 			if err != nil {
-				req.Resch <- DialResponse{Err: err}
+				req.resch <- dialResponse{err: err}
 				continue loop
 			}
 
@@ -430,7 +430,7 @@ loop:
 
 				if ad.conn != nil {
 					// dial to this addr was successful, complete the request
-					req.Resch <- DialResponse{Conn: ad.conn}
+					req.resch <- dialResponse{conn: ad.conn}
 					continue loop
 				}
 
@@ -447,7 +447,7 @@ loop:
 
 			if len(todial) == 0 && len(tojoin) == 0 {
 				// all request applicable addrs have been dialed, we must have errored
-				req.Resch <- DialResponse{Err: pr.err}
+				req.resch <- dialResponse{err: pr.err}
 				continue loop
 			}
 
@@ -457,14 +457,14 @@ loop:
 
 			for _, ad := range tojoin {
 				if !ad.dialed {
-					ad.ctx = s.mergeDialContexts(ad.ctx, req.Ctx)
+					ad.ctx = s.mergeDialContexts(ad.ctx, req.ctx)
 				}
 				ad.requests = append(ad.requests, reqno)
 			}
 
 			if len(todial) > 0 {
 				for _, a := range todial {
-					pending[a] = &addrDial{addr: a, ctx: req.Ctx, requests: []int{reqno}}
+					pending[a] = &addrDial{addr: a, ctx: req.ctx, requests: []int{reqno}}
 				}
 
 				nextDial = append(nextDial, todial...)
@@ -550,7 +550,7 @@ loop:
 						continue
 					}
 
-					pr.req.Resch <- DialResponse{Conn: conn}
+					pr.req.resch <- dialResponse{conn: conn}
 					delete(requests, reqno)
 				}
 

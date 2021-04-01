@@ -1,4 +1,4 @@
-package swarm_test
+package swarm
 
 import (
 	"context"
@@ -7,8 +7,6 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/libp2p/go-libp2p-swarm"
-
 	"github.com/libp2p/go-libp2p-core/peer"
 )
 
@@ -16,7 +14,7 @@ func getMockDialFunc() (DialWorkerFunc, func(), context.Context, <-chan struct{}
 	dfcalls := make(chan struct{}, 512) // buffer it large enough that we won't care
 	dialctx, cancel := context.WithCancel(context.Background())
 	ch := make(chan struct{})
-	f := func(ctx context.Context, p peer.ID, reqch <-chan DialRequest) error {
+	f := func(ctx context.Context, p peer.ID, reqch <-chan dialRequest) error {
 		dfcalls <- struct{}{}
 		go func() {
 			defer cancel()
@@ -29,9 +27,9 @@ func getMockDialFunc() (DialWorkerFunc, func(), context.Context, <-chan struct{}
 
 					select {
 					case <-ch:
-						req.Resch <- DialResponse{Conn: new(Conn)}
+						req.resch <- dialResponse{conn: new(Conn)}
 					case <-ctx.Done():
-						req.Resch <- DialResponse{Err: ctx.Err()}
+						req.resch <- dialResponse{err: ctx.Err()}
 						return
 					}
 				case <-ctx.Done():
@@ -189,7 +187,7 @@ func TestDialSyncAllCancel(t *testing.T) {
 
 func TestFailFirst(t *testing.T) {
 	var count int
-	f := func(ctx context.Context, p peer.ID, reqch <-chan DialRequest) error {
+	f := func(ctx context.Context, p peer.ID, reqch <-chan dialRequest) error {
 		go func() {
 			for {
 				select {
@@ -199,9 +197,9 @@ func TestFailFirst(t *testing.T) {
 					}
 
 					if count > 0 {
-						req.Resch <- DialResponse{Conn: new(Conn)}
+						req.resch <- dialResponse{conn: new(Conn)}
 					} else {
-						req.Resch <- DialResponse{Err: fmt.Errorf("gophers ate the modem")}
+						req.resch <- dialResponse{err: fmt.Errorf("gophers ate the modem")}
 					}
 					count++
 
@@ -236,7 +234,7 @@ func TestFailFirst(t *testing.T) {
 }
 
 func TestStressActiveDial(t *testing.T) {
-	ds := NewDialSync(func(ctx context.Context, p peer.ID, reqch <-chan DialRequest) error {
+	ds := NewDialSync(func(ctx context.Context, p peer.ID, reqch <-chan dialRequest) error {
 		go func() {
 			for {
 				select {
@@ -245,7 +243,7 @@ func TestStressActiveDial(t *testing.T) {
 						return
 					}
 
-					req.Resch <- DialResponse{}
+					req.resch <- dialResponse{}
 				case <-ctx.Done():
 					return
 				}
