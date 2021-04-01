@@ -121,8 +121,8 @@ func NewSwarm(ctx context.Context, local peer.ID, peers peerstore.Peerstore, bwc
 		}
 	}
 
-	s.dsync = NewDialSync(s.doDial)
-	s.limiter = newDialLimiter(s.dialAddr, s.IsFdConsumingAddr)
+	s.dsync = newDialSync(s.startDialWorker)
+	s.limiter = newDialLimiter(s.dialAddr, isFdConsumingAddr)
 	s.proc = goprocessctx.WithContext(ctx)
 	s.ctx = goprocessctx.OnClosingContext(s.proc)
 	s.backf.init(s.ctx)
@@ -258,12 +258,6 @@ func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (*Conn,
 	// Disconnect notifications until after the Connect notifications done.
 	c.notifyLk.Lock()
 	s.conns.Unlock()
-
-	// We have a connection now. Cancel all other in-progress dials.
-	// This should be fast, no reason to wait till later.
-	if dir == network.DirOutbound {
-		s.dsync.CancelDial(p)
-	}
 
 	s.notifyAll(func(f network.Notifiee) {
 		f.Connected(s, c)

@@ -57,8 +57,8 @@ func TestConnectednessCorrect(t *testing.T) {
 		t.Fatal("expected net 0 to have two peers")
 	}
 
-	if len(nets[2].Conns()) != 2 {
-		t.Fatal("expected net 2 to have two conns")
+	if len(nets[2].Peers()) != 2 {
+		t.Fatal("expected net 2 to have two peers")
 	}
 
 	if len(nets[1].ConnsToPeer(nets[3].LocalPeer())) != 0 {
