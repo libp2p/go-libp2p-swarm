@@ -630,7 +630,7 @@ func (s *Swarm) rankAddrs(addrs []ma.Multiaddr) []ma.Multiaddr {
 		if !manet.IsPrivateAddr(a) {
 			tier |= 0b0010
 		}
-		if s.IsFdConsumingAddr(a) {
+		if isFdConsumingAddr(a) {
 			tier |= 0b0001
 		}
 
@@ -726,7 +726,7 @@ func (s *Swarm) dialAddr(ctx context.Context, p peer.ID, addr ma.Multiaddr) (tra
 // A Non-circuit address which has the TCP/UNIX protocol is deemed FD consuming.
 // For a circuit-relay address, we look at the address of the relay server/proxy
 // and use the same logic as above to decide.
-func (s *Swarm) IsFdConsumingAddr(addr ma.Multiaddr) bool {
+func isFdConsumingAddr(addr ma.Multiaddr) bool {
 	first, _ := ma.SplitFunc(addr, func(c ma.Component) bool {
 		return c.Protocol().Code == ma.P_CIRCUIT
 	})
