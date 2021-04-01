@@ -621,10 +621,10 @@ func (s *Swarm) nonProxyAddr(addr ma.Multiaddr) bool {
 // UDP > TCP
 func (s *Swarm) rankAddrs(addrs []ma.Multiaddr) []ma.Multiaddr {
 	addrTier := func(a ma.Multiaddr) (tier int) {
-		if s.IsRelayAddr(a) {
+		if isRelayAddr(a) {
 			tier |= 0b1000
 		}
-		if s.IsExpensiveAddr(a) {
+		if isExpensiveAddr(a) {
 			tier |= 0b0100
 		}
 		if !manet.IsPrivateAddr(a) {
@@ -741,13 +741,13 @@ func (s *Swarm) IsFdConsumingAddr(addr ma.Multiaddr) bool {
 	return err1 == nil || err2 == nil
 }
 
-func (s *Swarm) IsExpensiveAddr(addr ma.Multiaddr) bool {
+func isExpensiveAddr(addr ma.Multiaddr) bool {
 	_, err1 := addr.ValueForProtocol(ma.P_WS)
 	_, err2 := addr.ValueForProtocol(ma.P_WSS)
 	return err1 == nil || err2 == nil
 }
 
-func (s *Swarm) IsRelayAddr(addr ma.Multiaddr) bool {
+func isRelayAddr(addr ma.Multiaddr) bool {
 	_, err := addr.ValueForProtocol(ma.P_CIRCUIT)
 	return err == nil
 }
