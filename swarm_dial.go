@@ -237,18 +237,18 @@ func (s *Swarm) DialPeer(ctx context.Context, p peer.ID) (network.Conn, error) {
 // dialbackoff.
 func (s *Swarm) dialPeer(ctx context.Context, p peer.ID) (*Conn, error) {
 	log.Debugf("[%s] swarm dialing peer [%s]", s.local, p)
-	var logdial = lgbl.Dial("swarm", s.LocalPeer(), p, nil, nil)
+	lgbl.Dial("swarm", s.LocalPeer(), p, nil, nil)
 	err := p.Validate()
 	if err != nil {
 		return nil, err
 	}
 
 	if p == s.local {
-		log.Event(ctx, "swarmDialSelf", logdial)
+		// log.Event(ctx, "swarmDialSelf", logdial)
 		return nil, ErrDialToSelf
 	}
 
-	defer log.EventBegin(ctx, "swarmDialAttemptSync", p).Done()
+	// defer log.EventBegin(ctx, "swarmDialAttemptSync", p).Done()
 
 	// check if we already have an open (usable) connection first
 	conn := s.bestAcceptableConnToPeer(ctx, p)
