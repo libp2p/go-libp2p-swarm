@@ -647,7 +647,7 @@ func TestDialSimultaneousJoin(t *testing.T) {
 
 	c3 := <-connch
 
-	// raise any errors from the two
+	// raise any errors from the previous goroutines
 	for i := 0; i < 3; i++ {
 		err := <-errs
 		if err != nil {
