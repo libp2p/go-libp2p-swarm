@@ -583,6 +583,7 @@ func TestDialSimultaneousJoin(t *testing.T) {
 	go acceptAndHang(s2silentListener)
 
 	connch := make(chan network.Conn, 512)
+	errs := make(chan error, 2)
 
 	// start a dial to s2 through the silent addr
 	go func() {
@@ -590,12 +591,15 @@ func TestDialSimultaneousJoin(t *testing.T) {
 
 		c, err := s1.DialPeer(ctx, s2.LocalPeer())
 		if err != nil {
-			t.Fatal(err)
+			errs <- err
+			connch <- nil
+			return
 		}
 
 		t.Logf("first dial succedded; conn: %+v", c)
 
 		connch <- c
+		errs <- nil
 	}()
 
 	// wait a bit for the dial to take hold
@@ -605,18 +609,22 @@ func TestDialSimultaneousJoin(t *testing.T) {
 	go func() {
 		s2addrs, err := s2.InterfaceListenAddresses()
 		if err != nil {
-			t.Fatal(err)
+			errs <- err
+			return
 		}
 		s1.Peerstore().AddAddrs(s2.LocalPeer(), s2addrs[:1], peerstore.PermanentAddrTTL)
 
 		c, err := s1.DialPeer(ctx, s2.LocalPeer())
 		if err != nil {
-			t.Fatal(err)
+			errs <- err
+			connch <- nil
+			return
 		}
 
 		t.Logf("second dial succedded; conn: %+v", c)
 
 		connch <- c
+		errs <- nil
 	}()
 
 	// wait for the second dial to finish
@@ -626,15 +634,26 @@ func TestDialSimultaneousJoin(t *testing.T) {
 	go func() {
 		c, err := s1.DialPeer(ctx, s2.LocalPeer())
 		if err != nil {
-			t.Fatal(err)
+			errs <- err
+			connch <- nil
+			return
 		}
 
 		t.Logf("third dial succedded; conn: %+v", c)
 
 		connch <- c
+		errs <- nil
 	}()
 
 	c3 := <-connch
+
+	// raise any errors from the two
+	for i := 0; i < 3; i++ {
+		err := <-errs
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
 
 	if c2 != c3 {
 		t.Fatal("expected c2 and c3 to be the same")
