@@ -437,12 +437,13 @@ func TestDialBackoffClears(t *testing.T) {
 	s1.Peerstore().AddAddr(s2.LocalPeer(), s2bad, peerstore.PermanentAddrTTL)
 
 	before := time.Now()
-	if c, err := s1.DialPeer(ctx, s2.LocalPeer()); err == nil {
+	c, err := s1.DialPeer(ctx, s2.LocalPeer())
+	if err == nil {
 		t.Fatal("dialing to broken addr worked...", err)
-		defer c.Close()
 	} else {
 		t.Log("correctly got error:", err)
 	}
+	defer c.Close()
 	duration := time.Since(before)
 
 	if duration < transport.DialTimeout*DialAttempts {
