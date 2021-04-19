@@ -2,6 +2,7 @@ package swarm
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/rand"
 	"strconv"
@@ -379,8 +380,12 @@ func TestFDLimitUnderflow(t *testing.T) {
 		addrs = append(addrs, addrWithPort(t, i))
 	}
 
+	wg := sync.WaitGroup{}
+	wg.Add(1000)
+	errs := make(chan error, 1000)
 	for i := 0; i < 1000; i++ {
 		go func(id peer.ID, i int) {
+			defer wg.Done()
 			ctx, cancel := context.WithCancel(context.Background())
 
 			resp := make(chan dialResult)
@@ -406,12 +411,19 @@ func TestFDLimitUnderflow(t *testing.T) {
 				if res.Err != nil {
 					return
 				}
-				t.Fatal("got dial res, shouldn't")
+				errs <- errors.New("got dial res, but shouldn't")
 			}
 		}(peer.ID(fmt.Sprintf("testpeer%d", i%20)), i)
 	}
 
-	time.Sleep(time.Second * 3)
+	go func() {
+		wg.Wait()
+		close(errs)
+	}()
+
+	for err := range errs {
+		t.Fatal(err)
+	}
 
 	l.lk.Lock()
 	fdConsuming := l.fdConsuming
