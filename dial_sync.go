@@ -2,15 +2,11 @@ package swarm
 
 import (
 	"context"
-	"errors"
 	"sync"
 
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 )
-
-// TODO: change this text when we fix the bug
-var errDialCanceled = errors.New("dial was aborted internally, likely due to https://git.io/Je2wW")
 
 // DialWorerFunc is used by DialSync to spawn a new dial worker
 type dialWorkerFunc func(context.Context, peer.ID, <-chan dialRequest) error

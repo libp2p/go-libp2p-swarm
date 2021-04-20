@@ -169,8 +169,6 @@ func SubtestSwarm(t *testing.T, SwarmNum int, MsgNum int) {
 			count := 0
 			countShouldBe := MsgNum * (len(swarms) - 1)
 			for stream := range streamChan { // one per peer
-				defer stream.Close()
-
 				// get peer on the other side
 				p := stream.Conn().RemotePeer()
 
@@ -196,6 +194,7 @@ func SubtestSwarm(t *testing.T, SwarmNum int, MsgNum int) {
 
 				got[p] = msgCount
 				count += msgCount
+				stream.Close()
 			}
 
 			if count != countShouldBe {

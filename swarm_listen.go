@@ -24,7 +24,7 @@ func (s *Swarm) Listen(addrs ...ma.Multiaddr) error {
 
 	for i, e := range errs {
 		if e != nil {
-			log.Warningf("listen on %s failed: %s", addrs[i], errs[i])
+			log.Warnw("listening failed", "on", addrs[i], "error", errs[i])
 		}
 	}
 
@@ -111,7 +111,7 @@ func (s *Swarm) AddListenAddr(a ma.Multiaddr) error {
 					// ignore.
 					return
 				default:
-					log.Warningf("add conn %s failed: ", err)
+					log.Warnw("adding connection failed", "to", a, "error", err)
 					return
 				}
 			}()

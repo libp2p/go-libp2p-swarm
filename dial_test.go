@@ -437,9 +437,10 @@ func TestDialBackoffClears(t *testing.T) {
 	s1.Peerstore().AddAddr(s2.LocalPeer(), s2bad, peerstore.PermanentAddrTTL)
 
 	before := time.Now()
-	if c, err := s1.DialPeer(ctx, s2.LocalPeer()); err == nil {
-		t.Fatal("dialing to broken addr worked...", err)
+	c, err := s1.DialPeer(ctx, s2.LocalPeer())
+	if err == nil {
 		defer c.Close()
+		t.Fatal("dialing to broken addr worked...", err)
 	} else {
 		t.Log("correctly got error:", err)
 	}

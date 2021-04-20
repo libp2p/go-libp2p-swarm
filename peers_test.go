@@ -33,8 +33,8 @@ func TestPeers(t *testing.T) {
 		// t.Log(s.swarm.Dump())
 	}
 
-	s1GotConn := make(chan struct{}, 0)
-	s2GotConn := make(chan struct{}, 0)
+	s1GotConn := make(chan struct{})
+	s2GotConn := make(chan struct{})
 	s1.SetConnHandler(func(c network.Conn) {
 		s1GotConn <- struct{}{}
 	})
