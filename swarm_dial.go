@@ -226,7 +226,12 @@ func (s *Swarm) DialPeer(ctx context.Context, p peer.ID) (network.Conn, error) {
 		return nil, &DialError{Peer: p, Cause: ErrGaterDisallowedConnection}
 	}
 
-	return s.dialPeer(ctx, p)
+	// Avoid typed nil issues.
+	c, err := s.dialPeer(ctx, p)
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
 // internal dial method that returns an unwrapped conn

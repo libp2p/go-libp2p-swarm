@@ -412,6 +412,19 @@ func TestCloseWithOpenStreams(t *testing.T) {
 	}
 }
 
+func TestTypedNilConn(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	s := GenSwarm(t, ctx)
+	defer s.Close()
+
+	// We can't dial ourselves.
+	c, err := s.DialPeer(ctx, s.LocalPeer())
+	require.Error(t, err)
+	// If we fail to dial, the connection should be nil.
+	require.True(t, c == nil)
+}
+
 func TestPreventDialListenAddr(t *testing.T) {
 	s := GenSwarm(t, context.Background(), OptDialOnly)
 	if err := s.Listen(ma.StringCast("/ip4/0.0.0.0/udp/0/quic")); err != nil {
