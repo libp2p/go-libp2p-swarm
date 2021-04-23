@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	csms "github.com/libp2p/go-conn-security-multistream"
 	"github.com/libp2p/go-libp2p-core/connmgr"
 	"github.com/libp2p/go-libp2p-core/control"
 	"github.com/libp2p/go-libp2p-core/crypto"
@@ -12,10 +13,8 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/peerstore"
 	"github.com/libp2p/go-libp2p-core/sec/insecure"
+	"github.com/libp2p/go-libp2p-peerstore/pstoremem"
 	quic "github.com/libp2p/go-libp2p-quic-transport"
-
-	csms "github.com/libp2p/go-conn-security-multistream"
-	pstoremem "github.com/libp2p/go-libp2p-peerstore/pstoremem"
 	swarm "github.com/libp2p/go-libp2p-swarm"
 	"github.com/libp2p/go-libp2p-testing/net"
 	tptu "github.com/libp2p/go-libp2p-transport-upgrader"
@@ -23,13 +22,15 @@ import (
 	msmux "github.com/libp2p/go-stream-muxer-multistream"
 	"github.com/libp2p/go-tcp-transport"
 
-	goprocess "github.com/jbenet/goprocess"
+	"github.com/jbenet/goprocess"
 	ma "github.com/multiformats/go-multiaddr"
 )
 
 type config struct {
 	disableReuseport bool
 	dialOnly         bool
+	disableTCP       bool
+	disableQUIC      bool
 	connectionGater  connmgr.ConnectionGater
 	sk               crypto.PrivKey
 }
@@ -45,6 +46,16 @@ var OptDisableReuseport Option = func(_ *testing.T, c *config) {
 // OptDialOnly prevents the test swarm from listening.
 var OptDialOnly Option = func(_ *testing.T, c *config) {
 	c.dialOnly = true
+}
+
+// OptDisableTCP disables TCP.
+var OptDisableTCP Option = func(_ *testing.T, c *config) {
+	c.disableTCP = true
+}
+
+// OptDisableQUIC disables QUIC.
+var OptDisableQUIC Option = func(_ *testing.T, c *config) {
+	c.disableQUIC = true
 }
 
 // OptConnGater configures the given connection gater on the test
@@ -111,33 +122,36 @@ func GenSwarm(t *testing.T, ctx context.Context, opts ...Option) *swarm.Swarm {
 
 	upgrader := GenUpgrader(s)
 	upgrader.ConnGater = cfg.connectionGater
-	tcpTransport := tcp.NewTCPTransport(upgrader)
-	tcpTransport.DisableReuseport = cfg.disableReuseport
 
-	quicTransport, err := quic.NewTransport(p.PrivKey, nil, nil)
-	if err != nil {
-		t.Fatal(err)
+	if !cfg.disableTCP {
+		tcpTransport := tcp.NewTCPTransport(upgrader)
+		tcpTransport.DisableReuseport = cfg.disableReuseport
+		if err := s.AddTransport(tcpTransport); err != nil {
+			t.Fatal(err)
+		}
+		if !cfg.dialOnly {
+			if err := s.Listen(p.Addr); err != nil {
+				t.Fatal(err)
+			}
+		}
 	}
-
-	if err := s.AddTransport(tcpTransport); err != nil {
-		t.Fatal(err)
+	if !cfg.disableQUIC {
+		quicTransport, err := quic.NewTransport(p.PrivKey, nil, cfg.connectionGater)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := s.AddTransport(quicTransport); err != nil {
+			t.Fatal(err)
+		}
+		if !cfg.dialOnly {
+			if err := s.Listen(ma.StringCast("/ip4/127.0.0.1/udp/0/quic")); err != nil {
+				t.Fatal(err)
+			}
+		}
 	}
-
-	if err := s.AddTransport(quicTransport); err != nil {
-		t.Fatal(err)
-	}
-
 	if !cfg.dialOnly {
-		if err := s.Listen(p.Addr); err != nil {
-			t.Fatal(err)
-		}
-		if err := s.Listen(ma.StringCast("/ip4/127.0.0.1/udp/0/quic")); err != nil {
-			t.Fatal(err)
-		}
-
 		s.Peerstore().AddAddrs(p.ID, s.ListenAddresses(), peerstore.PermanentAddrTTL)
 	}
-
 	return s
 }
 
