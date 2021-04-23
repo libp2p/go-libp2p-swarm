@@ -292,6 +292,7 @@ func TestConnectionGating(t *testing.T) {
 		p1ConnectednessToP2 network.Connectedness
 		p2ConnectednessToP1 network.Connectedness
 		isP1OutboundErr     bool
+		disableOnQUIC       bool
 	}{
 		"no gating": {
 			p1ConnectednessToP2: network.Connected,
@@ -324,6 +325,8 @@ func TestConnectionGating(t *testing.T) {
 			p1ConnectednessToP2: network.NotConnected,
 			p2ConnectednessToP1: network.NotConnected,
 			isP1OutboundErr:     true,
+			// QUIC gates the connection after completion of the handshake
+			disableOnQUIC: true,
 		},
 		"p2 gates inbound peer dial before multiplexing": {
 			p1Gater: func(c *MockConnectionGater) *MockConnectionGater {
@@ -355,33 +358,43 @@ func TestConnectionGating(t *testing.T) {
 	}
 
 	for n, tc := range tcs {
-		t.Run(n, func(t *testing.T) {
-			p1Gater := DefaultMockConnectionGater()
-			p2Gater := DefaultMockConnectionGater()
-			if tc.p1Gater != nil {
-				p1Gater = tc.p1Gater(p1Gater)
+		for _, useQuic := range []bool{false, true} {
+			trString := "TCP"
+			optTransport := OptDisableQUIC
+			if useQuic {
+				if tc.disableOnQUIC {
+					continue
+				}
+				trString = "QUIC"
+				optTransport = OptDisableTCP
 			}
-			if tc.p2Gater != nil {
-				p2Gater = tc.p2Gater(p2Gater)
-			}
+			t.Run(fmt.Sprintf("%s %s", n, trString), func(t *testing.T) {
+				p1Gater := DefaultMockConnectionGater()
+				p2Gater := DefaultMockConnectionGater()
+				if tc.p1Gater != nil {
+					p1Gater = tc.p1Gater(p1Gater)
+				}
+				if tc.p2Gater != nil {
+					p2Gater = tc.p2Gater(p2Gater)
+				}
 
-			sw1 := GenSwarm(t, ctx, OptConnGater(p1Gater))
-			sw2 := GenSwarm(t, ctx, OptConnGater(p2Gater))
+				sw1 := GenSwarm(t, ctx, OptConnGater(p1Gater), optTransport)
+				sw2 := GenSwarm(t, ctx, OptConnGater(p2Gater), optTransport)
 
-			p1 := sw1.LocalPeer()
-			p2 := sw2.LocalPeer()
-			sw1.Peerstore().AddAddr(p2, sw2.ListenAddresses()[0], peerstore.PermanentAddrTTL)
-			// 1 -> 2
-			_, err := sw1.DialPeer(ctx, p2)
+				p1 := sw1.LocalPeer()
+				p2 := sw2.LocalPeer()
+				sw1.Peerstore().AddAddr(p2, sw2.ListenAddresses()[0], peerstore.PermanentAddrTTL)
+				// 1 -> 2
+				_, err := sw1.DialPeer(ctx, p2)
 
-			require.Equal(t, tc.isP1OutboundErr, err != nil, n)
-			require.Equal(t, tc.p1ConnectednessToP2, sw1.Connectedness(p2), n)
+				require.Equal(t, tc.isP1OutboundErr, err != nil, n)
+				require.Equal(t, tc.p1ConnectednessToP2, sw1.Connectedness(p2), n)
 
-			require.Eventually(t, func() bool {
-				return tc.p2ConnectednessToP1 == sw2.Connectedness(p1)
-			}, 2*time.Second, 100*time.Millisecond, n)
-		})
-
+				require.Eventually(t, func() bool {
+					return tc.p2ConnectednessToP1 == sw2.Connectedness(p1)
+				}, 2*time.Second, 100*time.Millisecond, n)
+			})
+		}
 	}
 }
 
