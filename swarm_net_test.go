@@ -3,6 +3,7 @@ package swarm_test
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"testing"
 	"time"
 
@@ -108,6 +109,8 @@ func TestNetworkOpenStream(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	testString := "hello ipfs"
+
 	nets := make([]network.Network, 4)
 	for i := 0; i < 4; i++ {
 		nets[i] = GenSwarm(t, ctx)
@@ -129,13 +132,12 @@ func TestNetworkOpenStream(t *testing.T) {
 		defer close(done)
 		defer s.Close()
 
-		buf := make([]byte, 10)
-		_, err := s.Read(buf)
+		buf, err := ioutil.ReadAll(s)
 		if err != nil {
 			t.Error(err)
 			return
 		}
-		if string(buf) != "hello ipfs" {
+		if string(buf) != testString {
 			t.Error("got wrong message")
 		}
 	})
@@ -145,18 +147,20 @@ func TestNetworkOpenStream(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	streams := nets[0].ConnsToPeer(nets[1].LocalPeer())[0].GetStreams()
-	if err != nil {
-		t.Fatal(err)
+	numStreams := 0
+	for _, conn := range nets[0].ConnsToPeer(nets[1].LocalPeer()) {
+		numStreams += len(conn.GetStreams())
 	}
 
-	if len(streams) != 1 {
+	if numStreams != 1 {
 		t.Fatal("should only have one stream there")
 	}
 
-	_, err = s.Write([]byte("hello ipfs"))
+	n, err := s.Write([]byte(testString))
 	if err != nil {
 		t.Fatal(err)
+	} else if n != len(testString) {
+		t.Errorf("expected to write %d bytes, wrote %d", len(testString), n)
 	}
 
 	err = s.Close()
