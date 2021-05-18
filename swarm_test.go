@@ -317,6 +317,15 @@ func TestConnectionGating(t *testing.T) {
 			p2ConnectednessToP1: network.NotConnected,
 			isP1OutboundErr:     true,
 		},
+		"p2 accepts inbound peer dial if outgoing dial is gated": {
+			p2Gater: func(c *MockConnectionGater) *MockConnectionGater {
+				c.Dial = func(peer.ID, ma.Multiaddr) bool { return false }
+				return c
+			},
+			p1ConnectednessToP2: network.Connected,
+			p2ConnectednessToP1: network.Connected,
+			isP1OutboundErr:     false,
+		},
 		"p2 gates inbound peer dial before securing": {
 			p2Gater: func(c *MockConnectionGater) *MockConnectionGater {
 				c.Accept = func(c network.ConnMultiaddrs) bool { return false }
