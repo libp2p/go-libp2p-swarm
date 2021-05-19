@@ -358,22 +358,16 @@ func TestStressLimiter(t *testing.T) {
 }
 
 func TestFDLimitUnderflow(t *testing.T) {
-	df := func(ctx context.Context, p peer.ID, a ma.Multiaddr) (transport.CapableConn, error) {
-		timeout := make(chan bool, 1)
-		go func() {
-			time.Sleep(time.Second * 5)
-			timeout <- true
-		}()
-
+	df := func(ctx context.Context, p peer.ID, addr ma.Multiaddr) (transport.CapableConn, error) {
 		select {
 		case <-ctx.Done():
-		case <-timeout:
+		case <-time.After(5 * time.Second):
 		}
-
 		return nil, fmt.Errorf("df timed out")
 	}
 
-	l := newDialLimiterWithParams(isFdConsuming, df, 20, 3)
+	const fdLimit = 20
+	l := newDialLimiterWithParams(isFdConsuming, df, fdLimit, 3)
 
 	var addrs []ma.Multiaddr
 	for i := 0; i <= 1000; i++ {
@@ -381,12 +375,14 @@ func TestFDLimitUnderflow(t *testing.T) {
 	}
 
 	wg := sync.WaitGroup{}
-	wg.Add(1000)
-	errs := make(chan error, 1000)
-	for i := 0; i < 1000; i++ {
+	const num = 3 * fdLimit
+	wg.Add(num)
+	errs := make(chan error, num)
+	for i := 0; i < num; i++ {
 		go func(id peer.ID, i int) {
 			defer wg.Done()
 			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
 
 			resp := make(chan dialResult)
 			l.AddDialJob(&dialJob{
@@ -395,17 +391,6 @@ func TestFDLimitUnderflow(t *testing.T) {
 				peer: id,
 				resp: resp,
 			})
-
-			//cancel first 60 after 1s, next 60 after 2s
-			if i > 60 {
-				time.Sleep(time.Second * 1)
-			}
-			if i < 120 {
-				time.Sleep(time.Second * 1)
-				cancel()
-				return
-			}
-			defer cancel()
 
 			for res := range resp {
 				if res.Err != nil {
