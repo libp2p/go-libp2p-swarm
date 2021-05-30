@@ -212,16 +212,6 @@ func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (*Conn,
 		addr = tc.RemoteMultiaddr()
 	)
 
-	if s.gater != nil {
-		if allow := s.gater.InterceptAddrDial(p, addr); !allow {
-			err := tc.Close()
-			if err != nil {
-				log.Warnf("failed to close connection with peer %s and addr %s; err: %s", p.Pretty(), addr, err)
-			}
-			return nil, ErrAddrFiltered
-		}
-	}
-
 	// create the Stat object, initializing with the underlying connection Stat if available
 	var stat network.Stat
 	if cs, ok := tc.(network.ConnStat); ok {
