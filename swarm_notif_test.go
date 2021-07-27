@@ -39,7 +39,7 @@ func TestNotifications(t *testing.T) {
 		}
 	}()
 
-	timeout := 5 * time.Second
+	const timeout = 5 * time.Second
 
 	// signup notifs
 	for i, swarm := range swarms {
@@ -50,7 +50,7 @@ func TestNotifications(t *testing.T) {
 
 	connectSwarms(t, ctx, swarms)
 
-	<-time.After(time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 	// should've gotten 5 by now.
 
 	// test everyone got the correct connection opened calls
