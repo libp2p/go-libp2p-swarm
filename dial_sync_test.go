@@ -15,58 +15,37 @@ func getMockDialFunc() (dialWorkerFunc, func(), context.Context, <-chan struct{}
 	dfcalls := make(chan struct{}, 512) // buffer it large enough that we won't care
 	dialctx, cancel := context.WithCancel(context.Background())
 	ch := make(chan struct{})
-	f := func(ctx context.Context, p peer.ID, reqch <-chan dialRequest) error {
+	f := func(p peer.ID, reqch <-chan dialRequest) error {
+		defer cancel()
 		dfcalls <- struct{}{}
 		go func() {
-			defer cancel()
-			for {
-				select {
-				case req, ok := <-reqch:
-					if !ok {
-						return
-					}
-
-					select {
-					case <-ch:
-						req.resch <- dialResponse{conn: new(Conn)}
-					case <-ctx.Done():
-						req.resch <- dialResponse{err: ctx.Err()}
-						return
-					}
-				case <-ctx.Done():
-					return
-				}
+			for req := range reqch {
+				<-ch
+				req.resch <- dialResponse{conn: new(Conn)}
 			}
 		}()
 		return nil
 	}
 
-	o := new(sync.Once)
-
-	return f, func() { o.Do(func() { close(ch) }) }, dialctx, dfcalls
+	var once sync.Once
+	return f, func() { once.Do(func() { close(ch) }) }, dialctx, dfcalls
 }
 
 func TestBasicDialSync(t *testing.T) {
 	df, done, _, callsch := getMockDialFunc()
-
 	dsync := newDialSync(df)
-
 	p := peer.ID("testpeer")
 
-	ctx := context.Background()
-
-	finished := make(chan struct{})
+	finished := make(chan struct{}, 2)
 	go func() {
-		_, err := dsync.DialLock(ctx, p)
-		if err != nil {
+		if _, err := dsync.DialLock(context.Background(), p); err != nil {
 			t.Error(err)
 		}
 		finished <- struct{}{}
 	}()
 
 	go func() {
-		_, err := dsync.DialLock(ctx, p)
-		if err != nil {
+		if _, err := dsync.DialLock(context.Background(), p); err != nil {
 			t.Error(err)
 		}
 		finished <- struct{}{}
@@ -139,15 +118,12 @@ func TestDialSyncAllCancel(t *testing.T) {
 	df, done, dctx, _ := getMockDialFunc()
 
 	dsync := newDialSync(df)
-
 	p := peer.ID("testpeer")
-
-	ctx1, cancel1 := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
 
 	finished := make(chan struct{})
 	go func() {
-		_, err := dsync.DialLock(ctx1, p)
-		if err != ctx1.Err() {
+		if _, err := dsync.DialLock(ctx, p); err != ctx.Err() {
 			t.Error("should have gotten context error")
 		}
 		finished <- struct{}{}
@@ -155,14 +131,13 @@ func TestDialSyncAllCancel(t *testing.T) {
 
 	// Add a second dialwait in so two actors are waiting on the same dial
 	go func() {
-		_, err := dsync.DialLock(ctx1, p)
-		if err != ctx1.Err() {
+		if _, err := dsync.DialLock(ctx, p); err != ctx.Err() {
 			t.Error("should have gotten context error")
 		}
 		finished <- struct{}{}
 	}()
 
-	cancel1()
+	cancel()
 	for i := 0; i < 2; i++ {
 		select {
 		case <-finished:
@@ -180,33 +155,27 @@ func TestDialSyncAllCancel(t *testing.T) {
 
 	// should be able to successfully dial that peer again
 	done()
-	_, err := dsync.DialLock(context.Background(), p)
-	if err != nil {
+	if _, err := dsync.DialLock(context.Background(), p); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestFailFirst(t *testing.T) {
 	var count int32
-	f := func(ctx context.Context, p peer.ID, reqch <-chan dialRequest) error {
+	f := func(p peer.ID, reqch <-chan dialRequest) error {
 		go func() {
 			for {
-				select {
-				case req, ok := <-reqch:
-					if !ok {
-						return
-					}
-
-					if atomic.LoadInt32(&count) > 0 {
-						req.resch <- dialResponse{conn: new(Conn)}
-					} else {
-						req.resch <- dialResponse{err: fmt.Errorf("gophers ate the modem")}
-					}
-					atomic.AddInt32(&count, 1)
-
-				case <-ctx.Done():
+				req, ok := <-reqch
+				if !ok {
 					return
 				}
+
+				if atomic.LoadInt32(&count) > 0 {
+					req.resch <- dialResponse{conn: new(Conn)}
+				} else {
+					req.resch <- dialResponse{err: fmt.Errorf("gophers ate the modem")}
+				}
+				atomic.AddInt32(&count, 1)
 			}
 		}()
 		return nil
@@ -235,19 +204,14 @@ func TestFailFirst(t *testing.T) {
 }
 
 func TestStressActiveDial(t *testing.T) {
-	ds := newDialSync(func(ctx context.Context, p peer.ID, reqch <-chan dialRequest) error {
+	ds := newDialSync(func(p peer.ID, reqch <-chan dialRequest) error {
 		go func() {
 			for {
-				select {
-				case req, ok := <-reqch:
-					if !ok {
-						return
-					}
-
-					req.resch <- dialResponse{}
-				case <-ctx.Done():
+				req, ok := <-reqch
+				if !ok {
 					return
 				}
+				req.resch <- dialResponse{}
 			}
 		}()
 		return nil

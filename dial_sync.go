@@ -9,7 +9,7 @@ import (
 )
 
 // DialWorerFunc is used by DialSync to spawn a new dial worker
-type dialWorkerFunc func(context.Context, peer.ID, <-chan dialRequest) error
+type dialWorkerFunc func(peer.ID, <-chan dialRequest) error
 
 // newDialSync constructs a new DialSync
 func newDialSync(worker dialWorkerFunc) *DialSync {
@@ -94,8 +94,7 @@ func (ds *DialSync) getActiveDial(p peer.ID) (*activeDial, error) {
 			ds:     ds,
 		}
 
-		err := ds.dialWorker(adctx, p, actd.reqch)
-		if err != nil {
+		if err := ds.dialWorker(p, actd.reqch); err != nil {
 			cancel()
 			return nil, err
 		}
