@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -186,7 +187,7 @@ func TestDialSyncAllCancel(t *testing.T) {
 }
 
 func TestFailFirst(t *testing.T) {
-	var count int
+	var count int32
 	f := func(ctx context.Context, p peer.ID, reqch <-chan dialRequest) error {
 		go func() {
 			for {
@@ -196,12 +197,12 @@ func TestFailFirst(t *testing.T) {
 						return
 					}
 
-					if count > 0 {
+					if atomic.LoadInt32(&count) > 0 {
 						req.resch <- dialResponse{conn: new(Conn)}
 					} else {
 						req.resch <- dialResponse{err: fmt.Errorf("gophers ate the modem")}
 					}
-					count++
+					atomic.AddInt32(&count, 1)
 
 				case <-ctx.Done():
 					return
