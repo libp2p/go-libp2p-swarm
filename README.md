@@ -2,6 +2,7 @@ go-libp2p-swarm
 ==================
 
 [![](https://img.shields.io/badge/made%20by-Protocol%20Labs-blue.svg?style=flat-square)](https://protocol.ai)
+[![Go Reference](https://pkg.go.dev/badge/github.com/libp2p/go-libp2p-swarm)](https://pkg.go.dev/github.com/libp2p/go-libp2p-swarm)
 [![](https://img.shields.io/badge/project-libp2p-yellow.svg?style=flat-square)](https://libp2p.io/)
 [![](https://img.shields.io/badge/freenode-%23libp2p-yellow.svg?style=flat-square)](http://webchat.freenode.net/?channels=%23libp2p)
 [![Code Coverage](https://img.shields.io/codecov/c/github/libp2p/go-libp2p-swarm/master.svg?style=flat-square)](https://codecov.io/gh/libp2p/go-libp2p-swarm)
