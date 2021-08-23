@@ -8,8 +8,8 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 )
 
-// DialWorerFunc is used by DialSync to spawn a new dial worker
-type dialWorkerFunc func(peer.ID, <-chan dialRequest) error
+// dialWorkerFunc is used by DialSync to spawn a new dial worker
+type dialWorkerFunc func(peer.ID, <-chan dialRequest)
 
 // newDialSync constructs a new DialSync
 func newDialSync(worker dialWorkerFunc) *DialSync {
@@ -93,12 +93,7 @@ func (ds *DialSync) getActiveDial(p peer.ID) (*activeDial, error) {
 			reqch:  make(chan dialRequest),
 			ds:     ds,
 		}
-
-		if err := ds.dialWorker(p, actd.reqch); err != nil {
-			cancel()
-			return nil, err
-		}
-
+		ds.dialWorker(p, actd.reqch)
 		ds.dials[p] = actd
 	}
 

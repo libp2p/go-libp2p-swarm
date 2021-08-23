@@ -15,7 +15,7 @@ func getMockDialFunc() (dialWorkerFunc, func(), context.Context, <-chan struct{}
 	dfcalls := make(chan struct{}, 512) // buffer it large enough that we won't care
 	dialctx, cancel := context.WithCancel(context.Background())
 	ch := make(chan struct{})
-	f := func(p peer.ID, reqch <-chan dialRequest) error {
+	f := func(p peer.ID, reqch <-chan dialRequest) {
 		defer cancel()
 		dfcalls <- struct{}{}
 		go func() {
@@ -24,7 +24,6 @@ func getMockDialFunc() (dialWorkerFunc, func(), context.Context, <-chan struct{}
 				req.resch <- dialResponse{conn: new(Conn)}
 			}
 		}()
-		return nil
 	}
 
 	var once sync.Once
@@ -162,7 +161,7 @@ func TestDialSyncAllCancel(t *testing.T) {
 
 func TestFailFirst(t *testing.T) {
 	var count int32
-	f := func(p peer.ID, reqch <-chan dialRequest) error {
+	f := func(p peer.ID, reqch <-chan dialRequest) {
 		go func() {
 			for {
 				req, ok := <-reqch
@@ -178,18 +177,15 @@ func TestFailFirst(t *testing.T) {
 				atomic.AddInt32(&count, 1)
 			}
 		}()
-		return nil
 	}
 
 	ds := newDialSync(f)
-
 	p := peer.ID("testing")
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 
-	_, err := ds.Dial(ctx, p)
-	if err == nil {
+	if _, err := ds.Dial(ctx, p); err == nil {
 		t.Fatal("expected gophers to have eaten the modem")
 	}
 
@@ -197,14 +193,13 @@ func TestFailFirst(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	if c == nil {
 		t.Fatal("should have gotten a 'real' conn back")
 	}
 }
 
 func TestStressActiveDial(t *testing.T) {
-	ds := newDialSync(func(p peer.ID, reqch <-chan dialRequest) error {
+	ds := newDialSync(func(p peer.ID, reqch <-chan dialRequest) {
 		go func() {
 			for {
 				req, ok := <-reqch
@@ -214,7 +209,6 @@ func TestStressActiveDial(t *testing.T) {
 				req.resch <- dialResponse{}
 			}
 		}()
-		return nil
 	})
 
 	wg := sync.WaitGroup{}
@@ -234,25 +228,4 @@ func TestStressActiveDial(t *testing.T) {
 	}
 
 	wg.Wait()
-}
-
-func TestDialSelf(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	self := peer.ID("ABC")
-	s := NewSwarm(ctx, self, nil, nil)
-	defer s.Close()
-
-	// this should fail
-	_, err := s.dsync.Dial(ctx, self)
-	if err != ErrDialToSelf {
-		t.Fatal("expected error from self dial")
-	}
-
-	// do it twice to make sure we get a new active dial object that fails again
-	_, err = s.dsync.Dial(ctx, self)
-	if err != ErrDialToSelf {
-		t.Fatal("expected error from self dial")
-	}
 }
