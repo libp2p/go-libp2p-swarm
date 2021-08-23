@@ -2,10 +2,10 @@ go-libp2p-swarm
 ==================
 
 [![](https://img.shields.io/badge/made%20by-Protocol%20Labs-blue.svg?style=flat-square)](https://protocol.ai)
+[![Go Reference](https://pkg.go.dev/badge/github.com/libp2p/go-libp2p-swarm)](https://pkg.go.dev/github.com/libp2p/go-libp2p-swarm)
 [![](https://img.shields.io/badge/project-libp2p-yellow.svg?style=flat-square)](https://libp2p.io/)
 [![](https://img.shields.io/badge/freenode-%23libp2p-yellow.svg?style=flat-square)](http://webchat.freenode.net/?channels=%23libp2p)
-[![Coverage Status](https://coveralls.io/repos/github/libp2p/go-libp2p-swarm/badge.svg?branch=master)](https://coveralls.io/github/libp2p/go-libp2p-swarm?branch=master)
-[![Travis CI](https://travis-ci.org/libp2p/go-libp2p-swarm.svg?branch=master)](https://travis-ci.org/libp2p/go-libp2p-swarm)
+[![Code Coverage](https://img.shields.io/codecov/c/github/libp2p/go-libp2p-swarm/master.svg?style=flat-square)](https://codecov.io/gh/libp2p/go-libp2p-swarm)
 [![Discourse posts](https://img.shields.io/discourse/https/discuss.libp2p.io/posts.svg)](https://discuss.libp2p.io)
 
 > The libp2p swarm manages groups of connections to peers, and handles incoming and outgoing streams.
