@@ -108,9 +108,9 @@ func (ds *DialSync) getActiveDial(p peer.ID) (*activeDial, error) {
 	return actd, nil
 }
 
-// DialLock initiates a dial to the given peer if there are none in progress
+// Dial initiates a dial to the given peer if there are none in progress
 // then waits for the dial to that peer to complete.
-func (ds *DialSync) DialLock(ctx context.Context, p peer.ID) (*Conn, error) {
+func (ds *DialSync) Dial(ctx context.Context, p peer.ID) (*Conn, error) {
 	ad, err := ds.getActiveDial(p)
 	if err != nil {
 		return nil, err

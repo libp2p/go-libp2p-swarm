@@ -38,14 +38,14 @@ func TestBasicDialSync(t *testing.T) {
 
 	finished := make(chan struct{}, 2)
 	go func() {
-		if _, err := dsync.DialLock(context.Background(), p); err != nil {
+		if _, err := dsync.Dial(context.Background(), p); err != nil {
 			t.Error(err)
 		}
 		finished <- struct{}{}
 	}()
 
 	go func() {
-		if _, err := dsync.DialLock(context.Background(), p); err != nil {
+		if _, err := dsync.Dial(context.Background(), p); err != nil {
 			t.Error(err)
 		}
 		finished <- struct{}{}
@@ -74,7 +74,7 @@ func TestDialSyncCancel(t *testing.T) {
 
 	finished := make(chan struct{})
 	go func() {
-		_, err := dsync.DialLock(ctx1, p)
+		_, err := dsync.Dial(ctx1, p)
 		if err != ctx1.Err() {
 			t.Error("should have gotten context error")
 		}
@@ -90,7 +90,7 @@ func TestDialSyncCancel(t *testing.T) {
 
 	// Add a second dialwait in so two actors are waiting on the same dial
 	go func() {
-		_, err := dsync.DialLock(context.Background(), p)
+		_, err := dsync.Dial(context.Background(), p)
 		if err != nil {
 			t.Error(err)
 		}
@@ -123,7 +123,7 @@ func TestDialSyncAllCancel(t *testing.T) {
 
 	finished := make(chan struct{})
 	go func() {
-		if _, err := dsync.DialLock(ctx, p); err != ctx.Err() {
+		if _, err := dsync.Dial(ctx, p); err != ctx.Err() {
 			t.Error("should have gotten context error")
 		}
 		finished <- struct{}{}
@@ -131,7 +131,7 @@ func TestDialSyncAllCancel(t *testing.T) {
 
 	// Add a second dialwait in so two actors are waiting on the same dial
 	go func() {
-		if _, err := dsync.DialLock(ctx, p); err != ctx.Err() {
+		if _, err := dsync.Dial(ctx, p); err != ctx.Err() {
 			t.Error("should have gotten context error")
 		}
 		finished <- struct{}{}
@@ -155,7 +155,7 @@ func TestDialSyncAllCancel(t *testing.T) {
 
 	// should be able to successfully dial that peer again
 	done()
-	if _, err := dsync.DialLock(context.Background(), p); err != nil {
+	if _, err := dsync.Dial(context.Background(), p); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -188,12 +188,12 @@ func TestFailFirst(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 
-	_, err := ds.DialLock(ctx, p)
+	_, err := ds.Dial(ctx, p)
 	if err == nil {
 		t.Fatal("expected gophers to have eaten the modem")
 	}
 
-	c, err := ds.DialLock(ctx, p)
+	c, err := ds.Dial(ctx, p)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -223,7 +223,7 @@ func TestStressActiveDial(t *testing.T) {
 
 	makeDials := func() {
 		for i := 0; i < 10000; i++ {
-			ds.DialLock(context.Background(), pid)
+			ds.Dial(context.Background(), pid)
 		}
 		wg.Done()
 	}
@@ -245,13 +245,13 @@ func TestDialSelf(t *testing.T) {
 	defer s.Close()
 
 	// this should fail
-	_, err := s.dsync.DialLock(ctx, self)
+	_, err := s.dsync.Dial(ctx, self)
 	if err != ErrDialToSelf {
 		t.Fatal("expected error from self dial")
 	}
 
 	// do it twice to make sure we get a new active dial object that fails again
-	_, err = s.dsync.DialLock(ctx, self)
+	_, err = s.dsync.Dial(ctx, self)
 	if err != ErrDialToSelf {
 		t.Fatal("expected error from self dial")
 	}

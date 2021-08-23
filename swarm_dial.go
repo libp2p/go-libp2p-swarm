@@ -259,7 +259,7 @@ func (s *Swarm) dialPeer(ctx context.Context, p peer.ID) (*Conn, error) {
 	ctx, cancel := context.WithTimeout(ctx, network.GetDialPeerTimeout(ctx))
 	defer cancel()
 
-	conn, err = s.dsync.DialLock(ctx, p)
+	conn, err = s.dsync.Dial(ctx, p)
 	if err == nil {
 		return conn, nil
 	}
