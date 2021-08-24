@@ -294,11 +294,7 @@ type dialResponse struct {
 	err  error
 }
 
-// startDialWorker starts an active dial goroutine that synchronizes and executes concurrent dials to a single peer
-func (s *Swarm) startDialWorker(p peer.ID, reqch <-chan dialRequest) {
-	go s.dialWorkerLoop(p, reqch)
-}
-
+// dialWorkerLoop synchronizes and executes concurrent dials to a single peer
 func (s *Swarm) dialWorkerLoop(p peer.ID, reqch <-chan dialRequest) {
 	defer s.limiter.clearAllPeerDials(p)
 

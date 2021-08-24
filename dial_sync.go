@@ -93,7 +93,7 @@ func (ds *DialSync) getActiveDial(p peer.ID) (*activeDial, error) {
 			reqch:  make(chan dialRequest),
 			ds:     ds,
 		}
-		ds.dialWorker(p, actd.reqch)
+		go ds.dialWorker(p, actd.reqch)
 		ds.dials[p] = actd
 	}
 
