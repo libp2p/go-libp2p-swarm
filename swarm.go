@@ -123,7 +123,7 @@ func NewSwarm(ctx context.Context, local peer.ID, peers peerstore.Peerstore, bwc
 	}
 
 	s.dsync = newDialSync(s.startDialWorker)
-	s.limiter = newDialLimiter(s.dialAddr, isFdConsumingAddr)
+	s.limiter = newDialLimiter(s.dialAddr)
 	s.proc = goprocessctx.WithContext(ctx)
 	s.ctx = goprocessctx.OnClosingContext(s.proc)
 	s.backf.init(s.ctx)

@@ -18,19 +18,6 @@ import (
 	mafmt "github.com/multiformats/go-multiaddr-fmt"
 )
 
-var isFdConsuming = func(addr ma.Multiaddr) bool {
-	res := false
-
-	ma.ForEach(addr, func(c ma.Component) bool {
-		if c.Protocol().Code == ma.P_TCP {
-			res = true
-			return false
-		}
-		return true
-	})
-	return res
-}
-
 func mustAddr(t *testing.T, s string) ma.Multiaddr {
 	a, err := ma.NewMultiaddr(s)
 	if err != nil {
@@ -95,7 +82,7 @@ func TestLimiterBasicDials(t *testing.T) {
 	hang := make(chan struct{})
 	defer close(hang)
 
-	l := newDialLimiterWithParams(isFdConsuming, hangDialFunc(hang), ConcurrentFdDials, 4)
+	l := newDialLimiterWithParams(hangDialFunc(hang), ConcurrentFdDials, 4)
 
 	bads := []ma.Multiaddr{addrWithPort(t, 1), addrWithPort(t, 2), addrWithPort(t, 3), addrWithPort(t, 4)}
 	good := addrWithPort(t, 20)
@@ -144,7 +131,7 @@ func TestLimiterBasicDials(t *testing.T) {
 func TestFDLimiting(t *testing.T) {
 	hang := make(chan struct{})
 	defer close(hang)
-	l := newDialLimiterWithParams(isFdConsuming, hangDialFunc(hang), 16, 5)
+	l := newDialLimiterWithParams(hangDialFunc(hang), 16, 5)
 
 	bads := []ma.Multiaddr{addrWithPort(t, 1), addrWithPort(t, 2), addrWithPort(t, 3), addrWithPort(t, 4)}
 	pids := []peer.ID{"testpeer1", "testpeer2", "testpeer3", "testpeer4"}
@@ -220,7 +207,7 @@ func TestTokenRedistribution(t *testing.T) {
 		<-ch
 		return nil, fmt.Errorf("test bad dial")
 	}
-	l := newDialLimiterWithParams(isFdConsuming, df, 8, 4)
+	l := newDialLimiterWithParams(df, 8, 4)
 
 	bads := []ma.Multiaddr{addrWithPort(t, 1), addrWithPort(t, 2), addrWithPort(t, 3), addrWithPort(t, 4)}
 	pids := []peer.ID{"testpeer1", "testpeer2"}
@@ -313,7 +300,7 @@ func TestStressLimiter(t *testing.T) {
 		return nil, fmt.Errorf("test bad dial")
 	}
 
-	l := newDialLimiterWithParams(isFdConsuming, df, 20, 5)
+	l := newDialLimiterWithParams(df, 20, 5)
 
 	var bads []ma.Multiaddr
 	for i := 0; i < 100; i++ {
@@ -367,7 +354,7 @@ func TestFDLimitUnderflow(t *testing.T) {
 	}
 
 	const fdLimit = 20
-	l := newDialLimiterWithParams(isFdConsuming, df, fdLimit, 3)
+	l := newDialLimiterWithParams(df, fdLimit, 3)
 
 	var addrs []ma.Multiaddr
 	for i := 0; i <= 1000; i++ {
