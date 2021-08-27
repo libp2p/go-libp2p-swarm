@@ -16,7 +16,7 @@ import (
 	"github.com/libp2p/go-libp2p-peerstore/pstoremem"
 	quic "github.com/libp2p/go-libp2p-quic-transport"
 	swarm "github.com/libp2p/go-libp2p-swarm"
-	"github.com/libp2p/go-libp2p-testing/net"
+	tnet "github.com/libp2p/go-libp2p-testing/net"
 	tptu "github.com/libp2p/go-libp2p-transport-upgrader"
 	yamux "github.com/libp2p/go-libp2p-yamux"
 	msmux "github.com/libp2p/go-stream-muxer-multistream"
@@ -86,7 +86,6 @@ func GenUpgrader(n *swarm.Swarm) *tptu.Upgrader {
 		Secure: secMuxer,
 		Muxer:  stMuxer,
 	}
-
 }
 
 // GenSwarm generates a new test swarm.
