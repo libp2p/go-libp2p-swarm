@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/libp2p/go-libp2p-core/network"
 
 	. "github.com/libp2p/go-libp2p-swarm/testing"
@@ -15,19 +17,16 @@ import (
 // TestConnectednessCorrect starts a few networks, connects a few
 // and tests Connectedness value is correct.
 func TestConnectednessCorrect(t *testing.T) {
-
-	ctx := context.Background()
-
 	nets := make([]network.Network, 4)
 	for i := 0; i < 4; i++ {
-		nets[i] = GenSwarm(t, ctx)
+		nets[i] = GenSwarm(t)
 	}
 
 	// connect 0-1, 0-2, 0-3, 1-2, 2-3
 
 	dial := func(a, b network.Network) {
 		DivulgeAddresses(b, a)
-		if _, err := a.DialPeer(ctx, b.LocalPeer()); err != nil {
+		if _, err := a.DialPeer(context.Background(), b.LocalPeer()); err != nil {
 			t.Fatalf("Failed to dial: %s", err)
 		}
 	}
@@ -54,32 +53,16 @@ func TestConnectednessCorrect(t *testing.T) {
 	expectConnectedness(t, nets[0], nets[2], network.NotConnected)
 	expectConnectedness(t, nets[1], nets[3], network.NotConnected)
 
-	if len(nets[0].Peers()) != 2 {
-		t.Fatal("expected net 0 to have two peers")
-	}
-
-	if len(nets[2].Peers()) != 2 {
-		t.Fatal("expected net 2 to have two peers")
-	}
-
-	if len(nets[1].ConnsToPeer(nets[3].LocalPeer())) != 0 {
-		t.Fatal("net 1 should have no connections to net 3")
-	}
-
-	if err := nets[2].ClosePeer(nets[1].LocalPeer()); err != nil {
-		t.Fatal(err)
-	}
+	require.Len(t, nets[0].Peers(), 2, "expected net 0 to have two peers")
+	require.Len(t, nets[2].Peers(), 2, "expected net 2 to have two peers")
+	require.NotZerof(t, nets[1].ConnsToPeer(nets[3].LocalPeer()), "net 1 should have no connections to net 3")
+	require.NoError(t, nets[2].ClosePeer(nets[1].LocalPeer()))
 
 	time.Sleep(time.Millisecond * 50)
-
 	expectConnectedness(t, nets[2], nets[1], network.NotConnected)
 
 	for _, n := range nets {
 		n.Close()
-	}
-
-	for _, n := range nets {
-		<-n.Process().Closed()
 	}
 }
 
@@ -113,7 +96,7 @@ func TestNetworkOpenStream(t *testing.T) {
 
 	nets := make([]network.Network, 4)
 	for i := 0; i < 4; i++ {
-		nets[i] = GenSwarm(t, ctx)
+		nets[i] = GenSwarm(t)
 	}
 
 	dial := func(a, b network.Network) {

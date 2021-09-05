@@ -9,17 +9,15 @@ import (
 	"github.com/libp2p/go-libp2p-core/peerstore"
 
 	ma "github.com/multiformats/go-multiaddr"
-
-	. "github.com/libp2p/go-libp2p-swarm"
 )
 
 func TestPeers(t *testing.T) {
 	ctx := context.Background()
-	swarms := makeSwarms(ctx, t, 2)
+	swarms := makeSwarms(t, 2)
 	s1 := swarms[0]
 	s2 := swarms[1]
 
-	connect := func(s *Swarm, dst peer.ID, addr ma.Multiaddr) {
+	connect := func(s network.Network, dst peer.ID, addr ma.Multiaddr) {
 		// TODO: make a DialAddr func.
 		s.Peerstore().AddAddr(dst, addr, peerstore.PermanentAddrTTL)
 		// t.Logf("connections from %s", s.LocalPeer())
@@ -55,7 +53,7 @@ func TestPeers(t *testing.T) {
 		log.Infof("%s swarm routing table: %s", s.LocalPeer(), s.Peers())
 	}
 
-	test := func(s *Swarm) {
+	test := func(s network.Network) {
 		expect := 1
 		actual := len(s.Peers())
 		if actual != expect {

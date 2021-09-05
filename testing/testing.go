@@ -1,7 +1,6 @@
 package testing
 
 import (
-	"context"
 	"testing"
 
 	csms "github.com/libp2p/go-conn-security-multistream"
@@ -22,7 +21,6 @@ import (
 	msmux "github.com/libp2p/go-stream-muxer-multistream"
 	"github.com/libp2p/go-tcp-transport"
 
-	"github.com/jbenet/goprocess"
 	ma "github.com/multiformats/go-multiaddr"
 )
 
@@ -73,7 +71,7 @@ func OptPeerPrivateKey(sk crypto.PrivKey) Option {
 }
 
 // GenUpgrader creates a new connection upgrader for use with this swarm.
-func GenUpgrader(n *swarm.Swarm) *tptu.Upgrader {
+func GenUpgrader(n network.Network) *tptu.Upgrader {
 	id := n.LocalPeer()
 	pk := n.Peerstore().PrivKey(id)
 	secMuxer := new(csms.SSMuxer)
@@ -88,8 +86,18 @@ func GenUpgrader(n *swarm.Swarm) *tptu.Upgrader {
 	}
 }
 
+type mSwarm struct {
+	*swarm.Swarm
+	ps peerstore.Peerstore
+}
+
+func (s *mSwarm) Close() error {
+	s.ps.Close()
+	return s.Swarm.Close()
+}
+
 // GenSwarm generates a new test swarm.
-func GenSwarm(t *testing.T, ctx context.Context, opts ...Option) *swarm.Swarm {
+func GenSwarm(t *testing.T, opts ...Option) network.Network {
 	var cfg config
 	for _, o := range opts {
 		o(t, &cfg)
@@ -113,11 +121,10 @@ func GenSwarm(t *testing.T, ctx context.Context, opts ...Option) *swarm.Swarm {
 	ps := pstoremem.NewPeerstore()
 	ps.AddPubKey(p.ID, p.PubKey)
 	ps.AddPrivKey(p.ID, p.PrivKey)
-	s := swarm.NewSwarm(ctx, p.ID, ps, metrics.NewBandwidthCounter(), cfg.connectionGater)
-
-	// Call AddChildNoWait because we can't call AddChild after the process
-	// may have been closed (e.g., if the context was canceled).
-	s.Process().AddChildNoWait(goprocess.WithTeardown(ps.Close))
+	s := &mSwarm{
+		Swarm: swarm.NewSwarm(p.ID, ps, metrics.NewBandwidthCounter(), cfg.connectionGater),
+		ps:    ps,
+	}
 
 	upgrader := GenUpgrader(s)
 	upgrader.ConnGater = cfg.connectionGater

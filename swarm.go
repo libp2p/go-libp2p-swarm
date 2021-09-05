@@ -18,8 +18,6 @@ import (
 	"github.com/libp2p/go-libp2p-core/transport"
 
 	logging "github.com/ipfs/go-log"
-	"github.com/jbenet/goprocess"
-	goprocessctx "github.com/jbenet/goprocess/context"
 
 	ma "github.com/multiformats/go-multiaddr"
 )
@@ -92,9 +90,10 @@ type Swarm struct {
 	limiter *dialLimiter
 	gater   connmgr.ConnectionGater
 
-	proc goprocess.Process
-	ctx  context.Context
-	bwc  metrics.Reporter
+	ctx       context.Context // is canceled when Close is called
+	ctxCancel context.CancelFunc
+
+	bwc metrics.Reporter
 }
 
 // NewSwarm constructs a Swarm.
@@ -103,11 +102,14 @@ type Swarm struct {
 // `extra` interface{} parameter facilitates the future migration. Supported
 // elements are:
 //  - connmgr.ConnectionGater
-func NewSwarm(ctx context.Context, local peer.ID, peers peerstore.Peerstore, bwc metrics.Reporter, extra ...interface{}) *Swarm {
+func NewSwarm(local peer.ID, peers peerstore.Peerstore, bwc metrics.Reporter, extra ...interface{}) *Swarm {
+	ctx, cancel := context.WithCancel(context.Background())
 	s := &Swarm{
-		local: local,
-		peers: peers,
-		bwc:   bwc,
+		local:     local,
+		peers:     peers,
+		bwc:       bwc,
+		ctx:       ctx,
+		ctxCancel: cancel,
 	}
 
 	s.conns.m = make(map[peer.ID][]*Conn)
@@ -124,23 +126,11 @@ func NewSwarm(ctx context.Context, local peer.ID, peers peerstore.Peerstore, bwc
 
 	s.dsync = newDialSync(s.dialWorkerLoop)
 	s.limiter = newDialLimiter(s.dialAddr)
-	s.proc = goprocessctx.WithContext(ctx)
-	s.ctx = goprocessctx.OnClosingContext(s.proc)
 	s.backf.init(s.ctx)
-
-	// Set teardown after setting the context/process so we don't start the
-	// teardown process early.
-	s.proc.SetTeardown(s.teardown)
-
 	return s
 }
 
-func (s *Swarm) teardown() error {
-	// Wait for the context to be canceled.
-	// This allows other parts of the swarm to detect that we're shutting
-	// down.
-	<-s.ctx.Done()
-
+func (s *Swarm) Close() error {
 	// Prevents new connections and/or listeners from being added to the swarm.
 
 	s.listeners.Lock()
@@ -199,11 +189,6 @@ func (s *Swarm) teardown() error {
 	wg.Wait()
 
 	return nil
-}
-
-// Process returns the Process of the swarm
-func (s *Swarm) Process() goprocess.Process {
-	return s.proc
 }
 
 func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (*Conn, error) {
@@ -291,16 +276,6 @@ func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (*Conn,
 // Peerstore returns this swarms internal Peerstore.
 func (s *Swarm) Peerstore() peerstore.Peerstore {
 	return s.peers
-}
-
-// Context returns the context of the swarm
-func (s *Swarm) Context() context.Context {
-	return s.ctx
-}
-
-// Close stops the Swarm.
-func (s *Swarm) Close() error {
-	return s.proc.Close()
 }
 
 // TODO: We probably don't need the conn handlers.
