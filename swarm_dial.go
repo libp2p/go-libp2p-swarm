@@ -461,7 +461,11 @@ loop:
 
 			for _, ad := range tojoin {
 				if !ad.dialed {
-					ad.ctx = s.mergeDialContexts(ad.ctx, req.ctx)
+					if simConnect, isClient, reason := network.GetSimultaneousConnect(req.ctx); simConnect {
+						if simConnect, _, _ := network.GetSimultaneousConnect(ad.ctx); !simConnect {
+							ad.ctx = network.WithSimultaneousConnect(ad.ctx, isClient, reason)
+						}
+					}
 				}
 				ad.requests = append(ad.requests, reqno)
 			}
@@ -575,18 +579,6 @@ func (s *Swarm) addrsForDial(ctx context.Context, p peer.ID) ([]ma.Multiaddr, er
 	}
 
 	return goodAddrs, nil
-}
-
-func (s *Swarm) mergeDialContexts(a, b context.Context) context.Context {
-	dialCtx := a
-
-	if simConnect, reason := network.GetSimultaneousConnect(b); simConnect {
-		if simConnect, _ := network.GetSimultaneousConnect(a); !simConnect {
-			dialCtx = network.WithSimultaneousConnect(dialCtx, reason)
-		}
-	}
-
-	return dialCtx
 }
 
 func (s *Swarm) dialNextAddr(ctx context.Context, p peer.ID, addr ma.Multiaddr, resch chan dialResult) error {

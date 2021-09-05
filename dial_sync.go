@@ -56,8 +56,8 @@ func (ad *activeDial) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 	if forceDirect, reason := network.GetForceDirectDial(ctx); forceDirect {
 		dialCtx = network.WithForceDirectDial(dialCtx, reason)
 	}
-	if simConnect, reason := network.GetSimultaneousConnect(ctx); simConnect {
-		dialCtx = network.WithSimultaneousConnect(dialCtx, reason)
+	if simConnect, isClient, reason := network.GetSimultaneousConnect(ctx); simConnect {
+		dialCtx = network.WithSimultaneousConnect(dialCtx, isClient, reason)
 	}
 
 	resch := make(chan dialResponse, 1)
