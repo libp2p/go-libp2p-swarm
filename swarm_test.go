@@ -16,7 +16,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/peerstore"
 
-	. "github.com/libp2p/go-libp2p-swarm"
+	swarm "github.com/libp2p/go-libp2p-swarm"
 	. "github.com/libp2p/go-libp2p-swarm/testing"
 
 	logging "github.com/ipfs/go-log"
@@ -58,14 +58,14 @@ func EchoStreamHandler(stream network.Stream) {
 	}()
 }
 
-func makeDialOnlySwarm(t *testing.T) *Swarm {
+func makeDialOnlySwarm(t *testing.T) *swarm.Swarm {
 	swarm := GenSwarm(t, OptDialOnly)
 	swarm.SetStreamHandler(EchoStreamHandler)
 	return swarm
 }
 
-func makeSwarms(t *testing.T, num int, opts ...Option) []*Swarm {
-	swarms := make([]*Swarm, 0, num)
+func makeSwarms(t *testing.T, num int, opts ...Option) []*swarm.Swarm {
+	swarms := make([]*swarm.Swarm, 0, num)
 	for i := 0; i < num; i++ {
 		swarm := GenSwarm(t, opts...)
 		swarm.SetStreamHandler(EchoStreamHandler)
@@ -74,9 +74,9 @@ func makeSwarms(t *testing.T, num int, opts ...Option) []*Swarm {
 	return swarms
 }
 
-func connectSwarms(t *testing.T, ctx context.Context, swarms []*Swarm) {
+func connectSwarms(t *testing.T, ctx context.Context, swarms []*swarm.Swarm) {
 	var wg sync.WaitGroup
-	connect := func(s *Swarm, dst peer.ID, addr ma.Multiaddr) {
+	connect := func(s *swarm.Swarm, dst peer.ID, addr ma.Multiaddr) {
 		// TODO: make a DialAddr func.
 		s.Peerstore().AddAddr(dst, addr, peerstore.PermanentAddrTTL)
 		if _, err := s.DialPeer(ctx, dst); err != nil {
@@ -455,7 +455,7 @@ func TestPreventDialListenAddr(t *testing.T) {
 	remote := peer.ID("foobar")
 	s.Peerstore().AddAddr(remote, addr, time.Hour)
 	_, err = s.DialPeer(context.Background(), remote)
-	if !errors.Is(err, ErrNoGoodAddresses) {
+	if !errors.Is(err, swarm.ErrNoGoodAddresses) {
 		t.Fatal("expected dial to fail: %w", err)
 	}
 }
