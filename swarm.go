@@ -90,6 +90,7 @@ type Swarm struct {
 	limiter *dialLimiter
 	gater   connmgr.ConnectionGater
 
+	closeOnce sync.Once
 	ctx       context.Context // is canceled when Close is called
 	ctxCancel context.CancelFunc
 
@@ -131,8 +132,14 @@ func NewSwarm(local peer.ID, peers peerstore.Peerstore, bwc metrics.Reporter, ex
 }
 
 func (s *Swarm) Close() error {
-	// Prevents new connections and/or listeners from being added to the swarm.
+	s.closeOnce.Do(s.close)
+	return nil
+}
 
+func (s *Swarm) close() {
+	s.ctxCancel()
+
+	// Prevents new connections and/or listeners from being added to the swarm.
 	s.listeners.Lock()
 	listeners := s.listeners.m
 	s.listeners.m = nil
@@ -187,8 +194,6 @@ func (s *Swarm) Close() error {
 		}
 	}
 	wg.Wait()
-
-	return nil
 }
 
 func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (*Conn, error) {
