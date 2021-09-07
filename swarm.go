@@ -50,6 +50,13 @@ func WithConnectionGater(gater connmgr.ConnectionGater) Option {
 	}
 }
 
+// WithMetrics sets a metrics reporter
+func WithMetrics(reporter metrics.Reporter) Option {
+	return func(s *Swarm) {
+		s.bwc = reporter
+	}
+}
+
 // Swarm is a connection muxer, allowing connections to other peers to
 // be opened and closed, while still using the same Chan for all
 // communication. The Chan sends/receives Messages, which note the
@@ -107,12 +114,11 @@ type Swarm struct {
 }
 
 // NewSwarm constructs a Swarm.
-func NewSwarm(local peer.ID, peers peerstore.Peerstore, bwc metrics.Reporter, opts ...Option) *Swarm {
+func NewSwarm(local peer.ID, peers peerstore.Peerstore, opts ...Option) *Swarm {
 	ctx, cancel := context.WithCancel(context.Background())
 	s := &Swarm{
 		local:     local,
 		peers:     peers,
-		bwc:       bwc,
 		ctx:       ctx,
 		ctxCancel: cancel,
 	}

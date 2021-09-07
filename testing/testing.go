@@ -113,11 +113,11 @@ func GenSwarm(t *testing.T, opts ...Option) *swarm.Swarm {
 	ps.AddPrivKey(p.ID, p.PrivKey)
 	t.Cleanup(func() { ps.Close() })
 
-	var swarmOpts []swarm.Option
+	swarmOpts := []swarm.Option{swarm.WithMetrics(metrics.NewBandwidthCounter())}
 	if cfg.connectionGater != nil {
 		swarmOpts = append(swarmOpts, swarm.WithConnectionGater(cfg.connectionGater))
 	}
-	s := swarm.NewSwarm(p.ID, ps, metrics.NewBandwidthCounter(), swarmOpts...)
+	s := swarm.NewSwarm(p.ID, ps, swarmOpts...)
 
 	upgrader := GenUpgrader(s)
 	upgrader.ConnGater = cfg.connectionGater
