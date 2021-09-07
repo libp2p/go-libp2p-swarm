@@ -672,7 +672,7 @@ func TestDialSimultaneousJoin(t *testing.T) {
 	}
 }
 
-func TestDialSelf2(t *testing.T) {
+func TestDialSelf(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

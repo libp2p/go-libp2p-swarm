@@ -259,7 +259,7 @@ func (s *Swarm) dialPeer(ctx context.Context, p peer.ID) (*Conn, error) {
 	ctx, cancel := context.WithTimeout(ctx, network.GetDialPeerTimeout(ctx))
 	defer cancel()
 
-	conn, err = s.dsync.DialLock(ctx, p)
+	conn, err = s.dsync.Dial(ctx, p)
 	if err == nil {
 		return conn, nil
 	}
@@ -294,16 +294,7 @@ type dialResponse struct {
 	err  error
 }
 
-// startDialWorker starts an active dial goroutine that synchronizes and executes concurrent dials
-func (s *Swarm) startDialWorker(p peer.ID, reqch <-chan dialRequest) error {
-	if p == s.local {
-		return ErrDialToSelf
-	}
-
-	go s.dialWorkerLoop(p, reqch)
-	return nil
-}
-
+// dialWorkerLoop synchronizes and executes concurrent dials to a single peer
 func (s *Swarm) dialWorkerLoop(p peer.ID, reqch <-chan dialRequest) {
 	defer s.limiter.clearAllPeerDials(p)
 
