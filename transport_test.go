@@ -7,7 +7,6 @@ import (
 	swarm "github.com/libp2p/go-libp2p-swarm"
 	swarmt "github.com/libp2p/go-libp2p-swarm/testing"
 
-	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/transport"
 
@@ -46,28 +45,19 @@ func (dt *dummyTransport) Close() error {
 	return nil
 }
 
-type swarmWithTransport interface {
-	network.Network
-	AddTransport(transport.Transport) error
-}
-
 func TestUselessTransport(t *testing.T) {
 	s := swarmt.GenSwarm(t)
-	err := s.(swarmWithTransport).AddTransport(new(dummyTransport))
-	if err == nil {
-		t.Fatal("adding a transport that supports no protocols should have failed")
-	}
+	require.Error(t, s.AddTransport(new(dummyTransport)), "adding a transport that supports no protocols should have failed")
 }
 
 func TestTransportClose(t *testing.T) {
 	s := swarmt.GenSwarm(t)
 	tpt := &dummyTransport{protocols: []int{1}}
-	require.NoError(t, s.(swarmWithTransport).AddTransport(tpt))
+	require.NoError(t, s.AddTransport(tpt))
 	_ = s.Close()
 	if !tpt.closed {
 		t.Fatal("expected transport to be closed")
 	}
-
 }
 
 func TestTransportAfterClose(t *testing.T) {
@@ -75,7 +65,7 @@ func TestTransportAfterClose(t *testing.T) {
 	s.Close()
 
 	tpt := &dummyTransport{protocols: []int{1}}
-	if err := s.(swarmWithTransport).AddTransport(tpt); err != swarm.ErrSwarmClosed {
+	if err := s.AddTransport(tpt); err != swarm.ErrSwarmClosed {
 		t.Fatal("expected swarm closed error, got: ", err)
 	}
 }

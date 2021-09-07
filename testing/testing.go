@@ -71,7 +71,7 @@ func OptPeerPrivateKey(sk crypto.PrivKey) Option {
 }
 
 // GenUpgrader creates a new connection upgrader for use with this swarm.
-func GenUpgrader(n network.Network) *tptu.Upgrader {
+func GenUpgrader(n *swarm.Swarm) *tptu.Upgrader {
 	id := n.LocalPeer()
 	pk := n.Peerstore().PrivKey(id)
 	secMuxer := new(csms.SSMuxer)
@@ -86,18 +86,8 @@ func GenUpgrader(n network.Network) *tptu.Upgrader {
 	}
 }
 
-type mSwarm struct {
-	*swarm.Swarm
-	ps peerstore.Peerstore
-}
-
-func (s *mSwarm) Close() error {
-	s.ps.Close()
-	return s.Swarm.Close()
-}
-
 // GenSwarm generates a new test swarm.
-func GenSwarm(t *testing.T, opts ...Option) network.Network {
+func GenSwarm(t *testing.T, opts ...Option) *swarm.Swarm {
 	var cfg config
 	for _, o := range opts {
 		o(t, &cfg)
@@ -121,10 +111,9 @@ func GenSwarm(t *testing.T, opts ...Option) network.Network {
 	ps := pstoremem.NewPeerstore()
 	ps.AddPubKey(p.ID, p.PubKey)
 	ps.AddPrivKey(p.ID, p.PrivKey)
-	s := &mSwarm{
-		Swarm: swarm.NewSwarm(p.ID, ps, metrics.NewBandwidthCounter(), cfg.connectionGater),
-		ps:    ps,
-	}
+	t.Cleanup(func() { ps.Close() })
+
+	s := swarm.NewSwarm(p.ID, ps, metrics.NewBandwidthCounter(), cfg.connectionGater)
 
 	upgrader := GenUpgrader(s)
 	upgrader.ConnGater = cfg.connectionGater

@@ -7,12 +7,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/peerstore"
 
 	ma "github.com/multiformats/go-multiaddr"
 
+	. "github.com/libp2p/go-libp2p-swarm"
 	swarmt "github.com/libp2p/go-libp2p-swarm/testing"
 	"github.com/libp2p/go-libp2p-testing/ci"
 )
@@ -24,7 +24,7 @@ func TestSimultOpen(t *testing.T) {
 	// connect everyone
 	{
 		var wg sync.WaitGroup
-		connect := func(s network.Network, dst peer.ID, addr ma.Multiaddr) {
+		connect := func(s *Swarm, dst peer.ID, addr ma.Multiaddr) {
 			defer wg.Done()
 			// copy for other peer
 			log.Debugf("TestSimultOpen: connecting: %s --> %s (%s)", s.LocalPeer(), dst, addr)

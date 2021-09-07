@@ -28,12 +28,7 @@ func init() {
 	transport.DialTimeout = time.Second
 }
 
-type swarmWithBackoff interface {
-	network.Network
-	Backoff() *DialBackoff
-}
-
-func closeSwarms(swarms []network.Network) {
+func closeSwarms(swarms []*Swarm) {
 	for _, s := range swarms {
 		s.Close()
 	}
@@ -101,7 +96,7 @@ func TestSimultDials(t *testing.T) {
 	// connect everyone
 	{
 		var wg sync.WaitGroup
-		connect := func(s network.Network, dst peer.ID, addr ma.Multiaddr) {
+		connect := func(s *Swarm, dst peer.ID, addr ma.Multiaddr) {
 			// copy for other peer
 			log.Debugf("TestSimultOpen: connecting: %s --> %s (%s)", s.LocalPeer(), dst, addr)
 			s.Peerstore().AddAddr(dst, addr, peerstore.TempAddrTTL)
@@ -193,7 +188,7 @@ func TestDialWait(t *testing.T) {
 		t.Error("> 2*transport.DialTimeout * DialAttempts not being respected", duration, 2*transport.DialTimeout*DialAttempts)
 	}
 
-	if !s1.(swarmWithBackoff).Backoff().Backoff(s2p, s2addr) {
+	if !s1.Backoff().Backoff(s2p, s2addr) {
 		t.Error("s2 should now be on backoff")
 	}
 }
@@ -330,10 +325,10 @@ func TestDialBackoff(t *testing.T) {
 		}
 
 		// check backoff state
-		if s1.(swarmWithBackoff).Backoff().Backoff(s2.LocalPeer(), s2addrs[0]) {
+		if s1.Backoff().Backoff(s2.LocalPeer(), s2addrs[0]) {
 			t.Error("s2 should not be on backoff")
 		}
-		if !s1.(swarmWithBackoff).Backoff().Backoff(s3p, s3addr) {
+		if !s1.Backoff().Backoff(s3p, s3addr) {
 			t.Error("s3 should be on backoff")
 		}
 
@@ -400,10 +395,10 @@ func TestDialBackoff(t *testing.T) {
 		}
 
 		// check backoff state (the same)
-		if s1.(swarmWithBackoff).Backoff().Backoff(s2.LocalPeer(), s2addrs[0]) {
+		if s1.Backoff().Backoff(s2.LocalPeer(), s2addrs[0]) {
 			t.Error("s2 should not be on backoff")
 		}
-		if !s1.(swarmWithBackoff).Backoff().Backoff(s3p, s3addr) {
+		if !s1.Backoff().Backoff(s3p, s3addr) {
 			t.Error("s3 should be on backoff")
 		}
 	}
@@ -445,7 +440,7 @@ func TestDialBackoffClears(t *testing.T) {
 		t.Error("> 2*transport.DialTimeout * DialAttempts not being respected", duration, 2*transport.DialTimeout*DialAttempts)
 	}
 
-	if !s1.(swarmWithBackoff).Backoff().Backoff(s2.LocalPeer(), s2bad) {
+	if !s1.Backoff().Backoff(s2.LocalPeer(), s2bad) {
 		t.Error("s2 should now be on backoff")
 	} else {
 		t.Log("correctly added to backoff")
@@ -472,7 +467,7 @@ func TestDialBackoffClears(t *testing.T) {
 		t.Log("correctly connected")
 	}
 
-	if s1.(swarmWithBackoff).Backoff().Backoff(s2.LocalPeer(), s2bad) {
+	if s1.Backoff().Backoff(s2.LocalPeer(), s2bad) {
 		t.Error("s2 should no longer be on backoff")
 	} else {
 		t.Log("correctly cleared backoff")

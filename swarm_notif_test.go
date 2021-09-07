@@ -94,7 +94,7 @@ func TestNotifications(t *testing.T) {
 		}
 	}
 
-	complement := func(c network.Conn) (network.Network, *netNotifiee, *Conn) {
+	complement := func(c network.Conn) (*Swarm, *netNotifiee, *Conn) {
 		for i, s := range swarms {
 			for _, c2 := range s.Conns() {
 				if c.LocalMultiaddr().Equal(c2.RemoteMultiaddr()) &&

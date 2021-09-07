@@ -58,14 +58,14 @@ func EchoStreamHandler(stream network.Stream) {
 	}()
 }
 
-func makeDialOnlySwarm(t *testing.T) network.Network {
+func makeDialOnlySwarm(t *testing.T) *Swarm {
 	swarm := GenSwarm(t, OptDialOnly)
 	swarm.SetStreamHandler(EchoStreamHandler)
 	return swarm
 }
 
-func makeSwarms(t *testing.T, num int, opts ...Option) []network.Network {
-	swarms := make([]network.Network, 0, num)
+func makeSwarms(t *testing.T, num int, opts ...Option) []*Swarm {
+	swarms := make([]*Swarm, 0, num)
 	for i := 0; i < num; i++ {
 		swarm := GenSwarm(t, opts...)
 		swarm.SetStreamHandler(EchoStreamHandler)
@@ -74,9 +74,9 @@ func makeSwarms(t *testing.T, num int, opts ...Option) []network.Network {
 	return swarms
 }
 
-func connectSwarms(t *testing.T, ctx context.Context, swarms []network.Network) {
+func connectSwarms(t *testing.T, ctx context.Context, swarms []*Swarm) {
 	var wg sync.WaitGroup
-	connect := func(s network.Network, dst peer.ID, addr ma.Multiaddr) {
+	connect := func(s *Swarm, dst peer.ID, addr ma.Multiaddr) {
 		// TODO: make a DialAddr func.
 		s.Peerstore().AddAddr(dst, addr, peerstore.PermanentAddrTTL)
 		if _, err := s.DialPeer(ctx, dst); err != nil {
