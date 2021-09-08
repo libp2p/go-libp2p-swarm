@@ -41,6 +41,22 @@ var ErrAddrFiltered = errors.New("address filtered")
 // ErrDialTimeout is returned when one a dial times out due to the global timeout
 var ErrDialTimeout = errors.New("dial timed out")
 
+type Option func(*Swarm)
+
+// WithConnectionGater sets a connection gater
+func WithConnectionGater(gater connmgr.ConnectionGater) Option {
+	return func(s *Swarm) {
+		s.gater = gater
+	}
+}
+
+// WithMetrics sets a metrics reporter
+func WithMetrics(reporter metrics.Reporter) Option {
+	return func(s *Swarm) {
+		s.bwc = reporter
+	}
+}
+
 // Swarm is a connection muxer, allowing connections to other peers to
 // be opened and closed, while still using the same Chan for all
 // communication. The Chan sends/receives Messages, which note the
@@ -98,17 +114,11 @@ type Swarm struct {
 }
 
 // NewSwarm constructs a Swarm.
-//
-// NOTE: go-libp2p will be moving to dependency injection soon. The variadic
-// `extra` interface{} parameter facilitates the future migration. Supported
-// elements are:
-//  - connmgr.ConnectionGater
-func NewSwarm(local peer.ID, peers peerstore.Peerstore, bwc metrics.Reporter, extra ...interface{}) *Swarm {
+func NewSwarm(local peer.ID, peers peerstore.Peerstore, opts ...Option) *Swarm {
 	ctx, cancel := context.WithCancel(context.Background())
 	s := &Swarm{
 		local:     local,
 		peers:     peers,
-		bwc:       bwc,
 		ctx:       ctx,
 		ctxCancel: cancel,
 	}
@@ -118,11 +128,8 @@ func NewSwarm(local peer.ID, peers peerstore.Peerstore, bwc metrics.Reporter, ex
 	s.transports.m = make(map[int]transport.Transport)
 	s.notifs.m = make(map[network.Notifiee]struct{})
 
-	for _, i := range extra {
-		switch v := i.(type) {
-		case connmgr.ConnectionGater:
-			s.gater = v
-		}
+	for _, opt := range opts {
+		opt(s)
 	}
 
 	s.dsync = newDialSync(s.dialWorkerLoop)
