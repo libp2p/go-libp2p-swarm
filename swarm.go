@@ -41,19 +41,21 @@ var ErrAddrFiltered = errors.New("address filtered")
 // ErrDialTimeout is returned when one a dial times out due to the global timeout
 var ErrDialTimeout = errors.New("dial timed out")
 
-type Option func(*Swarm)
+type Option func(*Swarm) error
 
 // WithConnectionGater sets a connection gater
 func WithConnectionGater(gater connmgr.ConnectionGater) Option {
-	return func(s *Swarm) {
+	return func(s *Swarm) error {
 		s.gater = gater
+		return nil
 	}
 }
 
 // WithMetrics sets a metrics reporter
 func WithMetrics(reporter metrics.Reporter) Option {
-	return func(s *Swarm) {
+	return func(s *Swarm) error {
 		s.bwc = reporter
+		return nil
 	}
 }
 
@@ -114,7 +116,7 @@ type Swarm struct {
 }
 
 // NewSwarm constructs a Swarm.
-func NewSwarm(local peer.ID, peers peerstore.Peerstore, opts ...Option) *Swarm {
+func NewSwarm(local peer.ID, peers peerstore.Peerstore, opts ...Option) (*Swarm, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	s := &Swarm{
 		local:     local,
@@ -129,13 +131,15 @@ func NewSwarm(local peer.ID, peers peerstore.Peerstore, opts ...Option) *Swarm {
 	s.notifs.m = make(map[network.Notifiee]struct{})
 
 	for _, opt := range opts {
-		opt(s)
+		if err := opt(s); err != nil {
+			return nil, err
+		}
 	}
 
 	s.dsync = newDialSync(s.dialWorkerLoop)
 	s.limiter = newDialLimiter(s.dialAddr)
 	s.backf.init(s.ctx)
-	return s
+	return s, nil
 }
 
 func (s *Swarm) Close() error {

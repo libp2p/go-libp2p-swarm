@@ -3,6 +3,8 @@ package testing
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	csms "github.com/libp2p/go-conn-security-multistream"
 	"github.com/libp2p/go-libp2p-core/connmgr"
 	"github.com/libp2p/go-libp2p-core/control"
@@ -117,7 +119,8 @@ func GenSwarm(t *testing.T, opts ...Option) *swarm.Swarm {
 	if cfg.connectionGater != nil {
 		swarmOpts = append(swarmOpts, swarm.WithConnectionGater(cfg.connectionGater))
 	}
-	s := swarm.NewSwarm(p.ID, ps, swarmOpts...)
+	s, err := swarm.NewSwarm(p.ID, ps, swarmOpts...)
+	require.NoError(t, err)
 
 	upgrader := GenUpgrader(s)
 	upgrader.ConnGater = cfg.connectionGater
