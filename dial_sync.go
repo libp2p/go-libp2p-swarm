@@ -8,20 +8,20 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 )
 
-// dialWorkerFunc is used by DialSync to spawn a new dial worker
+// dialWorkerFunc is used by dialSync to spawn a new dial worker
 type dialWorkerFunc func(peer.ID, <-chan dialRequest)
 
-// newDialSync constructs a new DialSync
-func newDialSync(worker dialWorkerFunc) *DialSync {
-	return &DialSync{
+// newDialSync constructs a new dialSync
+func newDialSync(worker dialWorkerFunc) *dialSync {
+	return &dialSync{
 		dials:      make(map[peer.ID]*activeDial),
 		dialWorker: worker,
 	}
 }
 
-// DialSync is a dial synchronization helper that ensures that at most one dial
+// dialSync is a dial synchronization helper that ensures that at most one dial
 // to any given peer is active at any given time.
-type DialSync struct {
+type dialSync struct {
 	mutex      sync.Mutex
 	dials      map[peer.ID]*activeDial
 	dialWorker dialWorkerFunc
@@ -66,7 +66,7 @@ func (ad *activeDial) dial(ctx context.Context) (*Conn, error) {
 	}
 }
 
-func (ds *DialSync) getActiveDial(p peer.ID) (*activeDial, error) {
+func (ds *dialSync) getActiveDial(p peer.ID) (*activeDial, error) {
 	ds.mutex.Lock()
 	defer ds.mutex.Unlock()
 
@@ -92,7 +92,7 @@ func (ds *DialSync) getActiveDial(p peer.ID) (*activeDial, error) {
 
 // Dial initiates a dial to the given peer if there are none in progress
 // then waits for the dial to that peer to complete.
-func (ds *DialSync) Dial(ctx context.Context, p peer.ID) (*Conn, error) {
+func (ds *dialSync) Dial(ctx context.Context, p peer.ID) (*Conn, error) {
 	ad, err := ds.getActiveDial(p)
 	if err != nil {
 		return nil, err

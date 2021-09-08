@@ -101,7 +101,7 @@ type Swarm struct {
 	streamh atomic.Value
 
 	// dialing helpers
-	dsync   *DialSync
+	dsync   *dialSync
 	backf   DialBackoff
 	limiter *dialLimiter
 	gater   connmgr.ConnectionGater
