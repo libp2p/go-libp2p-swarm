@@ -18,11 +18,8 @@ import (
 )
 
 func TestSimultOpen(t *testing.T) {
-
 	t.Parallel()
-
-	ctx := context.Background()
-	swarms := makeSwarms(ctx, t, 2, swarmt.OptDisableReuseport)
+	swarms := makeSwarms(t, 2, swarmt.OptDisableReuseport)
 
 	// connect everyone
 	{
@@ -32,7 +29,7 @@ func TestSimultOpen(t *testing.T) {
 			// copy for other peer
 			log.Debugf("TestSimultOpen: connecting: %s --> %s (%s)", s.LocalPeer(), dst, addr)
 			s.Peerstore().AddAddr(dst, addr, peerstore.PermanentAddrTTL)
-			if _, err := s.DialPeer(ctx, dst); err != nil {
+			if _, err := s.DialPeer(context.Background(), dst); err != nil {
 				t.Error("error swarm dialing to peer", err)
 			}
 		}

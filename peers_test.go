@@ -15,7 +15,7 @@ import (
 
 func TestPeers(t *testing.T) {
 	ctx := context.Background()
-	swarms := makeSwarms(ctx, t, 2)
+	swarms := makeSwarms(t, 2)
 	s1 := swarms[0]
 	s2 := swarms[1]
 

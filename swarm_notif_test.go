@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 
@@ -18,8 +20,7 @@ func TestNotifications(t *testing.T) {
 
 	notifiees := make([]*netNotifiee, swarmSize)
 
-	ctx := context.Background()
-	swarms := makeSwarms(ctx, t, swarmSize)
+	swarms := makeSwarms(t, swarmSize)
 	defer func() {
 		for i, s := range swarms {
 			select {
@@ -27,10 +28,7 @@ func TestNotifications(t *testing.T) {
 				t.Error("should not have been closed")
 			default:
 			}
-			err := s.Close()
-			if err != nil {
-				t.Error(err)
-			}
+			require.NoError(t, s.Close())
 			select {
 			case <-notifiees[i].listenClose:
 			default:
@@ -48,7 +46,7 @@ func TestNotifications(t *testing.T) {
 		notifiees[i] = n
 	}
 
-	connectSwarms(t, ctx, swarms)
+	connectSwarms(t, context.Background(), swarms)
 
 	time.Sleep(50 * time.Millisecond)
 	// should've gotten 5 by now.

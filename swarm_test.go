@@ -58,27 +58,23 @@ func EchoStreamHandler(stream network.Stream) {
 	}()
 }
 
-func makeDialOnlySwarm(ctx context.Context, t *testing.T) *Swarm {
-	swarm := GenSwarm(t, ctx, OptDialOnly)
+func makeDialOnlySwarm(t *testing.T) *Swarm {
+	swarm := GenSwarm(t, OptDialOnly)
 	swarm.SetStreamHandler(EchoStreamHandler)
-
 	return swarm
 }
 
-func makeSwarms(ctx context.Context, t *testing.T, num int, opts ...Option) []*Swarm {
+func makeSwarms(t *testing.T, num int, opts ...Option) []*Swarm {
 	swarms := make([]*Swarm, 0, num)
-
 	for i := 0; i < num; i++ {
-		swarm := GenSwarm(t, ctx, opts...)
+		swarm := GenSwarm(t, opts...)
 		swarm.SetStreamHandler(EchoStreamHandler)
 		swarms = append(swarms, swarm)
 	}
-
 	return swarms
 }
 
 func connectSwarms(t *testing.T, ctx context.Context, swarms []*Swarm) {
-
 	var wg sync.WaitGroup
 	connect := func(s *Swarm, dst peer.ID, addr ma.Multiaddr) {
 		// TODO: make a DialAddr func.
@@ -104,13 +100,10 @@ func connectSwarms(t *testing.T, ctx context.Context, swarms []*Swarm) {
 }
 
 func SubtestSwarm(t *testing.T, SwarmNum int, MsgNum int) {
-	// t.Skip("skipping for another test")
-
-	ctx := context.Background()
-	swarms := makeSwarms(ctx, t, SwarmNum, OptDisableReuseport)
+	swarms := makeSwarms(t, SwarmNum, OptDisableReuseport)
 
 	// connect everyone
-	connectSwarms(t, ctx, swarms)
+	connectSwarms(t, context.Background(), swarms)
 
 	// ping/pong
 	for _, s1 := range swarms {
@@ -118,7 +111,7 @@ func SubtestSwarm(t *testing.T, SwarmNum int, MsgNum int) {
 		log.Debugf("%s ping pong round", s1.LocalPeer())
 		log.Debugf("-------------------------------------------------------")
 
-		_, cancel := context.WithCancel(ctx)
+		_, cancel := context.WithCancel(context.Background())
 		got := map[peer.ID]int{}
 		errChan := make(chan error, MsgNum*len(swarms))
 		streamChan := make(chan network.Stream, MsgNum)
@@ -132,7 +125,7 @@ func SubtestSwarm(t *testing.T, SwarmNum int, MsgNum int) {
 				defer wg.Done()
 
 				// first, one stream per peer (nice)
-				stream, err := s1.NewStream(ctx, p)
+				stream, err := s1.NewStream(context.Background(), p)
 				if err != nil {
 					errChan <- err
 					return
@@ -253,7 +246,7 @@ func TestConnHandler(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	swarms := makeSwarms(ctx, t, 5)
+	swarms := makeSwarms(t, 5)
 
 	gotconn := make(chan struct{}, 10)
 	swarms[0].SetConnHandler(func(conn network.Conn) {
@@ -387,8 +380,8 @@ func TestConnectionGating(t *testing.T) {
 					p2Gater = tc.p2Gater(p2Gater)
 				}
 
-				sw1 := GenSwarm(t, ctx, OptConnGater(p1Gater), optTransport)
-				sw2 := GenSwarm(t, ctx, OptConnGater(p2Gater), optTransport)
+				sw1 := GenSwarm(t, OptConnGater(p1Gater), optTransport)
+				sw2 := GenSwarm(t, OptConnGater(p2Gater), optTransport)
 
 				p1 := sw1.LocalPeer()
 				p2 := sw2.LocalPeer()
@@ -408,10 +401,9 @@ func TestConnectionGating(t *testing.T) {
 }
 
 func TestNoDial(t *testing.T) {
-	ctx := context.Background()
-	swarms := makeSwarms(ctx, t, 2)
+	swarms := makeSwarms(t, 2)
 
-	_, err := swarms[0].NewStream(network.WithNoDial(ctx, "swarm test"), swarms[1].LocalPeer())
+	_, err := swarms[0].NewStream(network.WithNoDial(context.Background(), "swarm test"), swarms[1].LocalPeer())
 	if err != network.ErrNoConn {
 		t.Fatal("should have failed with ErrNoConn")
 	}
@@ -419,36 +411,29 @@ func TestNoDial(t *testing.T) {
 
 func TestCloseWithOpenStreams(t *testing.T) {
 	ctx := context.Background()
-	swarms := makeSwarms(ctx, t, 2)
+	swarms := makeSwarms(t, 2)
 	connectSwarms(t, ctx, swarms)
 
 	s, err := swarms[0].NewStream(ctx, swarms[1].LocalPeer())
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	defer s.Close()
 	// close swarm before stream.
-	err = swarms[0].Close()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, swarms[0].Close())
 }
 
 func TestTypedNilConn(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	s := GenSwarm(t, ctx)
+	s := GenSwarm(t)
 	defer s.Close()
 
 	// We can't dial ourselves.
-	c, err := s.DialPeer(ctx, s.LocalPeer())
+	c, err := s.DialPeer(context.Background(), s.LocalPeer())
 	require.Error(t, err)
 	// If we fail to dial, the connection should be nil.
-	require.True(t, c == nil)
+	require.Nil(t, c)
 }
 
 func TestPreventDialListenAddr(t *testing.T) {
-	s := GenSwarm(t, context.Background(), OptDialOnly)
+	s := GenSwarm(t, OptDialOnly)
 	if err := s.Listen(ma.StringCast("/ip4/0.0.0.0/udp/0/quic")); err != nil {
 		t.Fatal(err)
 	}

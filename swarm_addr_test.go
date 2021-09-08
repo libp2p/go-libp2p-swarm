@@ -6,6 +6,7 @@ import (
 
 	"github.com/libp2p/go-libp2p-core/peerstore"
 	"github.com/libp2p/go-libp2p-core/test"
+	"github.com/stretchr/testify/require"
 
 	ma "github.com/multiformats/go-multiaddr"
 
@@ -13,7 +14,6 @@ import (
 )
 
 func TestDialBadAddrs(t *testing.T) {
-
 	m := func(s string) ma.Multiaddr {
 		maddr, err := ma.NewMultiaddr(s)
 		if err != nil {
@@ -22,13 +22,12 @@ func TestDialBadAddrs(t *testing.T) {
 		return maddr
 	}
 
-	ctx := context.Background()
-	s := makeSwarms(ctx, t, 1)[0]
+	s := makeSwarms(t, 1)[0]
 
 	test := func(a ma.Multiaddr) {
 		p := test.RandPeerIDFatal(t)
 		s.Peerstore().AddAddr(p, a, peerstore.PermanentAddrTTL)
-		if _, err := s.DialPeer(ctx, p); err == nil {
+		if _, err := s.DialPeer(context.Background(), p); err == nil {
 			t.Errorf("swarm should not dial: %s", p)
 		}
 	}
@@ -39,19 +38,13 @@ func TestDialBadAddrs(t *testing.T) {
 }
 
 func TestAddrRace(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	s := makeSwarms(ctx, t, 1)[0]
+	s := makeSwarms(t, 1)[0]
 	defer s.Close()
 
 	a1, err := s.InterfaceListenAddresses()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	a2, err := s.InterfaceListenAddresses()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	if len(a1) > 0 && len(a2) > 0 && &a1[0] == &a2[0] {
 		t.Fatal("got the exact same address set twice; this could lead to data races")
@@ -59,15 +52,8 @@ func TestAddrRace(t *testing.T) {
 }
 
 func TestAddressesWithoutListening(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	s := swarmt.GenSwarm(t, ctx, swarmt.OptDialOnly)
-
+	s := swarmt.GenSwarm(t, swarmt.OptDialOnly)
 	a1, err := s.InterfaceListenAddresses()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(a1) != 0 {
-		t.Fatalf("expected to be listening on no addresses, was listening on %d", len(a1))
-	}
+	require.NoError(t, err)
+	require.Empty(t, a1, "expected to be listening on no addresses")
 }
