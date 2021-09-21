@@ -241,41 +241,6 @@ func TestBasicSwarm(t *testing.T) {
 	SubtestSwarm(t, swarms, msgs)
 }
 
-func TestConnHandler(t *testing.T) {
-	// t.Skip("skipping for another test")
-	t.Parallel()
-
-	ctx := context.Background()
-	swarms := makeSwarms(t, 5)
-
-	gotconn := make(chan struct{}, 10)
-	swarms[0].SetConnHandler(func(conn network.Conn) {
-		gotconn <- struct{}{}
-	})
-
-	connectSwarms(t, ctx, swarms)
-
-	<-time.After(time.Millisecond)
-	// should've gotten 5 by now.
-
-	swarms[0].SetConnHandler(nil)
-
-	expect := 4
-	for i := 0; i < expect; i++ {
-		select {
-		case <-time.After(time.Second):
-			t.Fatal("failed to get connections")
-		case <-gotconn:
-		}
-	}
-
-	select {
-	case <-gotconn:
-		t.Fatalf("should have connected to %d swarms, got an extra.", expect)
-	default:
-	}
-}
-
 func TestConnectionGating(t *testing.T) {
 	ctx := context.Background()
 	tcs := map[string]struct {

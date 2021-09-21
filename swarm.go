@@ -98,8 +98,7 @@ type Swarm struct {
 		m map[int]transport.Transport
 	}
 
-	// new connection and stream handlers
-	connh   atomic.Value
+	// stream handlers
 	streamh atomic.Value
 
 	// dialing helpers
@@ -278,34 +277,12 @@ func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (*Conn,
 	c.notifyLk.Unlock()
 
 	c.start()
-
-	// TODO: Get rid of this. We use it for identify but that happen much
-	// earlier (really, inside the transport and, if not then, during the
-	// notifications).
-	if h := s.ConnHandler(); h != nil {
-		go h(c)
-	}
-
 	return c, nil
 }
 
 // Peerstore returns this swarms internal Peerstore.
 func (s *Swarm) Peerstore() peerstore.Peerstore {
 	return s.peers
-}
-
-// TODO: We probably don't need the conn handlers.
-
-// SetConnHandler assigns the handler for new connections.
-// You will rarely use this. See SetStreamHandler
-func (s *Swarm) SetConnHandler(handler network.ConnHandler) {
-	s.connh.Store(handler)
-}
-
-// ConnHandler gets the handler for new connections.
-func (s *Swarm) ConnHandler() network.ConnHandler {
-	handler, _ := s.connh.Load().(network.ConnHandler)
-	return handler
 }
 
 // SetStreamHandler assigns the handler for new streams.
