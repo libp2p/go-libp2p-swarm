@@ -7,6 +7,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/libp2p/go-tcp-transport"
+
+	"github.com/libp2p/go-libp2p-peerstore/pstoremem"
+	tnet "github.com/libp2p/go-libp2p-testing/net"
+
 	. "github.com/libp2p/go-libp2p-swarm"
 
 	addrutil "github.com/libp2p/go-addr-util"
@@ -28,17 +33,10 @@ func init() {
 	transport.DialTimeout = time.Second
 }
 
-func closeSwarms(swarms []*Swarm) {
-	for _, s := range swarms {
-		s.Close()
-	}
-}
-
 func TestBasicDialPeer(t *testing.T) {
 	t.Parallel()
 
 	swarms := makeSwarms(t, 2)
-	defer closeSwarms(swarms)
 	s1 := swarms[0]
 	s2 := swarms[1]
 
@@ -52,12 +50,37 @@ func TestBasicDialPeer(t *testing.T) {
 	s.Close()
 }
 
+func TestDialBoth(t *testing.T) {
+	p := tnet.RandPeerNetParamsOrFatal(t)
+	ps := pstoremem.NewPeerstore()
+	ps.AddPubKey(p.ID, p.PubKey)
+	ps.AddPrivKey(p.ID, p.PrivKey)
+
+	swarm, err := NewSwarm(p.ID, ps)
+	require.NoError(t, err)
+	negotiatingUpgrader := swarmt.GenUpgrader(swarm, swarmt.UseHandshakeNegotiation())
+	swarm.AddTransport(tcp.NewTCPTransport(negotiatingUpgrader))
+	secureUpgrader := swarmt.GenUpgrader(swarm)
+	swarm.AddTransport(tcp.NewTCPTransport(secureUpgrader))
+	require.NoError(t, swarm.Listen(ma.StringCast("/ip4/127.0.0.1/tcp/0")))
+	require.NoError(t, swarm.Listen(ma.StringCast("/ip4/127.0.0.1/tcp/0/plaintextv2")))
+
+	negotiatingSwarm := swarmt.GenSwarm(t, swarmt.OptUseHandshakeNegotiation())
+	negotiatingSwarm.Peerstore().AddAddrs(p.ID, swarm.ListenAddresses(), peerstore.PermanentAddrTTL)
+	_, err = negotiatingSwarm.DialPeer(context.Background(), p.ID)
+	require.NoError(t, err)
+
+	secureSwarm := swarmt.GenSwarm(t)
+	secureSwarm.Peerstore().AddAddrs(p.ID, swarm.ListenAddresses(), peerstore.PermanentAddrTTL)
+	_, err = negotiatingSwarm.DialPeer(context.Background(), p.ID)
+	require.NoError(t, err)
+}
+
 func TestDialWithNoListeners(t *testing.T) {
 	t.Parallel()
 
 	s1 := makeDialOnlySwarm(t)
 	swarms := makeSwarms(t, 1)
-	defer closeSwarms(swarms)
 	s2 := swarms[0]
 
 	s1.Peerstore().AddAddrs(s2.LocalPeer(), s2.ListenAddresses(), peerstore.PermanentAddrTTL)
@@ -162,7 +185,7 @@ func TestDialWait(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	swarms := makeSwarms(t, 1)
+	swarms := makeSwarms(t, 1, swarmt.OptUseHandshakeNegotiation())
 	s1 := swarms[0]
 	defer s1.Close()
 
@@ -202,7 +225,7 @@ func TestDialBackoff(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	swarms := makeSwarms(t, 2)
+	swarms := makeSwarms(t, 2, swarmt.OptUseHandshakeNegotiation())
 	s1 := swarms[0]
 	s2 := swarms[1]
 	defer s1.Close()
@@ -409,7 +432,7 @@ func TestDialBackoffClears(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	swarms := makeSwarms(t, 2)
+	swarms := makeSwarms(t, 2, swarmt.OptUseHandshakeNegotiation())
 	s1 := swarms[0]
 	s2 := swarms[1]
 	defer s1.Close()
@@ -478,8 +501,7 @@ func TestDialPeerFailed(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
-	swarms := makeSwarms(t, 2)
-	defer closeSwarms(swarms)
+	swarms := makeSwarms(t, 2, swarmt.OptUseHandshakeNegotiation())
 	testedSwarm, targetSwarm := swarms[0], swarms[1]
 
 	expectedErrorsCount := 5
@@ -518,7 +540,6 @@ func TestDialExistingConnection(t *testing.T) {
 	ctx := context.Background()
 
 	swarms := makeSwarms(t, 2)
-	defer closeSwarms(swarms)
 	s1 := swarms[0]
 	s2 := swarms[1]
 
@@ -561,7 +582,7 @@ func TestDialSimultaneousJoin(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	swarms := makeSwarms(t, 2)
+	swarms := makeSwarms(t, 2, swarmt.OptUseHandshakeNegotiation())
 	s1 := swarms[0]
 	s2 := swarms[1]
 	defer s1.Close()

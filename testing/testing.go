@@ -14,6 +14,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/peerstore"
 	"github.com/libp2p/go-libp2p-core/sec/insecure"
+
 	"github.com/libp2p/go-libp2p-peerstore/pstoremem"
 	quic "github.com/libp2p/go-libp2p-quic-transport"
 	swarm "github.com/libp2p/go-libp2p-swarm"
@@ -27,12 +28,13 @@ import (
 )
 
 type config struct {
-	disableReuseport bool
-	dialOnly         bool
-	disableTCP       bool
-	disableQUIC      bool
-	connectionGater  connmgr.ConnectionGater
-	sk               crypto.PrivKey
+	disableReuseport        bool
+	dialOnly                bool
+	disableTCP              bool
+	disableQUIC             bool
+	useHandshakeNegotiation bool
+	connectionGater         connmgr.ConnectionGater
+	sk                      crypto.PrivKey
 }
 
 // Option is an option that can be passed when constructing a test swarm.
@@ -72,20 +74,45 @@ func OptPeerPrivateKey(sk crypto.PrivKey) Option {
 	}
 }
 
+func OptUseHandshakeNegotiation() Option {
+	return func(_ *testing.T, c *config) {
+		c.useHandshakeNegotiation = true
+	}
+}
+
+type upgraderConf struct {
+	useHandshakeNegotiation bool
+}
+
+type UpgraderOption func(*upgraderConf)
+
+func UseHandshakeNegotiation() UpgraderOption {
+	return func(conf *upgraderConf) {
+		conf.useHandshakeNegotiation = true
+	}
+}
+
 // GenUpgrader creates a new connection upgrader for use with this swarm.
-func GenUpgrader(n *swarm.Swarm) *tptu.Upgrader {
+func GenUpgrader(n *swarm.Swarm, opts ...UpgraderOption) *tptu.Upgrader {
+	var conf upgraderConf
+	for _, o := range opts {
+		o(&conf)
+	}
 	id := n.LocalPeer()
 	pk := n.Peerstore().PrivKey(id)
-	secMuxer := new(csms.SSMuxer)
-	secMuxer.AddTransport(insecure.ID, insecure.NewWithIdentity(id, pk))
 
 	stMuxer := msmux.NewBlankTransport()
 	stMuxer.AddTransport("/yamux/1.0.0", yamux.DefaultTransport)
+	upgrader := &tptu.Upgrader{Muxer: stMuxer}
 
-	return &tptu.Upgrader{
-		Secure: secMuxer,
-		Muxer:  stMuxer,
+	if conf.useHandshakeNegotiation {
+		secMuxer := new(csms.SSMuxer)
+		secMuxer.AddTransport(insecure.ID, insecure.NewWithIdentity(id, pk))
+		upgrader.SecureMuxer = secMuxer
+	} else {
+		upgrader.SecureTransport = insecure.NewWithIdentity(id, pk)
 	}
+	return upgrader
 }
 
 // GenSwarm generates a new test swarm.
@@ -101,9 +128,7 @@ func GenSwarm(t *testing.T, opts ...Option) *swarm.Swarm {
 	} else {
 		pk := cfg.sk.GetPublic()
 		id, err := peer.IDFromPublicKey(pk)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 		p.PrivKey = cfg.sk
 		p.PubKey = pk
 		p.ID = id
@@ -122,33 +147,30 @@ func GenSwarm(t *testing.T, opts ...Option) *swarm.Swarm {
 	s, err := swarm.NewSwarm(p.ID, ps, swarmOpts...)
 	require.NoError(t, err)
 
-	upgrader := GenUpgrader(s)
+	var upgraderOpts []UpgraderOption
+	if cfg.useHandshakeNegotiation {
+		upgraderOpts = append(upgraderOpts, UseHandshakeNegotiation())
+	}
+	upgrader := GenUpgrader(s, upgraderOpts...)
 	upgrader.ConnGater = cfg.connectionGater
+	if upgrader.SecureTransport != nil {
+		p.Addr = p.Addr.Encapsulate(ma.StringCast("/" + upgrader.SecureTransport.Protocol().Name))
+	}
 
 	if !cfg.disableTCP {
 		tcpTransport := tcp.NewTCPTransport(upgrader)
 		tcpTransport.DisableReuseport = cfg.disableReuseport
-		if err := s.AddTransport(tcpTransport); err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, s.AddTransport(tcpTransport))
 		if !cfg.dialOnly {
-			if err := s.Listen(p.Addr); err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, s.Listen(p.Addr))
 		}
 	}
 	if !cfg.disableQUIC {
 		quicTransport, err := quic.NewTransport(p.PrivKey, nil, cfg.connectionGater)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := s.AddTransport(quicTransport); err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
+		require.NoError(t, s.AddTransport(quicTransport))
 		if !cfg.dialOnly {
-			if err := s.Listen(ma.StringCast("/ip4/127.0.0.1/udp/0/quic")); err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, s.Listen(ma.StringCast("/ip4/127.0.0.1/udp/0/quic")))
 		}
 	}
 	if !cfg.dialOnly {

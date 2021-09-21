@@ -70,6 +70,7 @@ func makeSwarms(t *testing.T, num int, opts ...Option) []*swarm.Swarm {
 		swarm := GenSwarm(t, opts...)
 		swarm.SetStreamHandler(EchoStreamHandler)
 		swarms = append(swarms, swarm)
+		t.Cleanup(func() { swarm.Close() })
 	}
 	return swarms
 }
