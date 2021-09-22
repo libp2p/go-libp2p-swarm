@@ -2,7 +2,6 @@ package swarm
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/libp2p/go-libp2p-core/transport"
 
@@ -28,7 +27,7 @@ func (s *Swarm) TransportForDialing(a ma.Multiaddr) transport.Transport {
 	}
 
 	for _, p := range protocols {
-		transport, ok := s.transports.m[p.Code]
+		transport, ok := s.transports.m[transportsToMapKey([]ma.Protocol{p})]
 		if !ok {
 			continue
 		}
@@ -37,7 +36,10 @@ func (s *Swarm) TransportForDialing(a ma.Multiaddr) transport.Transport {
 		}
 	}
 
-	return s.transports.m[protocols[len(protocols)-1].Code]
+	if addrContainsSecurityProtocol(a) {
+		return s.transports.m[transportsToMapKey(protocols[len(protocols)-2:])]
+	}
+	return s.transports.m[transportsToMapKey(protocols[len(protocols)-1:])]
 }
 
 // TransportForListening retrieves the appropriate transport for listening on
@@ -58,54 +60,65 @@ func (s *Swarm) TransportForListening(a ma.Multiaddr) transport.Transport {
 		return nil
 	}
 
-	selected := s.transports.m[protocols[len(protocols)-1].Code]
 	for _, p := range protocols {
-		transport, ok := s.transports.m[p.Code]
+		transport, ok := s.transports.m[transportsToMapKey([]ma.Protocol{p})]
 		if !ok {
 			continue
 		}
 		if transport.Proxy() {
-			selected = transport
+			return transport
 		}
 	}
-	return selected
+
+	if addrContainsSecurityProtocol(a) {
+		return s.transports.m[transportsToMapKey(protocols[len(protocols)-2:])]
+	}
+	return s.transports.m[transportsToMapKey(protocols[len(protocols)-1:])]
 }
 
-// AddTransport adds a transport to this swarm.
-//
-// Satisfies the Network interface from go-libp2p-transport.
+// AddTransport adds a Transport to this swarm.
 func (s *Swarm) AddTransport(t transport.Transport) error {
 	protocols := t.Protocols()
-
 	if len(protocols) == 0 {
 		return fmt.Errorf("useless transport handles no protocols: %T", t)
 	}
+	// Examples:
+	// * for TCP (doing handshake protocol negotiation): tcp
+	// * for TCP / TLS (handling multiaddrs containing tls): tcp/tls
+	transportKey := transportsToMapKey(protocols)
 
 	s.transports.Lock()
 	defer s.transports.Unlock()
 	if s.transports.m == nil {
 		return ErrSwarmClosed
 	}
-	var registered []string
-	for _, p := range protocols {
-		if _, ok := s.transports.m[p]; ok {
-			proto := ma.ProtocolWithCode(p)
-			name := proto.Name
-			if name == "" {
-				name = fmt.Sprintf("unknown (%d)", p)
-			}
-			registered = append(registered, name)
-		}
-	}
-	if len(registered) > 0 {
-		return fmt.Errorf(
-			"transports already registered for protocol(s): %s",
-			strings.Join(registered, ", "),
-		)
+	if _, ok := s.transports.m[transportKey]; ok {
+		// TODO: improve error message
+		return fmt.Errorf("transport already registered for protocol: %s", transportKey)
 	}
 
-	for _, p := range protocols {
-		s.transports.m[p] = t
-	}
+	s.transports.m[transportKey] = t
 	return nil
+}
+
+func transportsToMapKey(protocols []ma.Protocol) string {
+	var key string
+	for i, p := range protocols {
+		if i > 0 {
+			key += "/"
+		}
+		key += p.Name
+	}
+	return key
+}
+
+func addrContainsSecurityProtocol(addr ma.Multiaddr) bool {
+	var contains bool
+	ma.ForEach(addr, func(c ma.Component) bool {
+		if code := c.Protocol().Code; code == ma.P_TLS || code == ma.P_NOISE || code == ma.P_PLAINTEXTV2 {
+			contains = true
+		}
+		return true
+	})
+	return contains
 }

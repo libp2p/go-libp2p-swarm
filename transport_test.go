@@ -16,7 +16,7 @@ import (
 )
 
 type dummyTransport struct {
-	protocols []int
+	protocols []ma.Protocol
 	proxy     bool
 	closed    bool
 }
@@ -37,7 +37,7 @@ func (dt *dummyTransport) Proxy() bool {
 	return dt.proxy
 }
 
-func (dt *dummyTransport) Protocols() []int {
+func (dt *dummyTransport) Protocols() []ma.Protocol {
 	return dt.protocols
 }
 func (dt *dummyTransport) Close() error {
@@ -52,7 +52,7 @@ func TestUselessTransport(t *testing.T) {
 
 func TestTransportClose(t *testing.T) {
 	s := swarmt.GenSwarm(t)
-	tpt := &dummyTransport{protocols: []int{1}}
+	tpt := &dummyTransport{protocols: []ma.Protocol{ma.ProtocolWithCode(ma.P_TCP)}}
 	require.NoError(t, s.AddTransport(tpt))
 	_ = s.Close()
 	if !tpt.closed {
@@ -64,7 +64,7 @@ func TestTransportAfterClose(t *testing.T) {
 	s := swarmt.GenSwarm(t)
 	s.Close()
 
-	tpt := &dummyTransport{protocols: []int{1}}
+	tpt := &dummyTransport{protocols: []ma.Protocol{ma.ProtocolWithCode(ma.P_TCP)}}
 	if err := s.AddTransport(tpt); err != swarm.ErrSwarmClosed {
 		t.Fatal("expected swarm closed error, got: ", err)
 	}
