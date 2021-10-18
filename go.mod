@@ -14,8 +14,8 @@ require (
 	github.com/libp2p/go-libp2p-yamux v0.5.0
 	github.com/libp2p/go-maddr-filter v0.1.0
 	github.com/libp2p/go-stream-muxer-multistream v0.3.0
-	github.com/libp2p/go-tcp-transport v0.2.7
-	github.com/multiformats/go-multiaddr v0.3.3
+	github.com/libp2p/go-tcp-transport v0.4.0
+	github.com/multiformats/go-multiaddr v0.4.0
 	github.com/multiformats/go-multiaddr-fmt v0.1.0
 	github.com/stretchr/testify v1.7.0
 	github.com/whyrusleeping/multiaddr-filter v0.0.0-20160516205228-e903e4adabd7

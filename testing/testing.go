@@ -126,8 +126,12 @@ func GenSwarm(t *testing.T, opts ...Option) *swarm.Swarm {
 	upgrader.ConnGater = cfg.connectionGater
 
 	if !cfg.disableTCP {
-		tcpTransport := tcp.NewTCPTransport(upgrader)
-		tcpTransport.DisableReuseport = cfg.disableReuseport
+		var tcpOpts []tcp.Option
+		if cfg.disableReuseport {
+			tcpOpts = append(tcpOpts, tcp.DisableReuseport())
+		}
+		tcpTransport, err := tcp.NewTCPTransport(upgrader, tcpOpts...)
+		require.NoError(t, err)
 		if err := s.AddTransport(tcpTransport); err != nil {
 			t.Fatal(err)
 		}
