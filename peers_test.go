@@ -3,14 +3,16 @@ package swarm_test
 import (
 	"context"
 	"testing"
+	"time"
 
-	"github.com/libp2p/go-libp2p-core/network"
+	. "github.com/libp2p/go-libp2p-swarm"
+
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/peerstore"
 
 	ma "github.com/multiformats/go-multiaddr"
 
-	. "github.com/libp2p/go-libp2p-swarm"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPeers(t *testing.T) {
@@ -33,17 +35,8 @@ func TestPeers(t *testing.T) {
 		// t.Log(s.swarm.Dump())
 	}
 
-	s1GotConn := make(chan struct{})
-	s2GotConn := make(chan struct{})
-	s1.SetConnHandler(func(c network.Conn) {
-		s1GotConn <- struct{}{}
-	})
-	s2.SetConnHandler(func(c network.Conn) {
-		s2GotConn <- struct{}{}
-	})
-
 	connect(s1, s2.LocalPeer(), s2.ListenAddresses()[0])
-	<-s2GotConn // have to wait here so the other side catches up.
+	require.Eventually(t, func() bool { return len(s2.Peers()) > 0 }, 3*time.Second, 50*time.Millisecond)
 	connect(s2, s1.LocalPeer(), s1.ListenAddresses()[0])
 
 	for i := 0; i < 100; i++ {
