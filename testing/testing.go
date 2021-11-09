@@ -110,7 +110,8 @@ func GenSwarm(t *testing.T, opts ...Option) *swarm.Swarm {
 		p.Addr = tnet.ZeroLocalTCPAddress
 	}
 
-	ps := pstoremem.NewPeerstore()
+	ps, err := pstoremem.NewPeerstore()
+	require.NoError(t, err)
 	ps.AddPubKey(p.ID, p.PubKey)
 	ps.AddPrivKey(p.ID, p.PrivKey)
 	t.Cleanup(func() { ps.Close() })
