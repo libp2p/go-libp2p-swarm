@@ -424,3 +424,44 @@ func TestPreventDialListenAddr(t *testing.T) {
 		t.Fatal("expected dial to fail: %w", err)
 	}
 }
+
+func TestStreamCount(t *testing.T) {
+	s1 := GenSwarm(t)
+	s2 := GenSwarm(t)
+	connectSwarms(t, context.Background(), []*swarm.Swarm{s2, s1})
+
+	countStreams := func() (n int) {
+		var num int
+		for _, c := range s1.ConnsToPeer(s2.LocalPeer()) {
+			n += c.Stat().NumStreams
+			num += len(c.GetStreams())
+		}
+		require.Equal(t, n, num, "inconsistent stream count")
+		return
+	}
+
+	streams := make(chan network.Stream, 20)
+	streamAccepted := make(chan struct{}, 1)
+	s1.SetStreamHandler(func(str network.Stream) {
+		streams <- str
+		streamAccepted <- struct{}{}
+	})
+
+	for i := 0; i < 10; i++ {
+		str, err := s2.NewStream(context.Background(), s1.LocalPeer())
+		require.NoError(t, err)
+		str.Write([]byte("foobar"))
+		<-streamAccepted
+	}
+	require.Eventually(t, func() bool { return len(streams) == 10 }, 5*time.Second, 10*time.Millisecond)
+	require.Equal(t, countStreams(), 10)
+	(<-streams).Reset()
+	(<-streams).Close()
+	require.Equal(t, countStreams(), 8)
+
+	str, err := s1.NewStream(context.Background(), s2.LocalPeer())
+	require.NoError(t, err)
+	require.Equal(t, countStreams(), 9)
+	str.Close()
+	require.Equal(t, countStreams(), 8)
+}
