@@ -6,11 +6,11 @@ require (
 	github.com/ipfs/go-log/v2 v2.4.0
 	github.com/libp2p/go-addr-util v0.1.0
 	github.com/libp2p/go-conn-security-multistream v0.3.0
-	github.com/libp2p/go-libp2p-core v0.11.0
-	github.com/libp2p/go-libp2p-peerstore v0.4.0
+	github.com/libp2p/go-libp2p-core v0.12.1-0.20211210110432-dd8856b1af3a
+	github.com/libp2p/go-libp2p-peerstore v0.6.0
 	github.com/libp2p/go-libp2p-quic-transport v0.13.0
 	github.com/libp2p/go-libp2p-testing v0.5.0
-	github.com/libp2p/go-libp2p-transport-upgrader v0.5.0
+	github.com/libp2p/go-libp2p-transport-upgrader v0.5.1-0.20211210111123-f6d7be32a29a
 	github.com/libp2p/go-libp2p-yamux v0.5.0
 	github.com/libp2p/go-maddr-filter v0.1.0
 	github.com/libp2p/go-stream-muxer-multistream v0.3.0

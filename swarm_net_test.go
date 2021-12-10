@@ -130,9 +130,9 @@ func TestNetworkOpenStream(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	numStreams := 0
+	var numStreams int
 	for _, conn := range nets[0].ConnsToPeer(nets[1].LocalPeer()) {
-		numStreams += len(conn.GetStreams())
+		numStreams += conn.Stat().NumStreams
 	}
 
 	if numStreams != 1 {

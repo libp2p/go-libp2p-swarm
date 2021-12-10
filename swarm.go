@@ -212,7 +212,7 @@ func (s *Swarm) addConn(tc transport.CapableConn, dir network.Direction) (*Conn,
 	)
 
 	// create the Stat object, initializing with the underlying connection Stat if available
-	var stat network.Stat
+	var stat network.ConnectionStat
 	if cs, ok := tc.(network.ConnStat); ok {
 		stat = cs.Stat()
 	}

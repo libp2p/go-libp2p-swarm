@@ -39,7 +39,7 @@ type Conn struct {
 		m map[*Stream]struct{}
 	}
 
-	stat network.Stat
+	stat network.ConnectionStat
 }
 
 func (c *Conn) ID() string {
@@ -90,6 +90,7 @@ func (c *Conn) doClose() {
 
 func (c *Conn) removeStream(s *Stream) {
 	c.streams.Lock()
+	c.stat.NumStreams--
 	delete(c.streams.m, s)
 	c.streams.Unlock()
 }
@@ -171,7 +172,9 @@ func (c *Conn) RemotePublicKey() ic.PubKey {
 }
 
 // Stat returns metadata pertaining to this connection
-func (c *Conn) Stat() network.Stat {
+func (c *Conn) Stat() network.ConnectionStat {
+	c.streams.Lock()
+	defer c.streams.Unlock()
 	return c.stat
 }
 
@@ -211,6 +214,7 @@ func (c *Conn) addStream(ts mux.MuxedStream, dir network.Direction) (*Stream, er
 		stat:   stat,
 		id:     atomic.AddUint64(&c.swarm.nextStreamID, 1),
 	}
+	c.stat.NumStreams++
 	c.streams.m[s] = struct{}{}
 
 	// Released once the stream disconnect notifications have finished
