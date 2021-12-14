@@ -279,10 +279,10 @@ func (s *Swarm) dialPeer(ctx context.Context, p peer.ID) (*Conn, error) {
 	return nil, err
 }
 
-///////////////////////////////////////////////////////////////////////////////////
+// /////////////////////////////////////////////////////////////////////////////////
 // lo and behold, The Dialer
 // TODO explain how all this works
-//////////////////////////////////////////////////////////////////////////////////
+// ////////////////////////////////////////////////////////////////////////////////
 
 type dialRequest struct {
 	ctx   context.Context
@@ -650,7 +650,14 @@ func (s *Swarm) filterKnownUndialables(p peer.ID, addrs []ma.Multiaddr) []ma.Mul
 	}
 
 	return addrutil.FilterAddrs(addrs,
-		addrutil.SubtractFilter(ourAddrs...),
+		func(addr ma.Multiaddr) bool {
+			for _, a := range ourAddrs {
+				if a.Equal(addr) {
+					return false
+				}
+			}
+			return true
+		},
 		s.canDial,
 		// TODO: Consider allowing link-local addresses
 		addrutil.AddrOverNonLocalIP,
