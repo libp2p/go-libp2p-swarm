@@ -11,7 +11,6 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/transport"
 
-	addrutil "github.com/libp2p/go-addr-util"
 	ma "github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr/net"
 )
@@ -562,7 +561,7 @@ func (s *Swarm) addrsForDial(ctx context.Context, p peer.ID) ([]ma.Multiaddr, er
 
 	goodAddrs := s.filterKnownUndialables(p, peerAddrs)
 	if forceDirect, _ := network.GetForceDirectDial(ctx); forceDirect {
-		goodAddrs = addrutil.FilterAddrs(goodAddrs, s.nonProxyAddr)
+		goodAddrs = ma.FilterAddrs(goodAddrs, s.nonProxyAddr)
 	}
 
 	if len(goodAddrs) == 0 {
@@ -649,7 +648,7 @@ func (s *Swarm) filterKnownUndialables(p peer.ID, addrs []ma.Multiaddr) []ma.Mul
 		}
 	}
 
-	return addrutil.FilterAddrs(addrs,
+	return ma.FilterAddrs(addrs,
 		func(addr ma.Multiaddr) bool {
 			for _, a := range ourAddrs {
 				if a.Equal(addr) {
@@ -660,7 +659,7 @@ func (s *Swarm) filterKnownUndialables(p peer.ID, addrs []ma.Multiaddr) []ma.Mul
 		},
 		s.canDial,
 		// TODO: Consider allowing link-local addresses
-		addrutil.AddrOverNonLocalIP,
+		func(addr ma.Multiaddr) bool { return !manet.IsIP6LinkLocal(addr) },
 		func(addr ma.Multiaddr) bool {
 			return s.gater == nil || s.gater.InterceptAddrDial(p, addr)
 		},
