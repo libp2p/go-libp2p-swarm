@@ -2,6 +2,7 @@ package testing
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -31,6 +32,7 @@ type config struct {
 	dialOnly         bool
 	disableTCP       bool
 	disableQUIC      bool
+	dialTimeout      time.Duration
 	connectionGater  connmgr.ConnectionGater
 	sk               crypto.PrivKey
 }
@@ -69,6 +71,12 @@ func OptConnGater(cg connmgr.ConnectionGater) Option {
 func OptPeerPrivateKey(sk crypto.PrivKey) Option {
 	return func(_ *testing.T, c *config) {
 		c.sk = sk
+	}
+}
+
+func DialTimeout(t time.Duration) Option {
+	return func(_ *testing.T, c *config) {
+		c.dialTimeout = t
 	}
 }
 
@@ -119,6 +127,9 @@ func GenSwarm(t *testing.T, opts ...Option) *swarm.Swarm {
 	swarmOpts := []swarm.Option{swarm.WithMetrics(metrics.NewBandwidthCounter())}
 	if cfg.connectionGater != nil {
 		swarmOpts = append(swarmOpts, swarm.WithConnectionGater(cfg.connectionGater))
+	}
+	if cfg.dialTimeout != 0 {
+		swarmOpts = append(swarmOpts, swarm.WithDialTimeout(cfg.dialTimeout))
 	}
 	s, err := swarm.NewSwarm(p.ID, ps, swarmOpts...)
 	require.NoError(t, err)

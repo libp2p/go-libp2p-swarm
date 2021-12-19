@@ -279,10 +279,10 @@ func (s *Swarm) dialPeer(ctx context.Context, p peer.ID) (*Conn, error) {
 	return nil, err
 }
 
-///////////////////////////////////////////////////////////////////////////////////
+// /////////////////////////////////////////////////////////////////////////////////
 // lo and behold, The Dialer
 // TODO explain how all this works
-//////////////////////////////////////////////////////////////////////////////////
+// ////////////////////////////////////////////////////////////////////////////////
 
 type dialRequest struct {
 	ctx   context.Context
@@ -664,11 +664,16 @@ func (s *Swarm) filterKnownUndialables(p peer.ID, addrs []ma.Multiaddr) []ma.Mul
 // it is able, respecting the various different types of rate
 // limiting that occur without using extra goroutines per addr
 func (s *Swarm) limitedDial(ctx context.Context, p peer.ID, a ma.Multiaddr, resp chan dialResult) {
+	timeout := s.dialTimeout
+	if lowTimeoutFilters.AddrBlocked(a) && s.dialTimeoutLocal < s.dialTimeout {
+		timeout = s.dialTimeoutLocal
+	}
 	s.limiter.AddDialJob(&dialJob{
-		addr: a,
-		peer: p,
-		resp: resp,
-		ctx:  ctx,
+		addr:    a,
+		peer:    p,
+		resp:    resp,
+		ctx:     ctx,
+		timeout: timeout,
 	})
 }
 
