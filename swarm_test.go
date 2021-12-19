@@ -99,7 +99,7 @@ func connectSwarms(t *testing.T, ctx context.Context, swarms []*swarm.Swarm) {
 	}
 }
 
-func SubtestSwarm(t *testing.T, SwarmNum int, MsgNum int) {
+func subtestSwarm(t *testing.T, SwarmNum int, MsgNum int) {
 	swarms := makeSwarms(t, SwarmNum, OptDisableReuseport)
 
 	// connect everyone
@@ -216,29 +216,17 @@ func SubtestSwarm(t *testing.T, SwarmNum int, MsgNum int) {
 		cancel()
 		<-time.After(10 * time.Millisecond)
 	}
-
-	for _, s := range swarms {
-		s.Close()
-	}
 }
 
 func TestSwarm(t *testing.T) {
-	// t.Skip("skipping for another test")
 	t.Parallel()
-
-	// msgs := 1000
-	msgs := 100
-	swarms := 5
-	SubtestSwarm(t, swarms, msgs)
+	subtestSwarm(t, 5, 100)
 }
 
 func TestBasicSwarm(t *testing.T) {
 	// t.Skip("skipping for another test")
 	t.Parallel()
-
-	msgs := 1
-	swarms := 2
-	SubtestSwarm(t, swarms, msgs)
+	subtestSwarm(t, 2, 1)
 }
 
 func TestConnectionGating(t *testing.T) {

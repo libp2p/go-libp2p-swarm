@@ -18,16 +18,14 @@ import (
 	mafmt "github.com/multiformats/go-multiaddr-fmt"
 )
 
-func mustAddr(t *testing.T, s string) ma.Multiaddr {
-	a, err := ma.NewMultiaddr(s)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return a
+func setDialTimeout(t time.Duration) (reset func()) {
+	orig := transport.DialTimeout
+	transport.DialTimeout = t
+	return func() { transport.DialTimeout = orig }
 }
 
-func addrWithPort(t *testing.T, p int) ma.Multiaddr {
-	return mustAddr(t, fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", p))
+func addrWithPort(p int) ma.Multiaddr {
+	return ma.StringCast(fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", p))
 }
 
 // in these tests I use addresses with tcp ports over a certain number to
@@ -84,8 +82,8 @@ func TestLimiterBasicDials(t *testing.T) {
 
 	l := newDialLimiterWithParams(hangDialFunc(hang), ConcurrentFdDials, 4)
 
-	bads := []ma.Multiaddr{addrWithPort(t, 1), addrWithPort(t, 2), addrWithPort(t, 3), addrWithPort(t, 4)}
-	good := addrWithPort(t, 20)
+	bads := []ma.Multiaddr{addrWithPort(1), addrWithPort(2), addrWithPort(3), addrWithPort(4)}
+	good := addrWithPort(20)
 
 	resch := make(chan dialResult)
 	pid := peer.ID("testpeer")
@@ -133,9 +131,9 @@ func TestFDLimiting(t *testing.T) {
 	defer close(hang)
 	l := newDialLimiterWithParams(hangDialFunc(hang), 16, 5)
 
-	bads := []ma.Multiaddr{addrWithPort(t, 1), addrWithPort(t, 2), addrWithPort(t, 3), addrWithPort(t, 4)}
+	bads := []ma.Multiaddr{addrWithPort(1), addrWithPort(2), addrWithPort(3), addrWithPort(4)}
 	pids := []peer.ID{"testpeer1", "testpeer2", "testpeer3", "testpeer4"}
-	goodTCP := addrWithPort(t, 20)
+	goodTCP := addrWithPort(20)
 
 	ctx := context.Background()
 	resch := make(chan dialResult)
@@ -163,7 +161,7 @@ func TestFDLimiting(t *testing.T) {
 	}
 
 	pid5 := peer.ID("testpeer5")
-	utpaddr := mustAddr(t, "/ip4/127.0.0.1/udp/7777/utp")
+	utpaddr := ma.StringCast("/ip4/127.0.0.1/udp/7777/utp")
 
 	// This should complete immediately since utp addresses arent blocked by fd rate limiting
 	l.AddDialJob(&dialJob{ctx: ctx, peer: pid5, addr: utpaddr, resp: resch})
@@ -180,7 +178,7 @@ func TestFDLimiting(t *testing.T) {
 	// A relay address with tcp transport will complete because we do not consume fds for dials
 	// with relay addresses as the fd will be consumed when we actually dial the relay server.
 	pid6 := test.RandPeerIDFatal(t)
-	relayAddr := mustAddr(t, fmt.Sprintf("/ip4/127.0.0.1/tcp/20/p2p-circuit/p2p/%s", pid6))
+	relayAddr := ma.StringCast(fmt.Sprintf("/ip4/127.0.0.1/tcp/20/p2p-circuit/p2p/%s", pid6))
 	l.AddDialJob(&dialJob{ctx: ctx, peer: pid6, addr: relayAddr, resp: resch})
 
 	select {
@@ -209,7 +207,7 @@ func TestTokenRedistribution(t *testing.T) {
 	}
 	l := newDialLimiterWithParams(df, 8, 4)
 
-	bads := []ma.Multiaddr{addrWithPort(t, 1), addrWithPort(t, 2), addrWithPort(t, 3), addrWithPort(t, 4)}
+	bads := []ma.Multiaddr{addrWithPort(1), addrWithPort(2), addrWithPort(3), addrWithPort(4)}
 	pids := []peer.ID{"testpeer1", "testpeer2"}
 
 	ctx := context.Background()
@@ -224,13 +222,11 @@ func TestTokenRedistribution(t *testing.T) {
 		tryDialAddrs(ctx, l, pid, bads, resch)
 	}
 
-	good := mustAddr(t, "/ip4/127.0.0.1/tcp/1001")
-
 	// add a good dial job for peer 1
 	l.AddDialJob(&dialJob{
 		ctx:  ctx,
 		peer: pids[1],
-		addr: good,
+		addr: ma.StringCast("/ip4/127.0.0.1/tcp/1001"),
 		resp: resch,
 	})
 
@@ -263,7 +259,7 @@ func TestTokenRedistribution(t *testing.T) {
 	l.AddDialJob(&dialJob{
 		ctx:  ctx,
 		peer: pids[0],
-		addr: addrWithPort(t, 7),
+		addr: addrWithPort(7),
 		resp: resch,
 	})
 
@@ -304,10 +300,10 @@ func TestStressLimiter(t *testing.T) {
 
 	var bads []ma.Multiaddr
 	for i := 0; i < 100; i++ {
-		bads = append(bads, addrWithPort(t, i))
+		bads = append(bads, addrWithPort(i))
 	}
 
-	addresses := append(bads, addrWithPort(t, 2000))
+	addresses := append(bads, addrWithPort(2000))
 	success := make(chan struct{})
 
 	for i := 0; i < 20; i++ {
@@ -345,6 +341,9 @@ func TestStressLimiter(t *testing.T) {
 }
 
 func TestFDLimitUnderflow(t *testing.T) {
+	reset := setDialTimeout(250 * time.Millisecond)
+	defer reset()
+
 	df := func(ctx context.Context, p peer.ID, addr ma.Multiaddr) (transport.CapableConn, error) {
 		select {
 		case <-ctx.Done():
@@ -358,7 +357,7 @@ func TestFDLimitUnderflow(t *testing.T) {
 
 	var addrs []ma.Multiaddr
 	for i := 0; i <= 1000; i++ {
-		addrs = append(addrs, addrWithPort(t, i))
+		addrs = append(addrs, addrWithPort(i))
 	}
 
 	wg := sync.WaitGroup{}
