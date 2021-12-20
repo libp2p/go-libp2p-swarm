@@ -21,11 +21,15 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 )
 
-// DialTimeoutLocal is the maximum duration a Dial to local network address
-// is allowed to take.
-// This includes the time between dialing the raw network connection,
-// protocol selection as well the handshake, if applicable.
-var DialTimeoutLocal = 5 * time.Second
+const (
+	defaultDialTimeout = 15 * time.Second
+
+	// defaultDialTimeoutLocal is the maximum duration a Dial to local network address
+	// is allowed to take.
+	// This includes the time between dialing the raw network connection,
+	// protocol selection as well the handshake, if applicable.
+	defaultDialTimeoutLocal = 5 * time.Second
+)
 
 var log = logging.Logger("swarm2")
 
@@ -58,6 +62,20 @@ func WithMetrics(reporter metrics.Reporter) Option {
 	}
 }
 
+func WithDialTimeout(t time.Duration) Option {
+	return func(s *Swarm) error {
+		s.dialTimeout = t
+		return nil
+	}
+}
+
+func WithDialTimeoutLocal(t time.Duration) Option {
+	return func(s *Swarm) error {
+		s.dialTimeoutLocal = t
+		return nil
+	}
+}
+
 // Swarm is a connection muxer, allowing connections to other peers to
 // be opened and closed, while still using the same Chan for all
 // communication. The Chan sends/receives Messages, which note the
@@ -72,6 +90,9 @@ type Swarm struct {
 
 	local peer.ID
 	peers peerstore.Peerstore
+
+	dialTimeout      time.Duration
+	dialTimeoutLocal time.Duration
 
 	conns struct {
 		sync.RWMutex
@@ -117,10 +138,12 @@ type Swarm struct {
 func NewSwarm(local peer.ID, peers peerstore.Peerstore, opts ...Option) (*Swarm, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	s := &Swarm{
-		local:     local,
-		peers:     peers,
-		ctx:       ctx,
-		ctxCancel: cancel,
+		local:            local,
+		peers:            peers,
+		ctx:              ctx,
+		ctxCancel:        cancel,
+		dialTimeout:      defaultDialTimeout,
+		dialTimeoutLocal: defaultDialTimeoutLocal,
 	}
 
 	s.conns.m = make(map[peer.ID][]*Conn)

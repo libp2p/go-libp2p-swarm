@@ -14,7 +14,6 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/peerstore"
 	testutil "github.com/libp2p/go-libp2p-core/test"
-	"github.com/libp2p/go-libp2p-core/transport"
 	swarmt "github.com/libp2p/go-libp2p-swarm/testing"
 	"github.com/libp2p/go-libp2p-testing/ci"
 
@@ -23,10 +22,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 )
-
-func init() {
-	transport.DialTimeout = time.Second
-}
 
 func closeSwarms(swarms []*Swarm) {
 	for _, s := range swarms {
@@ -161,8 +156,9 @@ func newSilentPeer(t *testing.T) (peer.ID, ma.Multiaddr, net.Listener) {
 func TestDialWait(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
-	swarms := makeSwarms(t, 1)
+	const dialTimeout = 250 * time.Millisecond
+
+	swarms := makeSwarms(t, 1, swarmt.DialTimeout(dialTimeout))
 	s1 := swarms[0]
 	defer s1.Close()
 
@@ -173,7 +169,7 @@ func TestDialWait(t *testing.T) {
 	s1.Peerstore().AddAddr(s2p, s2addr, peerstore.PermanentAddrTTL)
 
 	before := time.Now()
-	if c, err := s1.DialPeer(ctx, s2p); err == nil {
+	if c, err := s1.DialPeer(context.Background(), s2p); err == nil {
 		defer c.Close()
 		t.Fatal("error swarm dialing to unknown peer worked...", err)
 	} else {
@@ -181,11 +177,11 @@ func TestDialWait(t *testing.T) {
 	}
 	duration := time.Since(before)
 
-	if duration < transport.DialTimeout*DialAttempts {
-		t.Error("< transport.DialTimeout * DialAttempts not being respected", duration, transport.DialTimeout*DialAttempts)
+	if duration < dialTimeout*DialAttempts {
+		t.Error("< dialTimeout * DialAttempts not being respected", duration, dialTimeout*DialAttempts)
 	}
-	if duration > 2*transport.DialTimeout*DialAttempts {
-		t.Error("> 2*transport.DialTimeout * DialAttempts not being respected", duration, 2*transport.DialTimeout*DialAttempts)
+	if duration > 2*dialTimeout*DialAttempts {
+		t.Error("> 2*dialTimeout * DialAttempts not being respected", duration, 2*dialTimeout*DialAttempts)
 	}
 
 	if !s1.Backoff().Backoff(s2p, s2addr) {
@@ -194,15 +190,16 @@ func TestDialWait(t *testing.T) {
 }
 
 func TestDialBackoff(t *testing.T) {
-	// t.Skip("skipping for another test")
 	if ci.IsRunning() {
 		t.Skip("travis will never have fun with this test")
 	}
 
 	t.Parallel()
 
+	const dialTimeout = 250 * time.Millisecond
+
 	ctx := context.Background()
-	swarms := makeSwarms(t, 2)
+	swarms := makeSwarms(t, 2, swarmt.DialTimeout(dialTimeout))
 	s1 := swarms[0]
 	s2 := swarms[1]
 	defer s1.Close()
@@ -269,8 +266,8 @@ func TestDialBackoff(t *testing.T) {
 		s3done := dialOfflineNode(s3p, N)
 
 		// when all dials should be done by:
-		dialTimeout1x := time.After(transport.DialTimeout)
-		dialTimeout10Ax := time.After(transport.DialTimeout * 2 * 10) // DialAttempts * 10)
+		dialTimeout1x := time.After(dialTimeout)
+		dialTimeout10Ax := time.After(dialTimeout * 2 * 10) // DialAttempts * 10)
 
 		// 2) all dials should hang
 		select {
@@ -352,8 +349,8 @@ func TestDialBackoff(t *testing.T) {
 		s3done := dialOfflineNode(s3p, N)
 
 		// when all dials should be done by:
-		dialTimeout1x := time.After(transport.DialTimeout)
-		dialTimeout10Ax := time.After(transport.DialTimeout * 2 * 10) // DialAttempts * 10)
+		dialTimeout1x := time.After(dialTimeout)
+		dialTimeout10Ax := time.After(dialTimeout * 2 * 10) // DialAttempts * 10)
 
 		// 7) s3 dials should all return immediately (except 1)
 		for i := 0; i < N-1; i++ {
@@ -405,11 +402,12 @@ func TestDialBackoff(t *testing.T) {
 }
 
 func TestDialBackoffClears(t *testing.T) {
-	// t.Skip("skipping for another test")
 	t.Parallel()
 
+	const dialTimeout = 250 * time.Millisecond
+
 	ctx := context.Background()
-	swarms := makeSwarms(t, 2)
+	swarms := makeSwarms(t, 2, swarmt.DialTimeout(dialTimeout))
 	s1 := swarms[0]
 	s2 := swarms[1]
 	defer s1.Close()
@@ -433,11 +431,11 @@ func TestDialBackoffClears(t *testing.T) {
 	}
 	duration := time.Since(before)
 
-	if duration < transport.DialTimeout*DialAttempts {
-		t.Error("< transport.DialTimeout * DialAttempts not being respected", duration, transport.DialTimeout*DialAttempts)
+	if duration < dialTimeout*DialAttempts {
+		t.Error("< dialTimeout * DialAttempts not being respected", duration, dialTimeout*DialAttempts)
 	}
-	if duration > 2*transport.DialTimeout*DialAttempts {
-		t.Error("> 2*transport.DialTimeout * DialAttempts not being respected", duration, 2*transport.DialTimeout*DialAttempts)
+	if duration > 2*dialTimeout*DialAttempts {
+		t.Error("> 2*dialTimeout * DialAttempts not being respected", duration, 2*dialTimeout*DialAttempts)
 	}
 
 	if !s1.Backoff().Backoff(s2.LocalPeer(), s2bad) {
@@ -561,7 +559,9 @@ func TestDialSimultaneousJoin(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	swarms := makeSwarms(t, 2)
+	const dialTimeout = 250 * time.Millisecond
+
+	swarms := makeSwarms(t, 2, swarmt.DialTimeout(dialTimeout))
 	s1 := swarms[0]
 	s2 := swarms[1]
 	defer s1.Close()
@@ -654,7 +654,7 @@ func TestDialSimultaneousJoin(t *testing.T) {
 		if c1 != c2 {
 			t.Fatal("expected c1 and c2 to be the same")
 		}
-	case <-time.After(2 * transport.DialTimeout):
+	case <-time.After(2 * dialTimeout):
 		t.Fatal("no connection from first dial")
 	}
 }
