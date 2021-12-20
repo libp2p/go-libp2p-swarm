@@ -12,7 +12,6 @@ require (
 	github.com/libp2p/go-libp2p-testing v0.5.0
 	github.com/libp2p/go-libp2p-transport-upgrader v0.6.0
 	github.com/libp2p/go-libp2p-yamux v0.5.0
-	github.com/libp2p/go-maddr-filter v0.1.0
 	github.com/libp2p/go-stream-muxer-multistream v0.3.0
 	github.com/libp2p/go-tcp-transport v0.4.0
 	github.com/multiformats/go-multiaddr v0.4.0
