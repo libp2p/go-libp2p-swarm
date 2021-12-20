@@ -56,7 +56,7 @@ func TestSimultOpenMany(t *testing.T) {
 		addrs = 10
 		rounds = 5
 	}
-	SubtestSwarm(t, addrs, rounds)
+	subtestSwarm(t, addrs, rounds)
 }
 
 func TestSimultOpenFewStress(t *testing.T) {
@@ -72,7 +72,7 @@ func TestSimultOpenFewStress(t *testing.T) {
 	// rounds := 100
 
 	for i := 0; i < rounds; i++ {
-		SubtestSwarm(t, swarms, msgs)
+		subtestSwarm(t, swarms, msgs)
 		<-time.After(10 * time.Millisecond)
 	}
 }

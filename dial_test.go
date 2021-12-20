@@ -82,11 +82,11 @@ func acceptAndHang(l net.Listener) {
 }
 
 func TestSimultDials(t *testing.T) {
-	// t.Skip("skipping for another test")
 	t.Parallel()
 
 	ctx := context.Background()
 	swarms := makeSwarms(t, 2, swarmt.OptDisableReuseport)
+	defer closeSwarms(swarms)
 
 	// connect everyone
 	{
@@ -128,10 +128,6 @@ func TestSimultDials(t *testing.T) {
 	if c10l > 2 {
 		t.Error("1->0 has", c10l)
 	}
-
-	for _, s := range swarms {
-		s.Close()
-	}
 }
 
 func newSilentPeer(t *testing.T) (peer.ID, ma.Multiaddr, net.Listener) {
@@ -154,8 +150,6 @@ func newSilentPeer(t *testing.T) (peer.ID, ma.Multiaddr, net.Listener) {
 }
 
 func TestDialWait(t *testing.T) {
-	t.Parallel()
-
 	const dialTimeout = 250 * time.Millisecond
 
 	swarms := makeSwarms(t, 1, swarmt.DialTimeout(dialTimeout))
@@ -193,22 +187,18 @@ func TestDialBackoff(t *testing.T) {
 	if ci.IsRunning() {
 		t.Skip("travis will never have fun with this test")
 	}
-
 	t.Parallel()
 
-	const dialTimeout = 250 * time.Millisecond
+	const dialTimeout = 100 * time.Millisecond
 
 	ctx := context.Background()
 	swarms := makeSwarms(t, 2, swarmt.DialTimeout(dialTimeout))
+	defer closeSwarms(swarms)
 	s1 := swarms[0]
 	s2 := swarms[1]
-	defer s1.Close()
-	defer s2.Close()
 
 	s2addrs, err := s2.InterfaceListenAddresses()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	s1.Peerstore().AddAddrs(s2.LocalPeer(), s2addrs, peerstore.PermanentAddrTTL)
 
 	// dial to a non-existent peer.
@@ -405,13 +395,10 @@ func TestDialBackoffClears(t *testing.T) {
 	t.Parallel()
 
 	const dialTimeout = 250 * time.Millisecond
-
-	ctx := context.Background()
 	swarms := makeSwarms(t, 2, swarmt.DialTimeout(dialTimeout))
+	defer closeSwarms(swarms)
 	s1 := swarms[0]
 	s2 := swarms[1]
-	defer s1.Close()
-	defer s2.Close()
 
 	// use another address first, that accept and hang on conns
 	_, s2bad, s2l := newSilentPeer(t)
@@ -422,13 +409,8 @@ func TestDialBackoffClears(t *testing.T) {
 	s1.Peerstore().AddAddr(s2.LocalPeer(), s2bad, peerstore.PermanentAddrTTL)
 
 	before := time.Now()
-	c, err := s1.DialPeer(ctx, s2.LocalPeer())
-	if err == nil {
-		defer c.Close()
-		t.Fatal("dialing to broken addr worked...", err)
-	} else {
-		t.Log("correctly got error:", err)
-	}
+	_, err := s1.DialPeer(context.Background(), s2.LocalPeer())
+	require.Error(t, err, "dialing to broken addr worked...")
 	duration := time.Since(before)
 
 	if duration < dialTimeout*DialAttempts {
@@ -437,65 +419,38 @@ func TestDialBackoffClears(t *testing.T) {
 	if duration > 2*dialTimeout*DialAttempts {
 		t.Error("> 2*dialTimeout * DialAttempts not being respected", duration, 2*dialTimeout*DialAttempts)
 	}
-
-	if !s1.Backoff().Backoff(s2.LocalPeer(), s2bad) {
-		t.Error("s2 should now be on backoff")
-	} else {
-		t.Log("correctly added to backoff")
-	}
+	require.True(t, s1.Backoff().Backoff(s2.LocalPeer(), s2bad), "s2 should now be on backoff")
 
 	// phase 2 -- add the working address. dial should succeed.
-	ifaceAddrs1, err := swarms[1].InterfaceListenAddresses()
-	if err != nil {
-		t.Fatal(err)
-	}
+	ifaceAddrs1, err := s2.InterfaceListenAddresses()
+	require.NoError(t, err)
 	s1.Peerstore().AddAddrs(s2.LocalPeer(), ifaceAddrs1, peerstore.PermanentAddrTTL)
 
-	if c, err := s1.DialPeer(ctx, s2.LocalPeer()); err == nil {
-		c.Close()
-		t.Log("backoffs are per address, not peer")
-	}
-
-	time.Sleep(BackoffBase)
-
-	if c, err := s1.DialPeer(ctx, s2.LocalPeer()); err != nil {
-		t.Fatal(err)
-	} else {
-		c.Close()
-		t.Log("correctly connected")
-	}
-
-	if s1.Backoff().Backoff(s2.LocalPeer(), s2bad) {
-		t.Error("s2 should no longer be on backoff")
-	} else {
-		t.Log("correctly cleared backoff")
-	}
+	// backoffs are per address, not peer
+	c, err := s1.DialPeer(context.Background(), s2.LocalPeer())
+	require.NoError(t, err)
+	defer c.Close()
+	require.False(t, s1.Backoff().Backoff(s2.LocalPeer(), s2bad), "s2 should no longer be on backoff")
 }
 
 func TestDialPeerFailed(t *testing.T) {
 	t.Parallel()
-	ctx := context.Background()
 
-	swarms := makeSwarms(t, 2)
+	swarms := makeSwarms(t, 2, swarmt.DialTimeout(100*time.Millisecond))
 	defer closeSwarms(swarms)
 	testedSwarm, targetSwarm := swarms[0], swarms[1]
 
-	expectedErrorsCount := 5
+	const expectedErrorsCount = 5
 	for i := 0; i < expectedErrorsCount; i++ {
 		_, silentPeerAddress, silentPeerListener := newSilentPeer(t)
 		go acceptAndHang(silentPeerListener)
 		defer silentPeerListener.Close()
 
-		testedSwarm.Peerstore().AddAddr(
-			targetSwarm.LocalPeer(),
-			silentPeerAddress,
-			peerstore.PermanentAddrTTL)
+		testedSwarm.Peerstore().AddAddr(targetSwarm.LocalPeer(), silentPeerAddress, peerstore.PermanentAddrTTL)
 	}
 
-	_, err := testedSwarm.DialPeer(ctx, targetSwarm.LocalPeer())
-	if err == nil {
-		t.Fatal(err)
-	}
+	_, err := testedSwarm.DialPeer(context.Background(), targetSwarm.LocalPeer())
+	require.Error(t, err)
 
 	// dial_test.go:508: correctly get a combined error: failed to dial PEER: all dials failed
 	//   * [/ip4/127.0.0.1/tcp/46485] failed to negotiate security protocol: context deadline exceeded
@@ -513,8 +468,6 @@ func TestDialPeerFailed(t *testing.T) {
 }
 
 func TestDialExistingConnection(t *testing.T) {
-	ctx := context.Background()
-
 	swarms := makeSwarms(t, 2)
 	defer closeSwarms(swarms)
 	s1 := swarms[0]
@@ -522,19 +475,13 @@ func TestDialExistingConnection(t *testing.T) {
 
 	s1.Peerstore().AddAddrs(s2.LocalPeer(), s2.ListenAddresses(), peerstore.PermanentAddrTTL)
 
-	c1, err := s1.DialPeer(ctx, s2.LocalPeer())
-	if err != nil {
-		t.Fatal(err)
-	}
+	c1, err := s1.DialPeer(context.Background(), s2.LocalPeer())
+	require.NoError(t, err)
 
-	c2, err := s1.DialPeer(ctx, s2.LocalPeer())
-	if err != nil {
-		t.Fatal(err)
-	}
+	c2, err := s1.DialPeer(context.Background(), s2.LocalPeer())
+	require.NoError(t, err)
 
-	if c1 != c2 {
-		t.Fatal("expecting the same connection from both dials")
-	}
+	require.Equal(t, c1, c2, "expecting the same connection from both dials")
 }
 
 func newSilentListener(t *testing.T) ([]ma.Multiaddr, net.Listener) {
@@ -556,16 +503,12 @@ func newSilentListener(t *testing.T) ([]ma.Multiaddr, net.Listener) {
 }
 
 func TestDialSimultaneousJoin(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	const dialTimeout = 250 * time.Millisecond
 
 	swarms := makeSwarms(t, 2, swarmt.DialTimeout(dialTimeout))
+	defer closeSwarms(swarms)
 	s1 := swarms[0]
 	s2 := swarms[1]
-	defer s1.Close()
-	defer s2.Close()
 
 	s2silentAddrs, s2silentListener := newSilentListener(t)
 	go acceptAndHang(s2silentListener)
@@ -577,7 +520,7 @@ func TestDialSimultaneousJoin(t *testing.T) {
 	go func() {
 		s1.Peerstore().AddAddrs(s2.LocalPeer(), s2silentAddrs, peerstore.PermanentAddrTTL)
 
-		c, err := s1.DialPeer(ctx, s2.LocalPeer())
+		c, err := s1.DialPeer(context.Background(), s2.LocalPeer())
 		if err != nil {
 			errs <- err
 			connch <- nil
@@ -602,7 +545,7 @@ func TestDialSimultaneousJoin(t *testing.T) {
 		}
 		s1.Peerstore().AddAddrs(s2.LocalPeer(), s2addrs[:1], peerstore.PermanentAddrTTL)
 
-		c, err := s1.DialPeer(ctx, s2.LocalPeer())
+		c, err := s1.DialPeer(context.Background(), s2.LocalPeer())
 		if err != nil {
 			errs <- err
 			connch <- nil
@@ -620,7 +563,7 @@ func TestDialSimultaneousJoin(t *testing.T) {
 
 	// start a third dial to s2, this should get the existing connection from the successful dial
 	go func() {
-		c, err := s1.DialPeer(ctx, s2.LocalPeer())
+		c, err := s1.DialPeer(context.Background(), s2.LocalPeer())
 		if err != nil {
 			errs <- err
 			connch <- nil
@@ -637,10 +580,7 @@ func TestDialSimultaneousJoin(t *testing.T) {
 
 	// raise any errors from the previous goroutines
 	for i := 0; i < 3; i++ {
-		err := <-errs
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, <-errs)
 	}
 
 	if c2 != c3 {
@@ -660,13 +600,12 @@ func TestDialSimultaneousJoin(t *testing.T) {
 }
 
 func TestDialSelf(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	t.Parallel()
 
 	swarms := makeSwarms(t, 2)
+	defer closeSwarms(swarms)
 	s1 := swarms[0]
-	defer s1.Close()
 
-	_, err := s1.DialPeer(ctx, s1.LocalPeer())
+	_, err := s1.DialPeer(context.Background(), s1.LocalPeer())
 	require.ErrorIs(t, err, ErrDialToSelf, "expected error from self dial")
 }
