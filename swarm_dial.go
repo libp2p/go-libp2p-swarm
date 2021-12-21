@@ -480,6 +480,8 @@ loop:
 				err := s.dialNextAddr(ad.ctx, p, addr, resch)
 				if err != nil {
 					dispatchError(ad, err)
+				} else {
+					active++
 				}
 			}
 
