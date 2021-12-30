@@ -18,12 +18,6 @@ import (
 	mafmt "github.com/multiformats/go-multiaddr-fmt"
 )
 
-func setDialTimeout(t time.Duration) (reset func()) {
-	orig := transport.DialTimeout
-	transport.DialTimeout = t
-	return func() { transport.DialTimeout = orig }
-}
-
 func addrWithPort(p int) ma.Multiaddr {
 	return ma.StringCast(fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", p))
 }
@@ -341,9 +335,6 @@ func TestStressLimiter(t *testing.T) {
 }
 
 func TestFDLimitUnderflow(t *testing.T) {
-	reset := setDialTimeout(250 * time.Millisecond)
-	defer reset()
-
 	df := func(ctx context.Context, p peer.ID, addr ma.Multiaddr) (transport.CapableConn, error) {
 		select {
 		case <-ctx.Done():
