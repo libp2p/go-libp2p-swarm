@@ -4,9 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
-
-	csms "github.com/libp2p/go-conn-security-multistream"
 	"github.com/libp2p/go-libp2p-core/connmgr"
 	"github.com/libp2p/go-libp2p-core/control"
 	"github.com/libp2p/go-libp2p-core/crypto"
@@ -15,6 +12,9 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/peerstore"
 	"github.com/libp2p/go-libp2p-core/sec/insecure"
+	"github.com/libp2p/go-libp2p-core/transport"
+
+	csms "github.com/libp2p/go-conn-security-multistream"
 	"github.com/libp2p/go-libp2p-peerstore/pstoremem"
 	quic "github.com/libp2p/go-libp2p-quic-transport"
 	swarm "github.com/libp2p/go-libp2p-swarm"
@@ -25,6 +25,7 @@ import (
 	"github.com/libp2p/go-tcp-transport"
 
 	ma "github.com/multiformats/go-multiaddr"
+	"github.com/stretchr/testify/require"
 )
 
 type config struct {
@@ -81,7 +82,7 @@ func DialTimeout(t time.Duration) Option {
 }
 
 // GenUpgrader creates a new connection upgrader for use with this swarm.
-func GenUpgrader(n *swarm.Swarm) *tptu.Upgrader {
+func GenUpgrader(t *testing.T, n *swarm.Swarm, opts ...tptu.Option) transport.Upgrader {
 	id := n.LocalPeer()
 	pk := n.Peerstore().PrivKey(id)
 	secMuxer := new(csms.SSMuxer)
@@ -89,11 +90,9 @@ func GenUpgrader(n *swarm.Swarm) *tptu.Upgrader {
 
 	stMuxer := msmux.NewBlankTransport()
 	stMuxer.AddTransport("/yamux/1.0.0", yamux.DefaultTransport)
-
-	return &tptu.Upgrader{
-		Secure: secMuxer,
-		Muxer:  stMuxer,
-	}
+	u, err := tptu.New(secMuxer, stMuxer, opts...)
+	require.NoError(t, err)
+	return u
 }
 
 // GenSwarm generates a new test swarm.
@@ -134,8 +133,7 @@ func GenSwarm(t *testing.T, opts ...Option) *swarm.Swarm {
 	s, err := swarm.NewSwarm(p.ID, ps, swarmOpts...)
 	require.NoError(t, err)
 
-	upgrader := GenUpgrader(s)
-	upgrader.ConnGater = cfg.connectionGater
+	upgrader := GenUpgrader(t, s, tptu.WithConnectionGater(cfg.connectionGater))
 
 	if !cfg.disableTCP {
 		var tcpOpts []tcp.Option
