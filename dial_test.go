@@ -9,7 +9,6 @@ import (
 
 	. "github.com/libp2p/go-libp2p-swarm"
 
-	addrutil "github.com/libp2p/go-addr-util"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/peerstore"
@@ -140,8 +139,7 @@ func newSilentPeer(t *testing.T) (peer.ID, ma.Multiaddr, net.Listener) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	addrs := []ma.Multiaddr{addr}
-	addrs, err = addrutil.ResolveUnspecifiedAddresses(addrs, nil)
+	addrs, err := manet.ResolveUnspecifiedAddresses([]ma.Multiaddr{addr}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -493,8 +491,7 @@ func newSilentListener(t *testing.T) ([]ma.Multiaddr, net.Listener) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	addrs := []ma.Multiaddr{addr}
-	addrs, err = addrutil.ResolveUnspecifiedAddresses(addrs, nil)
+	addrs, err := manet.ResolveUnspecifiedAddresses([]ma.Multiaddr{addr}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
