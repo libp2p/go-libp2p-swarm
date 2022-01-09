@@ -3,7 +3,7 @@ module github.com/libp2p/go-libp2p-swarm
 go 1.16
 
 require (
-	github.com/ipfs/go-log/v2 v2.4.0
+	github.com/ipfs/go-log/v2 v2.5.0
 	github.com/libp2p/go-conn-security-multistream v0.3.0
 	github.com/libp2p/go-libp2p-core v0.13.1-0.20220104083644-a3dd401efe36
 	github.com/libp2p/go-libp2p-peerstore v0.6.0
