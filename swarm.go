@@ -76,6 +76,13 @@ func WithDialTimeoutLocal(t time.Duration) Option {
 	}
 }
 
+func WithResourceManager(m network.ResourceManager) Option {
+	return func(s *Swarm) error {
+		s.rcmgr = m
+		return nil
+	}
+}
+
 // Swarm is a connection muxer, allowing connections to other peers to
 // be opened and closed, while still using the same Chan for all
 // communication. The Chan sends/receives Messages, which note the
@@ -87,6 +94,8 @@ type Swarm struct {
 	// Close refcount. This allows us to fully wait for the swarm to be torn
 	// down before continuing.
 	refs sync.WaitGroup
+
+	rcmgr network.ResourceManager
 
 	local peer.ID
 	peers peerstore.Peerstore
@@ -155,6 +164,9 @@ func NewSwarm(local peer.ID, peers peerstore.Peerstore, opts ...Option) (*Swarm,
 		if err := opt(s); err != nil {
 			return nil, err
 		}
+	}
+	if s.rcmgr == nil {
+		s.rcmgr = network.NullResourceManager
 	}
 
 	s.dsync = newDialSync(s.dialWorkerLoop)
@@ -584,6 +596,10 @@ func (s *Swarm) removeConn(c *Conn) {
 // String returns a string representation of Network.
 func (s *Swarm) String() string {
 	return fmt.Sprintf("<Swarm %s>", s.LocalPeer())
+}
+
+func (s *Swarm) ResourceManager() network.ResourceManager {
+	return s.rcmgr
 }
 
 // Swarm is a Network.

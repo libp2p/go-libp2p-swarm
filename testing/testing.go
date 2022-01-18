@@ -13,6 +13,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/peerstore"
 	"github.com/libp2p/go-libp2p-core/sec/insecure"
 	"github.com/libp2p/go-libp2p-core/transport"
+	"github.com/libp2p/go-tcp-transport"
 
 	csms "github.com/libp2p/go-conn-security-multistream"
 	"github.com/libp2p/go-libp2p-peerstore/pstoremem"
@@ -22,8 +23,6 @@ import (
 	tptu "github.com/libp2p/go-libp2p-transport-upgrader"
 	yamux "github.com/libp2p/go-libp2p-yamux"
 	msmux "github.com/libp2p/go-stream-muxer-multistream"
-	"github.com/libp2p/go-tcp-transport"
-
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/require"
 )
@@ -35,6 +34,7 @@ type config struct {
 	disableQUIC      bool
 	dialTimeout      time.Duration
 	connectionGater  connmgr.ConnectionGater
+	rcmgr            network.ResourceManager
 	sk               crypto.PrivKey
 }
 
@@ -65,6 +65,12 @@ var OptDisableQUIC Option = func(_ *testing.T, c *config) {
 func OptConnGater(cg connmgr.ConnectionGater) Option {
 	return func(_ *testing.T, c *config) {
 		c.connectionGater = cg
+	}
+}
+
+func OptResourceManager(rcmgr network.ResourceManager) Option {
+	return func(_ *testing.T, c *config) {
+		c.rcmgr = rcmgr
 	}
 }
 
@@ -127,6 +133,9 @@ func GenSwarm(t *testing.T, opts ...Option) *swarm.Swarm {
 	if cfg.connectionGater != nil {
 		swarmOpts = append(swarmOpts, swarm.WithConnectionGater(cfg.connectionGater))
 	}
+	if cfg.rcmgr != nil {
+		swarmOpts = append(swarmOpts, swarm.WithResourceManager(cfg.rcmgr))
+	}
 	if cfg.dialTimeout != 0 {
 		swarmOpts = append(swarmOpts, swarm.WithDialTimeout(cfg.dialTimeout))
 	}
@@ -140,7 +149,7 @@ func GenSwarm(t *testing.T, opts ...Option) *swarm.Swarm {
 		if cfg.disableReuseport {
 			tcpOpts = append(tcpOpts, tcp.DisableReuseport())
 		}
-		tcpTransport, err := tcp.NewTCPTransport(upgrader, tcpOpts...)
+		tcpTransport, err := tcp.NewTCPTransport(upgrader, nil, tcpOpts...)
 		require.NoError(t, err)
 		if err := s.AddTransport(tcpTransport); err != nil {
 			t.Fatal(err)
@@ -152,7 +161,7 @@ func GenSwarm(t *testing.T, opts ...Option) *swarm.Swarm {
 		}
 	}
 	if !cfg.disableQUIC {
-		quicTransport, err := quic.NewTransport(p.PrivKey, nil, cfg.connectionGater)
+		quicTransport, err := quic.NewTransport(p.PrivKey, nil, cfg.connectionGater, nil)
 		if err != nil {
 			t.Fatal(err)
 		}

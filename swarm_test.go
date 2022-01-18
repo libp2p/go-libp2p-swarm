@@ -11,17 +11,22 @@ import (
 	"testing"
 	"time"
 
+	"github.com/libp2p/go-libp2p-core/protocol"
+
+	swarm "github.com/libp2p/go-libp2p-swarm"
+	. "github.com/libp2p/go-libp2p-swarm/testing"
+
 	"github.com/libp2p/go-libp2p-core/control"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/peerstore"
 
-	swarm "github.com/libp2p/go-libp2p-swarm"
-	. "github.com/libp2p/go-libp2p-swarm/testing"
-
 	logging "github.com/ipfs/go-log/v2"
+	mocknetwork "github.com/libp2p/go-libp2p-testing/mocks/network"
 	ma "github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr/net"
+
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -452,4 +457,85 @@ func TestStreamCount(t *testing.T) {
 	require.Equal(t, countStreams(), 9)
 	str.Close()
 	require.Equal(t, countStreams(), 8)
+}
+
+func TestResourceManager(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	rcmgr1 := mocknetwork.NewMockResourceManager(ctrl)
+	s1 := GenSwarm(t, OptResourceManager(rcmgr1))
+	defer s1.Close()
+
+	rcmgr2 := mocknetwork.NewMockResourceManager(ctrl)
+	s2 := GenSwarm(t, OptResourceManager(rcmgr2))
+	defer s2.Close()
+	connectSwarms(t, context.Background(), []*swarm.Swarm{s1, s2})
+
+	strChan := make(chan network.Stream)
+	s2.SetStreamHandler(func(str network.Stream) { strChan <- str })
+
+	streamScope1 := mocknetwork.NewMockStreamManagementScope(ctrl)
+	rcmgr1.EXPECT().OpenStream(s2.LocalPeer(), network.DirOutbound).Return(streamScope1, nil)
+	streamScope2 := mocknetwork.NewMockStreamManagementScope(ctrl)
+	rcmgr2.EXPECT().OpenStream(s1.LocalPeer(), network.DirInbound).Return(streamScope2, nil)
+	str, err := s1.NewStream(context.Background(), s2.LocalPeer())
+	require.NoError(t, err)
+	str.Write([]byte("foobar"))
+
+	p := protocol.ID("proto")
+	streamScope1.EXPECT().SetProtocol(p)
+	require.NoError(t, str.SetProtocol(p))
+
+	sstr := <-strChan
+	streamScope2.EXPECT().Done()
+	require.NoError(t, sstr.Close())
+	streamScope1.EXPECT().Done()
+	require.NoError(t, str.Close())
+}
+
+func TestResourceManagerNewStream(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	rcmgr1 := mocknetwork.NewMockResourceManager(ctrl)
+	s1 := GenSwarm(t, OptResourceManager(rcmgr1))
+	defer s1.Close()
+
+	s2 := GenSwarm(t)
+	defer s2.Close()
+
+	connectSwarms(t, context.Background(), []*swarm.Swarm{s1, s2})
+
+	rerr := errors.New("denied")
+	rcmgr1.EXPECT().OpenStream(s2.LocalPeer(), network.DirOutbound).Return(nil, rerr)
+	_, err := s1.NewStream(context.Background(), s2.LocalPeer())
+	require.ErrorIs(t, err, rerr)
+}
+
+func TestResourceManagerAcceptStream(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	rcmgr1 := mocknetwork.NewMockResourceManager(ctrl)
+	s1 := GenSwarm(t, OptResourceManager(rcmgr1))
+	defer s1.Close()
+
+	rcmgr2 := mocknetwork.NewMockResourceManager(ctrl)
+	s2 := GenSwarm(t, OptResourceManager(rcmgr2))
+	defer s2.Close()
+	s2.SetStreamHandler(func(str network.Stream) { t.Fatal("didn't expect to accept a stream") })
+
+	connectSwarms(t, context.Background(), []*swarm.Swarm{s1, s2})
+
+	streamScope := mocknetwork.NewMockStreamManagementScope(ctrl)
+	rcmgr1.EXPECT().OpenStream(s2.LocalPeer(), network.DirOutbound).Return(streamScope, nil)
+	streamScope.EXPECT().Done()
+	rcmgr2.EXPECT().OpenStream(s1.LocalPeer(), network.DirInbound).Return(nil, errors.New("nope"))
+	str, err := s1.NewStream(context.Background(), s2.LocalPeer())
+	require.NoError(t, err)
+	_, err = str.Write([]byte("foobar"))
+	require.NoError(t, err)
+	_, err = str.Read([]byte{0})
+	require.EqualError(t, err, "stream reset")
 }
