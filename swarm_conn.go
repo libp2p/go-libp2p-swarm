@@ -199,6 +199,7 @@ func (c *Conn) NewStream(ctx context.Context) (network.Stream, error) {
 	}
 	ts, err := c.conn.OpenStream(ctx)
 	if err != nil {
+		scope.Done()
 		return nil, err
 	}
 	return c.addStream(ts, network.DirOutbound, scope)
