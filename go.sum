@@ -289,8 +289,8 @@ github.com/libp2p/go-libp2p-tls v0.3.0 h1:8BgvUJiOTcj0Gp6XvEicF0rL5aUtRg/UzEdeZD
 github.com/libp2p/go-libp2p-tls v0.3.0/go.mod h1:fwF5X6PWGxm6IDRwF3V8AVCCj/hOd5oFlg+wo2FxJDY=
 github.com/libp2p/go-libp2p-transport-upgrader v0.7.0 h1:ADnLrL7fC4Vy7HPjk9oGof7nDeTqGXuof85Ar6kin9Q=
 github.com/libp2p/go-libp2p-transport-upgrader v0.7.0/go.mod h1:GIR2aTRp1J5yjVlkUoFqMkdobfob6RnAwYg/RZPhrzg=
-github.com/libp2p/go-libp2p-yamux v0.8.0 h1:APQYlttIj+Rr5sfa6siojwsi0ZwcIh/exHIUl9hZr6o=
-github.com/libp2p/go-libp2p-yamux v0.8.0/go.mod h1:yTkPgN2ib8FHyU1ZcVD7aelzyAqXXwEPbyx+aSKm9h8=
+github.com/libp2p/go-libp2p-yamux v0.8.1 h1:pi7zUeZ4Z9TpbUMntvSvoP3dFD4SEw/VPybxBcOZGzg=
+github.com/libp2p/go-libp2p-yamux v0.8.1/go.mod h1:rUozF8Jah2dL9LLGyBaBeTQeARdwhefMCTQVQt6QobE=
 github.com/libp2p/go-maddr-filter v0.1.0/go.mod h1:VzZhTXkMucEGGEOSKddrwGiOv0tUhgnKqNEmIAz/bPU=
 github.com/libp2p/go-mplex v0.4.0 h1:Ukkez9/4EOX5rTw4sHefNJp10dksftAA05ZgyjplUbM=
 github.com/libp2p/go-mplex v0.4.0/go.mod h1:y26Lx+wNVtMYMaPu300Cbot5LkEZ4tJaNYeHeT9dh6E=
@@ -313,8 +313,8 @@ github.com/libp2p/go-stream-muxer-multistream v0.4.0 h1:HsM/9OdtqnIzjVXcxTXjmqKr
 github.com/libp2p/go-stream-muxer-multistream v0.4.0/go.mod h1:nb+dGViZleRP4XcyHuZSVrJCBl55nRBOMmiSL/dyziw=
 github.com/libp2p/go-tcp-transport v0.5.0 h1:3ZPW8HAuyRAuFzyabE0hSrCXKKSWzROnZZX7DtcIatY=
 github.com/libp2p/go-tcp-transport v0.5.0/go.mod h1:UPPL0DIjQqiWRwVAb+CEQlaAG0rp/mCqJfIhFcLHc4Y=
-github.com/libp2p/go-yamux/v3 v3.0.1 h1:lIdxHGVZ+y/EHgCrqGNt4Q+Mk9qu26MbOWH/yRw+Ihk=
-github.com/libp2p/go-yamux/v3 v3.0.1/go.mod h1:s2LsDhHbh+RfCsQoICSYt58U2f8ijtPANFD8BmE74Bo=
+github.com/libp2p/go-yamux/v3 v3.0.2 h1:LW0q5+A1Wy0npEsPJP9wmare2NH4ohNluN5EWVwv2mE=
+github.com/libp2p/go-yamux/v3 v3.0.2/go.mod h1:s2LsDhHbh+RfCsQoICSYt58U2f8ijtPANFD8BmE74Bo=
 github.com/lightstep/lightstep-tracer-common/golang/gogo v0.0.0-20190605223551-bc2310a04743/go.mod h1:qklhhLq1aX+mtWk9cPHPzaBjWImj5ULL6C7HFJtXQMM=
 github.com/lightstep/lightstep-tracer-go v0.18.1/go.mod h1:jlF1pusYV4pidLvZ+XD0UBX0ZE6WURAspgAczcDHrL4=
 github.com/lucas-clemente/quic-go v0.25.0 h1:K+X9Gvd7JXsOHtU0N2icZ2Nw3rx82uBej3mP4CLgibc=
