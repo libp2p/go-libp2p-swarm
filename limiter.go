@@ -220,7 +220,7 @@ func (dl *dialLimiter) executeDial(j *dialJob) {
 	select {
 	case j.resp <- dialResult{Conn: con, Addr: j.addr, Err: err}:
 	case <-j.ctx.Done():
-		if err == nil {
+		if con != nil {
 			con.Close()
 		}
 	}
