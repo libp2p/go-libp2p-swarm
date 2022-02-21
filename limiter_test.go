@@ -328,7 +328,7 @@ func TestStressLimiter(t *testing.T) {
 	for i := 0; i < 20; i++ {
 		select {
 		case <-success:
-		case <-time.After(time.Second * 5):
+		case <-time.After(time.Minute):
 			t.Fatal("expected a success within five seconds")
 		}
 	}
