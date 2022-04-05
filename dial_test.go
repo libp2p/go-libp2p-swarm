@@ -95,7 +95,7 @@ func TestSimultDials(t *testing.T) {
 			log.Debugf("TestSimultOpen: connecting: %s --> %s (%s)", s.LocalPeer(), dst, addr)
 			s.Peerstore().AddAddr(dst, addr, peerstore.TempAddrTTL)
 			if _, err := s.DialPeer(ctx, dst); err != nil {
-				t.Fatal("error swarm dialing to peer", err)
+				t.Error("error swarm dialing to peer", err)
 			}
 			wg.Done()
 		}
