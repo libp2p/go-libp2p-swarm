@@ -90,12 +90,13 @@ func TestSimultDials(t *testing.T) {
 	// connect everyone
 	{
 		var wg sync.WaitGroup
+		errs := make(chan error, 20) // 2 connect calls in each of the 10 for-loop iterations
 		connect := func(s *Swarm, dst peer.ID, addr ma.Multiaddr) {
 			// copy for other peer
 			log.Debugf("TestSimultOpen: connecting: %s --> %s (%s)", s.LocalPeer(), dst, addr)
 			s.Peerstore().AddAddr(dst, addr, peerstore.TempAddrTTL)
 			if _, err := s.DialPeer(ctx, dst); err != nil {
-				t.Fatal("error swarm dialing to peer", err)
+				errs <- err
 			}
 			wg.Done()
 		}
@@ -116,6 +117,13 @@ func TestSimultDials(t *testing.T) {
 			go connect(swarms[1], swarms[0].LocalPeer(), ifaceAddrs0[0])
 		}
 		wg.Wait()
+		close(errs)
+
+		for err := range errs {
+			if err != nil {
+				t.Fatal("error swarm dialing to peer", err)
+			}
+		}
 	}
 
 	// should still just have 1, at most 2 connections :)
