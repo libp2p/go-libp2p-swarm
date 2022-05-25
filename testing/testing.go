@@ -1,242 +1,80 @@
+// Deprecated: This package has moved into go-libp2p as a sub-package: github.com/libp2p/go-libp2p/p2p/net/swarm/testing.
 package testing
 
 import (
 	"testing"
 	"time"
 
-	"github.com/libp2p/go-libp2p-core/connmgr"
-	"github.com/libp2p/go-libp2p-core/control"
-	"github.com/libp2p/go-libp2p-core/crypto"
-	"github.com/libp2p/go-libp2p-core/metrics"
-	"github.com/libp2p/go-libp2p-core/network"
-	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/libp2p/go-libp2p-core/peerstore"
-	"github.com/libp2p/go-libp2p-core/sec/insecure"
-	"github.com/libp2p/go-libp2p-core/transport"
-	"github.com/libp2p/go-tcp-transport"
+	"github.com/libp2p/go-libp2p/p2p/net/swarm"
+	swarm_testing "github.com/libp2p/go-libp2p/p2p/net/swarm/testing"
+	tptu "github.com/libp2p/go-libp2p/p2p/net/upgrader"
 
-	csms "github.com/libp2p/go-conn-security-multistream"
-	"github.com/libp2p/go-libp2p-peerstore/pstoremem"
-	quic "github.com/libp2p/go-libp2p-quic-transport"
-	swarm "github.com/libp2p/go-libp2p-swarm"
-	tnet "github.com/libp2p/go-libp2p-testing/net"
-	tptu "github.com/libp2p/go-libp2p-transport-upgrader"
-	yamux "github.com/libp2p/go-libp2p-yamux"
-	msmux "github.com/libp2p/go-stream-muxer-multistream"
-	ma "github.com/multiformats/go-multiaddr"
-	"github.com/stretchr/testify/require"
+	"github.com/libp2p/go-libp2p-core/connmgr"
+	"github.com/libp2p/go-libp2p-core/crypto"
+	"github.com/libp2p/go-libp2p-core/network"
+	"github.com/libp2p/go-libp2p-core/transport"
 )
 
-type config struct {
-	disableReuseport bool
-	dialOnly         bool
-	disableTCP       bool
-	disableQUIC      bool
-	dialTimeout      time.Duration
-	connectionGater  connmgr.ConnectionGater
-	rcmgr            network.ResourceManager
-	sk               crypto.PrivKey
-}
-
 // Option is an option that can be passed when constructing a test swarm.
-type Option func(*testing.T, *config)
+// Deprecated: use github.com/libp2p/go-libp2p/p2p/net/swarm/testing.Option instead.
+type Option = swarm_testing.Option
 
 // OptDisableReuseport disables reuseport in this test swarm.
-var OptDisableReuseport Option = func(_ *testing.T, c *config) {
-	c.disableReuseport = true
-}
+// Deprecated: use github.com/libp2p/go-libp2p/p2p/net/swarm/testing.OptDisableReuseport instead.
+var OptDisableReuseport Option = swarm_testing.OptDisableReuseport
 
 // OptDialOnly prevents the test swarm from listening.
-var OptDialOnly Option = func(_ *testing.T, c *config) {
-	c.dialOnly = true
-}
+// Deprecated: use github.com/libp2p/go-libp2p/p2p/net/swarm/testing.OptDialOnly instead.
+var OptDialOnly Option = swarm_testing.OptDialOnly
 
 // OptDisableTCP disables TCP.
-var OptDisableTCP Option = func(_ *testing.T, c *config) {
-	c.disableTCP = true
-}
+// Deprecated: use github.com/libp2p/go-libp2p/p2p/net/swarm/testing.OptDisableTCP instead.
+var OptDisableTCP Option = swarm_testing.OptDisableTCP
 
 // OptDisableQUIC disables QUIC.
-var OptDisableQUIC Option = func(_ *testing.T, c *config) {
-	c.disableQUIC = true
-}
+// Deprecated: use github.com/libp2p/go-libp2p/p2p/net/swarm/testing.OptDisableQUIC instead.
+var OptDisableQUIC Option = swarm_testing.OptDisableQUIC
 
 // OptConnGater configures the given connection gater on the test
+// Deprecated: use github.com/libp2p/go-libp2p/p2p/net/swarm/testing.OptConnGater instead.
 func OptConnGater(cg connmgr.ConnectionGater) Option {
-	return func(_ *testing.T, c *config) {
-		c.connectionGater = cg
-	}
+	return swarm_testing.OptConnGater(cg)
 }
 
+// Deprecated: use github.com/libp2p/go-libp2p/p2p/net/swarm/testing.OptResourceManager instead.
 func OptResourceManager(rcmgr network.ResourceManager) Option {
-	return func(_ *testing.T, c *config) {
-		c.rcmgr = rcmgr
-	}
+	return swarm_testing.OptResourceManager(rcmgr)
 }
 
 // OptPeerPrivateKey configures the peer private key which is then used to derive the public key and peer ID.
+// Deprecated: use github.com/libp2p/go-libp2p/p2p/net/swarm/testing.OptPeerPrivateKey instead.
 func OptPeerPrivateKey(sk crypto.PrivKey) Option {
-	return func(_ *testing.T, c *config) {
-		c.sk = sk
-	}
+	return swarm_testing.OptPeerPrivateKey(sk)
 }
 
+// Deprecated: use github.com/libp2p/go-libp2p/p2p/net/swarm/testing.DialTimeout instead.
 func DialTimeout(t time.Duration) Option {
-	return func(_ *testing.T, c *config) {
-		c.dialTimeout = t
-	}
+	return swarm_testing.DialTimeout(t)
 }
 
 // GenUpgrader creates a new connection upgrader for use with this swarm.
+// Deprecated: use github.com/libp2p/go-libp2p/p2p/net/swarm/testing.GenUpgrader instead.
 func GenUpgrader(t *testing.T, n *swarm.Swarm, opts ...tptu.Option) transport.Upgrader {
-	id := n.LocalPeer()
-	pk := n.Peerstore().PrivKey(id)
-	secMuxer := new(csms.SSMuxer)
-	secMuxer.AddTransport(insecure.ID, insecure.NewWithIdentity(id, pk))
-
-	stMuxer := msmux.NewBlankTransport()
-	stMuxer.AddTransport("/yamux/1.0.0", yamux.DefaultTransport)
-	u, err := tptu.New(secMuxer, stMuxer, opts...)
-	require.NoError(t, err)
-	return u
+	return swarm_testing.GenUpgrader(t, n, opts...)
 }
 
 // GenSwarm generates a new test swarm.
+// Deprecated: use github.com/libp2p/go-libp2p/p2p/net/swarm/testing.GenSwarm instead.
 func GenSwarm(t *testing.T, opts ...Option) *swarm.Swarm {
-	var cfg config
-	for _, o := range opts {
-		o(t, &cfg)
-	}
-
-	var p tnet.PeerNetParams
-	if cfg.sk == nil {
-		p = tnet.RandPeerNetParamsOrFatal(t)
-	} else {
-		pk := cfg.sk.GetPublic()
-		id, err := peer.IDFromPublicKey(pk)
-		if err != nil {
-			t.Fatal(err)
-		}
-		p.PrivKey = cfg.sk
-		p.PubKey = pk
-		p.ID = id
-		p.Addr = tnet.ZeroLocalTCPAddress
-	}
-
-	ps, err := pstoremem.NewPeerstore()
-	require.NoError(t, err)
-	ps.AddPubKey(p.ID, p.PubKey)
-	ps.AddPrivKey(p.ID, p.PrivKey)
-	t.Cleanup(func() { ps.Close() })
-
-	swarmOpts := []swarm.Option{swarm.WithMetrics(metrics.NewBandwidthCounter())}
-	if cfg.connectionGater != nil {
-		swarmOpts = append(swarmOpts, swarm.WithConnectionGater(cfg.connectionGater))
-	}
-	if cfg.rcmgr != nil {
-		swarmOpts = append(swarmOpts, swarm.WithResourceManager(cfg.rcmgr))
-	}
-	if cfg.dialTimeout != 0 {
-		swarmOpts = append(swarmOpts, swarm.WithDialTimeout(cfg.dialTimeout))
-	}
-	s, err := swarm.NewSwarm(p.ID, ps, swarmOpts...)
-	require.NoError(t, err)
-
-	upgrader := GenUpgrader(t, s, tptu.WithConnectionGater(cfg.connectionGater))
-
-	if !cfg.disableTCP {
-		var tcpOpts []tcp.Option
-		if cfg.disableReuseport {
-			tcpOpts = append(tcpOpts, tcp.DisableReuseport())
-		}
-		tcpTransport, err := tcp.NewTCPTransport(upgrader, nil, tcpOpts...)
-		require.NoError(t, err)
-		if err := s.AddTransport(tcpTransport); err != nil {
-			t.Fatal(err)
-		}
-		if !cfg.dialOnly {
-			if err := s.Listen(p.Addr); err != nil {
-				t.Fatal(err)
-			}
-		}
-	}
-	if !cfg.disableQUIC {
-		quicTransport, err := quic.NewTransport(p.PrivKey, nil, cfg.connectionGater, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := s.AddTransport(quicTransport); err != nil {
-			t.Fatal(err)
-		}
-		if !cfg.dialOnly {
-			if err := s.Listen(ma.StringCast("/ip4/127.0.0.1/udp/0/quic")); err != nil {
-				t.Fatal(err)
-			}
-		}
-	}
-	if !cfg.dialOnly {
-		s.Peerstore().AddAddrs(p.ID, s.ListenAddresses(), peerstore.PermanentAddrTTL)
-	}
-	return s
+	return swarm_testing.GenSwarm(t, opts...)
 }
 
 // DivulgeAddresses adds swarm a's addresses to swarm b's peerstore.
+// Deprecated: use github.com/libp2p/go-libp2p/p2p/net/swarm/testing.DivulgeAddresses instead.
 func DivulgeAddresses(a, b network.Network) {
-	id := a.LocalPeer()
-	addrs := a.Peerstore().Addrs(id)
-	b.Peerstore().AddAddrs(id, addrs, peerstore.PermanentAddrTTL)
+	swarm_testing.DivulgeAddresses(a, b)
 }
 
 // MockConnectionGater is a mock connection gater to be used by the tests.
-type MockConnectionGater struct {
-	Dial     func(p peer.ID, addr ma.Multiaddr) bool
-	PeerDial func(p peer.ID) bool
-	Accept   func(c network.ConnMultiaddrs) bool
-	Secured  func(network.Direction, peer.ID, network.ConnMultiaddrs) bool
-	Upgraded func(c network.Conn) (bool, control.DisconnectReason)
-}
-
-func DefaultMockConnectionGater() *MockConnectionGater {
-	m := &MockConnectionGater{}
-	m.Dial = func(p peer.ID, addr ma.Multiaddr) bool {
-		return true
-	}
-
-	m.PeerDial = func(p peer.ID) bool {
-		return true
-	}
-
-	m.Accept = func(c network.ConnMultiaddrs) bool {
-		return true
-	}
-
-	m.Secured = func(network.Direction, peer.ID, network.ConnMultiaddrs) bool {
-		return true
-	}
-
-	m.Upgraded = func(c network.Conn) (bool, control.DisconnectReason) {
-		return true, 0
-	}
-
-	return m
-}
-
-func (m *MockConnectionGater) InterceptAddrDial(p peer.ID, addr ma.Multiaddr) (allow bool) {
-	return m.Dial(p, addr)
-}
-
-func (m *MockConnectionGater) InterceptPeerDial(p peer.ID) (allow bool) {
-	return m.PeerDial(p)
-}
-
-func (m *MockConnectionGater) InterceptAccept(c network.ConnMultiaddrs) (allow bool) {
-	return m.Accept(c)
-}
-
-func (m *MockConnectionGater) InterceptSecured(d network.Direction, p peer.ID, c network.ConnMultiaddrs) (allow bool) {
-	return m.Secured(d, p, c)
-}
-
-func (m *MockConnectionGater) InterceptUpgraded(tc network.Conn) (allow bool, reason control.DisconnectReason) {
-	return m.Upgraded(tc)
-}
+// Deprecated: use github.com/libp2p/go-libp2p/p2p/net/swarm/testing.MockConnectionGater instead.
+type MockConnectionGater = swarm_testing.MockConnectionGater
